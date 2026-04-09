@@ -116,7 +116,9 @@ export default function WalletPage() {
     setLoading(true);
     try {
       const supabase = createClient();
-      const { data: { session } } = await supabase.auth.getSession();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
       if (!session?.access_token) throw new Error("Not authenticated");
 
       const res = await fetch(
@@ -125,14 +127,15 @@ export default function WalletPage() {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "Authorization": `Bearer ${session.access_token}`,
-            "apikey": process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+            Authorization: `Bearer ${session.access_token}`,
+            apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
           },
           body: JSON.stringify({ amount: num }),
-        }
+        },
       );
       const data = await res.json();
-      if (!data.payment_link) throw new Error(data.error || "Failed to initiate payment");
+      if (!data.payment_link)
+        throw new Error(data.error || "Failed to initiate payment");
       window.location.href = data.payment_link;
     } catch (err) {
       toast(err instanceof Error ? err.message : "Top-up failed", "error");
