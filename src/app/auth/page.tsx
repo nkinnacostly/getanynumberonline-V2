@@ -35,13 +35,11 @@ export default function AuthPage() {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
         const params = new URLSearchParams(window.location.search);
-        const topup = params.get("topup");
-        if (topup === "success") {
-          router.push(
-            `/dashboard/wallet?topup=success&status=${params.get("status")}&tx_ref=${params.get("tx_ref")}&transaction_id=${params.get("transaction_id")}`,
-          );
+        const fullQuery = params.toString();
+        if (params.get("topup") === "success") {
+          router.replace(`/dashboard/wallet?${fullQuery}`);
         } else {
-          router.push("/dashboard");
+          router.replace("/dashboard");
         }
       }
     });
