@@ -141,7 +141,7 @@ export default function WalletPage() {
         public_key: process.env.NEXT_PUBLIC_FLUTTERWAVE_PUBLIC_KEY,
         tx_ref: txRef,
         amount: parsedAmount,
-        currency: "USD",
+        currency: "NGN",
         customer: {
           email: session.user.email,
         },
@@ -193,7 +193,13 @@ export default function WalletPage() {
           setLoading(false);
         },
         onclose: () => {
+          console.log("Flutterwave modal closed")
           setLoading(false);
+        },
+        onerror: (error: unknown) => {
+          console.error("Flutterwave error:", error)
+          setTopupError("Payment failed. Please try again.")
+          setLoading(false)
         },
       });
     } catch (err) {
