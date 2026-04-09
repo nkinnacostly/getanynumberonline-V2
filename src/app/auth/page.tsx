@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
@@ -28,6 +28,24 @@ export default function AuthPage() {
   const [generalError, setGeneralError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [signUpSuccess, setSignUpSuccess] = useState(false);
+
+  // Check if user is already logged in on mount
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        const params = new URLSearchParams(window.location.search);
+        const topup = params.get("topup");
+        if (topup === "success") {
+          router.push(
+            `/dashboard/wallet?topup=success&status=${params.get("status")}&tx_ref=${params.get("tx_ref")}&transaction_id=${params.get("transaction_id")}`,
+          );
+        } else {
+          router.push("/dashboard");
+        }
+      }
+    });
+  }, []);
 
   const switchTab = (t: "signin" | "signup") => {
     setTab(t);
@@ -72,7 +90,14 @@ export default function AuthPage() {
         });
         if (error) throw error;
         if (!data.session) throw new Error("Sign in failed");
-        router.push("/dashboard");
+        // Check for redirect params (e.g. Flutterwave return)
+        const params = new URLSearchParams(window.location.search);
+        const topup = params.get("topup");
+        if (topup === "success") {
+          router.push(`/dashboard/wallet?${params.toString()}`);
+        } else {
+          router.push("/dashboard");
+        }
         router.refresh();
       }
     } catch (err: any) {

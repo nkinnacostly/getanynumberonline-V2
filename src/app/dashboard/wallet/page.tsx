@@ -30,6 +30,28 @@ export default function WalletPage() {
   const [showSuccess, setShowSuccess] = useState(false);
 
   // Fetch balance + transactions
+  const fetchBalance = async () => {
+    const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data } = await supabase
+      .from("profiles")
+      .select("balance")
+      .eq("id", user.id)
+      .single();
+    if (data) setBalance(data.balance);
+    // Refresh sidebar balance too
+    if (
+      typeof (window as unknown as { __refreshBalance?: () => void })
+        .__refreshBalance === "function"
+    ) {
+      (window as unknown as { __refreshBalance?: () => void })
+        .__refreshBalance!();
+    }
+  };
+
   useEffect(() => {
     const load = async () => {
       const supabase = createClient();
@@ -57,46 +79,52 @@ export default function WalletPage() {
     load();
   }, []);
 
-  // Handle Flutterwave success redirect
+  // Verify payment on return from Flutterwave
   useEffect(() => {
-    if (searchParams.get("topup") === "success") {
-      setShowSuccess(true);
-      // Refresh balance
-      const refresh = async () => {
-        const supabase = createClient();
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-        if (!user) return;
-        const { data } = await supabase
-          .from("profiles")
-          .select("balance")
-          .eq("id", user.id)
-          .single();
-        if (data) setBalance(data.balance);
-        // Refresh sidebar balance too
-        if (
-          typeof (window as unknown as { __refreshBalance?: () => void })
-            .__refreshBalance === "function"
-        ) {
-          (window as unknown as { __refreshBalance?: () => void })
-            .__refreshBalance!();
-        }
-        // Refresh transactions
-        const { data: txs } = await supabase
-          .from("transactions")
-          .select("*")
-          .eq("user_id", user.id)
-          .order("created_at", { ascending: false })
-          .limit(50);
-        if (txs) setTransactions(txs as Transaction[]);
-      };
-      refresh();
-      // Remove query param
-      router.replace("/dashboard/wallet", { scroll: false });
-      setTimeout(() => setShowSuccess(false), 5000);
+    const params = new URLSearchParams(window.location.search);
+    if (
+      params.get("topup") === "success" &&
+      params.get("status") === "successful"
+    ) {
+      const transaction_id = params.get("transaction_id");
+      const tx_ref = params.get("tx_ref");
+      if (transaction_id && tx_ref) {
+        fetch("/api/verify-payment", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ transaction_id, tx_ref }),
+        })
+          .then((r) => r.json())
+          .then((data) => {
+            if (data.success) {
+              setShowSuccess(true);
+              fetchBalance();
+              // Refresh transactions
+              const refreshTxs = async () => {
+                const supabase = createClient();
+                const {
+                  data: { user },
+                } = await supabase.auth.getUser();
+                if (!user) return;
+                const { data: txs } = await supabase
+                  .from("transactions")
+                  .select("*")
+                  .eq("user_id", user.id)
+                  .order("created_at", { ascending: false })
+                  .limit(50);
+                if (txs) setTransactions(txs as Transaction[]);
+              };
+              refreshTxs();
+            }
+          })
+          .catch(console.error)
+          .finally(() => {
+            window.history.replaceState({}, "", "/dashboard/wallet");
+            setTimeout(() => setShowSuccess(false), 5000);
+          });
+      }
     }
-  }, [searchParams, router]);
+  }, []);
 
   const handleQuick = (val: number) => {
     setSelectedQuick(val);
