@@ -329,6 +329,18 @@ export default function AuthPage() {
         </button>
       </form>
 
+      {/* Terms & Privacy */}
+      <p className="text-center text-[11px] text-[#555555] mt-4">
+        By continuing you agree to our{' '}
+        <Link href="/terms" className="text-[#00FF94]/80 hover:text-[#00FF94] transition-colors">
+          Terms of Service
+        </Link>{' '}
+        and{' '}
+        <Link href="/privacy" className="text-[#00FF94]/80 hover:text-[#00FF94] transition-colors">
+          Privacy Policy
+        </Link>.
+      </p>
+
       {/* Divider */}
       <div className="flex items-center gap-3 my-6">
         <div className="flex-1 h-px" style={{ backgroundColor: "#1A1A1A" }} />

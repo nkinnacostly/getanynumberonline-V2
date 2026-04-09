@@ -15,9 +15,23 @@ const dmMono = DM_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "getnumber — Instant SMS Verification Numbers",
+  title: "GetAnyNumberOnline — Temporary Phone Numbers for SMS Verification",
   description:
-    "Real SIM-based phone numbers for SMS verification. No subscriptions, pay per use. Trusted by developers.",
+    "Get real SIM-based temporary phone numbers instantly. Verify any app or service. Pay only when you receive an SMS. No subscriptions.",
+  keywords:
+    "temporary phone number, receive sms online, sms verification, virtual phone number, disposable number",
+  openGraph: {
+    title: "GetAnyNumberOnline — Temporary Phone Numbers",
+    description: "Real SIM cards. Instant delivery. Pay per use.",
+    url: "https://getanynumberonline-v2.vercel.app",
+    siteName: "GetAnyNumberOnline",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "GetAnyNumberOnline — Temporary Phone Numbers",
+    description: "Real SIM cards. Instant delivery. Pay per use.",
+  },
 };
 
 export default function RootLayout({

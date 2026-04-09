@@ -312,12 +312,12 @@ export default function Home() {
               <span className="text-[#00FF94]">&#x2588;</span> getnumber
             </Link>
             <div className="flex items-center gap-6 text-xs text-[#555555]">
-              <a href="#" className="hover:text-[#F5F5F5] transition-colors">
+              <Link href="/terms" className="hover:text-[#F5F5F5] transition-colors">
                 Terms
-              </a>
-              <a href="#" className="hover:text-[#F5F5F5] transition-colors">
+              </Link>
+              <Link href="/privacy" className="hover:text-[#F5F5F5] transition-colors">
                 Privacy
-              </a>
+              </Link>
               <a href="#" className="hover:text-[#F5F5F5] transition-colors">
                 API Docs
               </a>
