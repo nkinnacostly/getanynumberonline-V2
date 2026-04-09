@@ -1,0 +1,32 @@
+---
+description: GetAnyNumberOnline — stack, folder layout, database schema, RPCs
+alwaysApply: true
+---
+
+# Stack & structure
+
+- **Product:** Temporary SMS verification + number rentals.
+- **Stack:** Next.js 15 App Router (never Pages Router), TypeScript strict, Tailwind utilities only, Supabase-only backend, Flutterwave, SMSPool, Vercel, **npm**.
+- **Supabase:** `@supabase/ssr` for all clients — never `@supabase/auth-helpers`.
+- **Payments:** `flutterwave-react-v3`.
+
+## Folder structure (do not deviate)
+
+- `src/app/` — `page.tsx`, `layout.tsx`, `auth/*`, `dashboard/` (layout, page, wallet, history, **rentals**), `api/verify-payment`, `api/create-pending-topup`.
+- `src/components/` — `auth/AuthCard`, `dashboard/` (Sidebar, OrderForm, ActiveOrder, BalanceChip, **RentalCard**, Toast), `landing/HeroCard`, `ServiceTicker`.
+- `src/lib/supabase/` — `client.ts`, `server.ts`; `api.ts` (callEdgeFunction + fetchSMSPool); **`rental-api.ts`**.
+- `supabase/functions/` — `order-number`, `poll-sms`, `cancel-order`, `wallet-topup`, `rent-number`, `poll-rental-sms`, `cancel-rental`, `get-rental-catalog`.
+
+## Database (know exactly)
+
+- **profiles:** id, email, balance, currency, is_banned, timestamps — balance must not go negative.
+- **orders:** ids, smspool fields, country/service + *_name, cost, status (pending|active|cancelled|expired|refunded), expires_at.
+- **messages:** order_id, user_id, sender, full_sms, **code**, received_at.
+- **transactions:** order_id nullable, type topup|deduction|refund, amounts, provider fields, status.
+- **rentals:** smspool_rental_code, smspool_rental_id, phone_number, country/name, service/name, days, cost, status active|expired|cancelled, auto_extend, expires_at.
+- **rental_messages:** rental_id, user_id, sender, full_sms, code, received_at.
+
+## RPCs (all balance changes)
+
+- `deduct_balance_and_create_order`, `deduct_balance_and_create_rental`, `credit_balance`, `deliver_sms_message`, `update_order_smspool_details`.
+- **Never** update `profiles.balance` directly — always RPC.

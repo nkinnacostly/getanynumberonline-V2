@@ -1,0 +1,46 @@
+---
+description: Design system, responsive dashboard, Next.js App Router, auth, quality, deploy
+alwaysApply: true
+---
+
+# Design system
+
+**Colors:** Background `#080808` (not navy). Cards `#0F0F0F`, border `1px solid #1A1A1A`. Accent `#00FF94` (sparingly). Text `#F5F5F5` / muted `#555555`. Error `#FF4444`, warning `#F5A623`. Inputs `#141414`, border `#222222`, focus border `#00FF94`.
+
+**Status badges:** active/success `#00FF94`, pending/refunded `#F5A623`, cancelled/error `#FF4444`, expired `#555555`.
+
+**Typography:** Headings **Syne**; **all** numbers, prices, phones, codes, status, timestamps — **DM Mono** (`next/font/google`). Body Syne. No Inter/Roboto/Arial/system UI fonts.
+
+**Components:** Card radius 8px; inputs/buttons 6px, **min height 44px**. Primary button `#00FF94` on `#080808`, bold. No purple, navy, gradients, box shadows, shadcn/radix/chakra/MUI — **inline SVG only** for icons.
+
+# Responsive
+
+- Breakpoints: mobile &lt; 768px, desktop ≥ 768px.
+- Dashboard: fixed **220px** sidebar desktop; mobile **no sidebar** — **bottom tab bar**, **4 icons** (Get Number, Rentals, Wallet, History), icons only, active green.
+- Min width 375px, no horizontal scroll, touch ≥ 44px, body text ≥ 13px on mobile; two columns stack on mobile.
+
+# Next.js App Router
+
+- Server Components default; `'use client'` only when needed.
+- No `getServerSideProps` / `getStaticProps`.
+- API routes: `src/app/api/{name}/route.ts`.
+- **Dynamic `params`:** Next.js 15 — `const { id } = await params;`
+- Loading: `loading.tsx` / Suspense; errors: `error.tsx`.
+
+# Auth
+
+- Email/password only (no OAuth). Session `localStorage` `sb-{ref}-auth-token`. Middleware protects `/dashboard/*`. Sign-in → `router.push('/dashboard')` + `router.refresh()`; sign-out → `/`. Don’t redirect to `/auth` from dashboard — middleware handles it.
+
+# Code quality
+
+- Avoid `any` — use interfaces. Loading + error states on async. `console.error` for real errors only (no stray `console.log` in prod). try/catch on async. Subcomponents if &gt; ~200 lines. Confirm destructive actions. Show price before confirm.
+
+# Deployment
+
+- Edge change: `supabase functions deploy <name>` + JWT toggle off per function.
+- Frontend: deploy Vercel prod.
+- New env: `.env.local` + Vercel + redeploy.
+
+# Do not build
+
+- No Next routes proxying SMSPool; no browser SMSPool; no direct balance updates from client; no sensitive keys in `.env.local` that belong in Supabase; no voice; no social auth; no component libraries (shadcn/radix/chakra/MUI).

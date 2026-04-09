@@ -1,0 +1,40 @@
+---
+description: Env vars, Supabase clients, Edge Functions, SMSPool, callEdgeFunction, pricing
+alwaysApply: true
+---
+
+# Environment variables
+
+**Vercel + .env.local (Next only):** `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `NEXT_PUBLIC_FLUTTERWAVE_PUBLIC_KEY`, `FLUTTERWAVE_SECRET_KEY`.
+
+**Supabase Edge secrets ONLY (never Vercel / .env.local):** `SMSPOOL_API_KEY`, `FLUTTERWAVE_SECRET_KEY` (also for edge), `FLUTTERWAVE_WEBHOOK_SECRET`, `APP_URL`.
+
+**Auto-injected in Edge:** `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_DB_URL`.
+
+**Rules:** Never put `SMSPOOL_API_KEY` in Vercel. Never prefix secrets with `NEXT_PUBLIC_`. `NEXT_PUBLIC_*` only for Supabase URL, anon key, Flutterwave public key.
+
+# Supabase client patterns
+
+- **Client components:** `createBrowserClient` from `@/lib/supabase/client` (see `lib/supabase/client.ts`).
+- **Server / route handlers:** `createServerClient` + `cookies()` from `next/headers` — see `lib/supabase/server.ts`.
+- **Never** use `createClient` from `@supabase/supabase-js` directly in components.
+
+# Edge Functions (Deno)
+
+- Import: `import { createClient } from "https://esm.sh/@supabase/supabase-js@2"`.
+- Template: OPTIONS + CORS; `Authorization` header → anon client + `auth.getUser()`; service role client for DB; `jsonResponse` / `errorResponse` helpers.
+- **SMSPool:** always `FormData` + `POST`, never JSON body. `key` from `Deno.env.get("SMSPOOL_API_KEY")!`.
+- After deploy: Dashboard → Edge Function → **toggle OFF** “Verify JWT with legacy secret”.
+- **All SMSPool calls through Edge Functions** — never Next.js API routes, never the browser. Public catalog/pricing too.
+
+# Frontend → Edge
+
+Use **`callEdgeFunction`** from `@/lib/api` for every Edge call (session + `fetch` to `/functions/v1/{name}` with `Authorization` + `apikey`).
+
+# Pricing markup
+
+**One-time numbers:** tiered `applyMarkup` (raw under 0.1 → +40%, up to 0.3 → +30%, else +20%), `Math.ceil` to cents.
+
+**Rentals:** `applyRentalMarkup(raw) => Math.ceil(raw * 1.35 * 100) / 100`.
+
+Apply **the same** formula for displayed price and charged amount — never show one price and charge another.

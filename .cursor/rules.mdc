@@ -1,0 +1,560 @@
+# GetAnyNumberOnline — Cursor Project Rules
+
+**Cursor agent rules (canonical for the AI):** This project uses **`.cursor/rules/*.mdc`** — YAML frontmatter + Markdown in the format Cursor loads for project rules. Files `01–03` are **always applied**; `04–05` apply when editing matching paths (`supabase/functions/**`, `src/lib/api.ts`). Keep this `rules.md` as human-readable documentation; when changing project conventions, update the **`.mdc`** sources first so the agent stays in sync.
+
+---
+
+# Read this entire file before writing any code. Follow every rule strictly.
+
+## Project Overview
+
+GetAnyNumberOnline is a temporary SMS verification number platform.
+Users buy temporary phone numbers, receive OTP codes, and rent numbers long-term.
+Stack: Next.js 15 (App Router), TypeScript, Tailwind CSS, Supabase, Flutterwave, SMSPool API, Vercel.
+
+---
+
+## Tech Stack — Strict Versions
+
+- Next.js 15 with App Router — never use Pages Router patterns
+- TypeScript — strict mode, no `any` unless absolutely unavoidable, always type it explicitly
+- Tailwind CSS — utility classes only, no custom CSS files unless absolutely necessary
+- Supabase — Auth, Postgres, Realtime, Edge Functions — the ONLY backend layer
+- @supabase/ssr — for all Supabase client creation, never @supabase/auth-helpers
+- Flutterwave React SDK — flutterwave-react-v3 for payments
+- SMSPool REST API — for phone number provisioning
+- Vercel — deployment platform
+- Package manager: pnpm
+
+---
+
+## Folder Structure — Never deviate from this
+
+src/
+app/
+page.tsx ← landing page
+layout.tsx ← root layout with fonts + metadata
+auth/
+page.tsx ← sign in / sign up (tab toggle)
+reset-password/page.tsx
+update-password/page.tsx
+dashboard/
+layout.tsx ← sidebar + bottom tab bar shell
+page.tsx ← main order page
+wallet/page.tsx ← balance + top-up + transactions
+history/page.tsx ← order + rental history
+rentals/page.tsx ← active rentals + rent new number
+api/
+verify-payment/route.ts ← Flutterwave payment verification
+create-pending-topup/route.ts ← creates pending transaction record
+components/
+auth/
+AuthCard.tsx
+dashboard/
+Sidebar.tsx
+OrderForm.tsx
+ActiveOrder.tsx
+BalanceChip.tsx
+RentalCard.tsx
+Toast.tsx
+landing/
+HeroCard.tsx
+ServiceTicker.tsx
+lib/
+supabase/
+client.ts ← createBrowserClient from @supabase/ssr
+server.ts ← createServerClient from @supabase/ssr
+api.ts ← callEdgeFunction + fetchSMSPool
+rental-api.ts ← rental-specific API helpers
+supabase/
+functions/
+order-number/index.ts
+poll-sms/index.ts
+cancel-order/index.ts
+wallet-topup/index.ts
+rent-number/index.ts
+poll-rental-sms/index.ts
+cancel-rental/index.ts
+get-rental-catalog/index.ts
+
+---
+
+## Database Schema — Know this exactly
+
+### profiles
+
+- id UUID PK (references auth.users)
+- email TEXT
+- balance NUMERIC(12,4) — never goes below 0
+- currency TEXT default 'USD'
+- is_banned BOOLEAN
+- created_at, updated_at TIMESTAMPTZ
+
+### orders
+
+- id UUID PK
+- user_id UUID FK → profiles
+- smspool_order_id TEXT
+- smspool_number TEXT
+- country TEXT (SMSPool ID)
+- country_name TEXT (human readable)
+- service TEXT (SMSPool ID)
+- service_name TEXT (human readable)
+- cost NUMERIC(10,4)
+- status: pending | active | cancelled | expired | refunded
+- expires_at TIMESTAMPTZ
+- created_at, updated_at TIMESTAMPTZ
+
+### messages
+
+- id UUID PK
+- order_id UUID FK → orders
+- user_id UUID FK → profiles
+- sender TEXT
+- full_sms TEXT
+- code TEXT (extracted OTP)
+- received_at TIMESTAMPTZ
+
+### transactions
+
+- id UUID PK
+- user_id UUID FK → profiles
+- order_id UUID FK → orders (nullable)
+- type: topup | deduction | refund
+- amount NUMERIC(10,4)
+- balance_before NUMERIC(12,4)
+- balance_after NUMERIC(12,4)
+- provider TEXT
+- provider_ref TEXT
+- provider_meta JSONB
+- status: pending | completed | failed
+- note TEXT
+- created_at TIMESTAMPTZ
+
+### rentals
+
+- id UUID PK
+- user_id UUID FK → profiles
+- smspool_rental_code TEXT
+- smspool_rental_id TEXT
+- phone_number TEXT
+- country TEXT
+- country_name TEXT
+- service TEXT
+- service_name TEXT
+- days INT
+- cost NUMERIC(10,4)
+- status TEXT: active | expired | cancelled
+- auto_extend BOOLEAN
+- expires_at TIMESTAMPTZ
+- created_at, updated_at TIMESTAMPTZ
+
+### rental_messages
+
+- id UUID PK
+- rental_id UUID FK → rentals
+- user_id UUID FK → profiles
+- sender TEXT
+- full_sms TEXT
+- code TEXT
+- received_at TIMESTAMPTZ
+
+---
+
+## Supabase RPC Functions — Use these for ALL balance operations
+
+- `deduct_balance_and_create_order(p_user_id, p_cost, p_country, p_country_name, p_service, p_service_name, p_pool)` → UUID
+- `deduct_balance_and_create_rental(p_user_id, p_cost, p_country, p_country_name, p_service, p_service_name, p_days, p_rental_id)` → UUID
+- `credit_balance(p_user_id, p_amount, p_type, p_order_id, p_provider, p_provider_ref, p_note)` → void
+- `deliver_sms_message(p_order_id, p_user_id, p_sender, p_full_sms, p_code)` → void
+- `update_order_smspool_details(p_order_id, p_smspool_order_id, p_smspool_number)` → void
+
+NEVER update profiles.balance directly. Always use an RPC.
+
+---
+
+## Environment Variables — Placement rules are strict
+
+### In Vercel + .env.local (Next.js can access):
+
+NEXT_PUBLIC_SUPABASE_URL
+NEXT_PUBLIC_SUPABASE_ANON_KEY
+NEXT_PUBLIC_FLUTTERWAVE_PUBLIC_KEY
+FLUTTERWAVE_SECRET_KEY
+
+### In Supabase Edge Function Secrets ONLY (never in Vercel):
+
+SMSPOOL_API_KEY
+FLUTTERWAVE_SECRET_KEY ← also here for Edge Functions
+FLUTTERWAVE_WEBHOOK_SECRET
+APP_URL
+
+### Auto-injected into Edge Functions by Supabase (never set manually):
+
+SUPABASE_URL
+SUPABASE_ANON_KEY
+SUPABASE_SERVICE_ROLE_KEY
+SUPABASE_DB_URL
+
+### Rules:
+
+- NEVER put SMSPOOL_API_KEY in Vercel or .env.local
+- NEVER prefix secrets with NEXT*PUBLIC*
+- NEXT*PUBLIC* is ONLY for: SUPABASE_URL, SUPABASE_ANON_KEY, FLUTTERWAVE_PUBLIC_KEY
+
+---
+
+## Supabase Client Creation — Use exactly these patterns
+
+### Client components ('use client'):
+
+```typescript
+import { createBrowserClient } from "@supabase/ssr";
+
+export function createClient() {
+  return createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+  );
+}
+```
+
+### Server components / API routes:
+
+```typescript
+import { createServerClient } from "@supabase/ssr";
+import { cookies } from "next/headers";
+
+export async function createClient() {
+  const cookieStore = await cookies();
+  return createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return cookieStore.getAll();
+        },
+        setAll(cookiesToSet) {
+          try {
+            cookiesToSet.forEach(({ name, value, options }) =>
+              cookieStore.set(name, value, options),
+            );
+          } catch {}
+        },
+      },
+    },
+  );
+}
+```
+
+NEVER use createClient from @supabase/supabase-js directly in components.
+
+---
+
+## Edge Function Rules — Follow exactly
+
+### Every Edge Function must use this exact template:
+
+```typescript
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
+};
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
+
+  try {
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) return errorResponse("Missing authorization header", 401);
+
+    // User client — for auth verification only
+    const supabaseUser = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+      { global: { headers: { Authorization: authHeader } } },
+    );
+    const {
+      data: { user },
+      error: authError,
+    } = await supabaseUser.auth.getUser();
+    if (authError || !user) return errorResponse("Unauthorized", 401);
+
+    // Service role client — for all DB operations
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    );
+
+    // Your logic here
+  } catch (err) {
+    console.error("unhandled error:", err);
+    return errorResponse("Internal server error", 500);
+  }
+});
+
+function jsonResponse(data: unknown, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
+function errorResponse(message: string, status: number) {
+  return new Response(JSON.stringify({ success: false, error: message }), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+```
+
+### SMSPool calls inside Edge Functions — always FormData:
+
+```typescript
+const smsPoolKey = Deno.env.get("SMSPOOL_API_KEY")!;
+const formData = new FormData();
+formData.append("key", smsPoolKey);
+formData.append("country", country);
+const res = await fetch("https://api.smspool.net/purchase/sms", {
+  method: "POST",
+  body: formData,
+});
+```
+
+### After deploying any Edge Function:
+
+Go to Supabase Dashboard → Edge Functions → {function} → Settings → toggle OFF "Verify JWT with legacy secret" → Save changes.
+
+### Edge Function imports — Deno only:
+
+- Supabase: `import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'`
+- Never use npm imports in Edge Functions
+
+---
+
+## callEdgeFunction — Use this for ALL Edge Function calls from frontend:
+
+```typescript
+import { createClient } from "@/lib/supabase/client";
+
+export async function callEdgeFunction(
+  name: string,
+  body: Record<string, unknown>,
+) {
+  const supabase = createClient();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  if (!session?.access_token) throw new Error("Not authenticated");
+
+  const res = await fetch(
+    `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/${name}`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session.access_token}`,
+        apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      },
+      body: JSON.stringify(body),
+    },
+  );
+  const data = await res.json();
+  if (!res.ok || data.error)
+    throw new Error(data.error || `Request failed with status ${res.status}`);
+  return data;
+}
+```
+
+---
+
+## SMSPool API Rules
+
+- ALL SMSPool calls go through Supabase Edge Functions — NEVER from Next.js API routes, NEVER from the browser
+- SMSPool uses FormData POST — never JSON
+- Public endpoints (catalog, pricing, country list, service list) still go through Edge Functions because the API key must stay server-side
+- Never create a Next.js API route that calls SMSPool
+
+---
+
+## Pricing Markup Rules
+
+### One-time numbers:
+
+```typescript
+function applyMarkup(rawPrice: number): number {
+  let markup: number;
+  if (rawPrice < 0.1) markup = 0.4;
+  else if (rawPrice <= 0.3) markup = 0.3;
+  else markup = 0.2;
+  return Math.ceil(rawPrice * (1 + markup) * 100) / 100;
+}
+```
+
+### Rentals:
+
+```typescript
+function applyRentalMarkup(raw: number): number {
+  return Math.ceil(raw * 1.35 * 100) / 100;
+}
+```
+
+Apply markup BOTH when displaying price to the user AND when deducting from balance. Both must use the same markup calculation — never show one price and charge another.
+
+---
+
+## Design System — Never deviate
+
+### Colors:
+
+Background: #080808 ← pure near-black, NOT navy
+Cards/surfaces: #0F0F0F
+Card border: 1px solid #1A1A1A
+Accent: #00FF94 ← electric green, used sparingly
+Text primary: #F5F5F5
+Text muted: #555555
+Error: #FF4444
+Warning: #F5A623
+Input bg: #141414
+Input border: 1px solid #222222
+Input focus: border-color #00FF94
+
+### Status badge colors:
+
+active/success: #00FF94 (green)
+pending: #F5A623 (amber)
+cancelled/error: #FF4444 (red)
+expired: #555555 (gray)
+refunded: #F5A623 (amber)
+
+### Typography:
+
+- Headings: Syne (loaded via next/font/google)
+- ALL numbers, prices, phone numbers, codes, status values, timestamps: DM Mono (loaded via next/font/google)
+- Body: Syne at regular weight
+- Never use Inter, Roboto, Arial, or system fonts
+
+### Component rules:
+
+- Card: `background: #0F0F0F; border: 1px solid #1A1A1A; border-radius: 8px`
+- Input: `background: #141414; border: 1px solid #222222; border-radius: 6px; height: 44px`
+- Primary button: `background: #00FF94; color: #080808; font-weight: 700; height: 44px; border-radius: 6px`
+- Secondary button: `background: transparent; border: 1px solid #333333; color: #F5F5F5; height: 44px`
+- All buttons minimum 44px height (touch targets)
+- All inputs minimum 44px height
+
+### Never use:
+
+- Purple anywhere
+- Navy backgrounds
+- Gradients
+- Box shadows
+- External UI libraries (no shadcn, no radix, no chakra, no material UI)
+- Generic icon libraries — use inline SVG only
+
+---
+
+## Responsive Design Rules
+
+### Breakpoints:
+
+- Mobile: < 768px
+- Desktop: ≥ 768px
+
+### Dashboard layout:
+
+- Desktop: fixed sidebar 220px wide + main content with left margin
+- Mobile: NO sidebar — replace with bottom tab bar fixed to bottom of screen
+- Bottom tab bar: 4 icons (Get Number, Rentals, Wallet, History) — no labels, just icons
+- Active tab: green accent color
+
+### General:
+
+- All pages must work at 375px minimum width
+- No horizontal scroll at any breakpoint
+- Touch targets minimum 44px
+- Font sizes never below 13px on mobile
+- Two-column layouts stack to single column on mobile
+
+---
+
+## Next.js App Router Rules
+
+- Use Server Components by default
+- Add 'use client' only when needed (useState, useEffect, event handlers, browser APIs)
+- Never use getServerSideProps or getStaticProps — those are Pages Router
+- API routes in src/app/api/{name}/route.ts
+- Middleware in middleware.ts at project root
+- Dynamic params are Promises in Next.js 15 — always await them:
+
+```typescript
+// Correct:
+const { id } = await params;
+// Wrong:
+const { id } = params;
+```
+
+- Loading states: use loading.tsx files or Suspense boundaries
+- Error states: use error.tsx files
+
+---
+
+## Auth Rules
+
+- Supabase email/password auth only (no OAuth for now)
+- Session stored in localStorage under `sb-{project-ref}-auth-token`
+- Middleware protects all /dashboard/\* routes
+- After sign-in: router.push('/dashboard') + router.refresh()
+- After sign-out: redirect to '/'
+- Never redirect to /auth from inside dashboard components — let middleware handle it
+
+---
+
+## Code Quality Rules
+
+- Never use `any` type — always define proper interfaces
+- Always handle loading states on async operations
+- Always handle error states with user-facing messages
+- Never leave console.log in production code — use console.error for actual errors only
+- Always use try/catch on async operations
+- Extract reusable logic into custom hooks in src/hooks/
+- Keep components under 200 lines — extract sub-components if needed
+- Always show price BEFORE user confirms an order
+- Always confirm before destructive actions (cancel, delete)
+
+---
+
+## Deployment Rules
+
+After ANY Edge Function change:
+
+1. `supabase functions deploy {function-name}`
+2. Go to Supabase Dashboard → Edge Functions → {function} → Settings → toggle OFF "Verify JWT with legacy secret"
+
+After ANY frontend change:
+
+1. `vercel --prod`
+
+After adding ANY new environment variable:
+
+1. Add to .env.local
+2. Add to Vercel dashboard → Settings → Environment Variables
+3. Redeploy Vercel
+
+---
+
+## What NOT to build
+
+- Never create Next.js API routes that proxy SMSPool — use Edge Functions
+- Never call SMSPool from the browser
+- Never update profiles.balance directly from frontend — always use RPC
+- Never store sensitive keys in .env.local that should be in Supabase secrets
+- Never add calling/voice features — SMS only for now
+- Never add social auth — email/password only for now
+- Never install shadcn, radix, chakra, or any component library

@@ -1,0 +1,17 @@
+---
+description: callEdgeFunction — all frontend Edge calls must match this pattern
+globs: src/lib/api.ts
+alwaysApply: false
+---
+
+# `callEdgeFunction`
+
+All Edge Function calls from the app go through `src/lib/api.ts`:
+
+- `createClient()` from `@/lib/supabase/client`
+- `getSession()` → require `access_token`
+- `POST` to `${NEXT_PUBLIC_SUPABASE_URL}/functions/v1/${name}`
+- Headers: `Content-Type: application/json`, `Authorization: Bearer <token>`, `apikey: NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- Parse JSON; if `!res.ok` or `data.error`, throw with message
+
+Do not duplicate this fetch logic elsewhere — import and use `callEdgeFunction`.

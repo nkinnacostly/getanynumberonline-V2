@@ -1,0 +1,67 @@
+---
+description: Copy-paste Edge Function skeleton — JWT, service role, CORS, SMSPool FormData
+globs: supabase/functions/**/*
+alwaysApply: false
+---
+
+# Edge Function template (Deno)
+
+Use this structure for every function. Adjust the `try` body only.
+
+```typescript
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
+};
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
+
+  try {
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) return errorResponse("Missing authorization header", 401);
+
+    const supabaseUser = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+      { global: { headers: { Authorization: authHeader } } },
+    );
+    const {
+      data: { user },
+      error: authError,
+    } = await supabaseUser.auth.getUser();
+    if (authError || !user) return errorResponse("Unauthorized", 401);
+
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    );
+
+    // --- logic (SMSPool: FormData + fetch POST only) ---
+  } catch (err: unknown) {
+    console.error("unhandled error:", err);
+    return errorResponse("Internal server error", 500);
+  }
+});
+
+function jsonResponse(data: unknown, status = 200) {
+  return new Response(JSON.stringify(data), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
+function errorResponse(message: string, status: number) {
+  return new Response(JSON.stringify({ success: false, error: message }), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+```
+
+Functions that only proxy SMSPool and do not touch Postgres may omit the `supabase` service-role client if unused.

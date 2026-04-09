@@ -32,6 +32,26 @@ const navItems = [
     ),
   },
   {
+    label: "Rentals",
+    href: "/dashboard/rentals",
+    icon: (
+      <svg
+        width="18"
+        height="18"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <rect x="5" y="2" width="14" height="20" rx="2" />
+        <path d="M9 5h6M9 18h6" />
+        <rect x="9" y="8" width="6" height="5" rx="0.5" />
+      </svg>
+    ),
+  },
+  {
     label: "Wallet",
     href: "/dashboard/wallet",
     icon: (
