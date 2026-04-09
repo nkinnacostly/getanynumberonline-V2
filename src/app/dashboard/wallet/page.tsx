@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { useFlutterwave, closePaymentModal } from "flutterwave-react-v3";
 import { useToast } from "@/components/dashboard/Toast";
 
 interface Transaction {
@@ -17,6 +18,7 @@ const QUICK_AMOUNTS = [5, 10, 20, 50];
 
 export default function WalletPage() {
   const { toast } = useToast();
+  const [user, setUser] = useState<{ id: string; email: string } | null>(null);
   const [balance, setBalance] = useState(0);
   const [amount, setAmount] = useState("");
   const [selectedQuick, setSelectedQuick] = useState<number | null>(null);
@@ -24,69 +26,44 @@ export default function WalletPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loadingTx, setLoadingTx] = useState(true);
   const [showSuccess, setShowSuccess] = useState(false);
-  const [topupError, setTopupError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const txRef = useRef(`topup_${Date.now()}`);
 
-  // Load Flutterwave inline checkout script
-  useEffect(() => {
-    const script = document.createElement("script");
-    script.src = "https://checkout.flutterwave.com/v3.js";
-    script.async = true;
-    script.onload = () => console.log("Flutterwave script loaded");
-    script.onerror = () => console.error("Failed to load Flutterwave script");
-    document.body.appendChild(script);
-    return () => {
-      if (document.body.contains(script)) document.body.removeChild(script);
-    };
-  }, []);
-
-  // Fetch balance + transactions
-  const fetchBalance = async () => {
-    const supabase = createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) return;
-    const { data } = await supabase
-      .from("profiles")
-      .select("balance")
-      .eq("id", user.id)
-      .single();
-    if (data) setBalance(data.balance);
-    // Refresh sidebar balance too
-    if (
-      typeof (window as unknown as { __refreshBalance?: () => void })
-        .__refreshBalance === "function"
-    ) {
-      (window as unknown as { __refreshBalance?: () => void })
-        .__refreshBalance!();
-    }
-  };
-
+  // Fetch user, balance + transactions
   useEffect(() => {
     const load = async () => {
       const supabase = createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return;
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser) return;
+
+      setUser({ id: authUser.id, email: authUser.email ?? "" });
+      txRef.current = `topup_${authUser.id}_${Date.now()}`;
 
       const { data: profile } = await supabase
         .from("profiles")
         .select("balance")
-        .eq("id", user.id)
+        .eq("id", authUser.id)
         .single();
       if (profile) setBalance(profile.balance);
 
       const { data: txs } = await supabase
         .from("transactions")
         .select("*")
-        .eq("user_id", user.id)
+        .eq("user_id", authUser.id)
         .order("created_at", { ascending: false })
         .limit(50);
       if (txs) setTransactions(txs as Transaction[]);
       setLoadingTx(false);
     };
     load();
+  }, []);
+
+  // Remove old redirect-based verification
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("topup") === "success") {
+      window.history.replaceState({}, "", "/dashboard/wallet");
+    }
   }, []);
 
   const handleQuick = (val: number) => {
@@ -97,65 +74,46 @@ export default function WalletPage() {
   const handleAmountChange = (val: string) => {
     setAmount(val);
     setSelectedQuick(QUICK_AMOUNTS.includes(Number(val)) ? Number(val) : null);
+    setError(null);
   };
 
-  const handleTopUp = async () => {
+  // Flutterwave inline payment
+  const flutterwaveConfig = {
+    public_key: process.env.NEXT_PUBLIC_FLUTTERWAVE_PUBLIC_KEY!,
+    tx_ref: txRef.current,
+    amount: parseFloat(amount) || 0,
+    currency: "USD",
+    payment_options: "card, mobilemoney, ussd",
+    customer: {
+      email: user?.email ?? "",
+      phone_number: "",
+      name: "",
+    },
+    customizations: {
+      title: "Wallet Top-up",
+      description: "Add funds to your SMS verification wallet",
+      logo: "",
+    },
+  };
+
+  const handleFlutterPayment = useFlutterwave(flutterwaveConfig);
+
+  const handleTopup = () => {
     if (!amount || parseFloat(amount) < 1) {
-      toast("Enter an amount of at least $1", "error");
+      setError("Minimum top-up is $1");
       return;
     }
-    setLoading(true);
-    setTopupError(null);
-    try {
-      const supabase = createClient();
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (!session) throw new Error("Not authenticated");
+    if (parseFloat(amount) > 500) {
+      setError("Maximum top-up is $500");
+      return;
+    }
 
-      const parsedAmount = parseFloat(amount);
-      const txRef = `topup_${session.user.id}_${Date.now()}`;
-
-      // Create pending transaction first
-      await fetch("/api/create-pending-topup", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tx_ref: txRef, amount: parsedAmount }),
-      });
-
-      // Open Flutterwave inline modal
-      if (typeof (window as any).FlutterwaveCheckout !== "function") {
-        throw new Error(
-          "Flutterwave checkout not loaded. Please refresh and try again.",
-        );
-      }
-
-      console.log("Opening Flutterwave modal with:", {
-        txRef,
-        amount: parsedAmount,
-        email: session.user.email,
-      });
-
-      // @ts-ignore
-      window.FlutterwaveCheckout({
-        public_key: process.env.NEXT_PUBLIC_FLUTTERWAVE_PUBLIC_KEY,
-        tx_ref: txRef,
-        amount: parsedAmount,
-        currency: "NGN",
-        customer: {
-          email: session.user.email,
-        },
-        customizations: {
-          title: "Wallet Top-up",
-          description: "Add funds to your SMS verification wallet",
-        },
-        callback: async (response: {
-          status: string;
-          transaction_id: string;
-          tx_ref: string;
-        }) => {
-          console.log("Flutterwave callback:", response);
-          if (response.status === "successful") {
+    handleFlutterPayment({
+      callback: async (response: any) => {
+        closePaymentModal();
+        if (response.status === "successful") {
+          setLoading(true);
+          try {
             const res = await fetch("/api/verify-payment", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
@@ -168,46 +126,45 @@ export default function WalletPage() {
             if (data.success) {
               setShowSuccess(true);
               fetchBalance();
-              // Refresh transactions
-              const refreshTxs = async () => {
-                const sup = createClient();
-                const {
-                  data: { user },
-                } = await sup.auth.getUser();
-                if (!user) return;
-                const { data: txs } = await sup
-                  .from("transactions")
-                  .select("*")
-                  .eq("user_id", user.id)
-                  .order("created_at", { ascending: false })
-                  .limit(50);
-                if (txs) setTransactions(txs as Transaction[]);
-              };
-              refreshTxs();
+              txRef.current = `topup_${user?.id}_${Date.now()}`;
             } else {
-              setTopupError(
-                "Payment verified but balance update failed. Contact support.",
-              );
+              setError("Payment received but balance update failed. Contact support.");
             }
+          } catch {
+            setError("Failed to verify payment. Contact support.");
+          } finally {
+            setLoading(false);
           }
-          setLoading(false);
-        },
-        onclose: () => {
-          console.log("Flutterwave modal closed");
-          setLoading(false);
-        },
-        onerror: (error: unknown) => {
-          console.error("Flutterwave error:", error);
-          setTopupError("Payment failed. Please try again.");
-          setLoading(false);
-        },
-      });
-    } catch (err) {
-      setTopupError(
-        err instanceof Error ? err.message : "Something went wrong",
-      );
-      setLoading(false);
+        }
+      },
+      onClose: () => {},
+    });
+  };
+
+  const fetchBalance = async () => {
+    const supabase = createClient();
+    const { data: { user: authUser } } = await supabase.auth.getUser();
+    if (!authUser) return;
+    const { data } = await supabase
+      .from("profiles")
+      .select("balance")
+      .eq("id", authUser.id)
+      .single();
+    if (data) setBalance(data.balance);
+    if (
+      typeof (window as unknown as { __refreshBalance?: () => void })
+        .__refreshBalance === "function"
+    ) {
+      (window as unknown as { __refreshBalance?: () => void }).__refreshBalance!();
     }
+    // Refresh transactions
+    const { data: txs } = await supabase
+      .from("transactions")
+      .select("*")
+      .eq("user_id", authUser.id)
+      .order("created_at", { ascending: false })
+      .limit(50);
+    if (txs) setTransactions(txs as Transaction[]);
   };
 
   const formatDate = (d: string) => {
@@ -305,26 +262,26 @@ export default function WalletPage() {
         />
 
         <button
-          onClick={handleTopUp}
-          disabled={loading || !amount}
+          onClick={handleTopup}
+          disabled={!amount}
           className="w-full py-3 rounded-lg font-semibold text-sm transition-colors disabled:opacity-40"
           style={{ backgroundColor: "#00FF94", color: "#080808" }}
         >
-          {loading ? (
-            <span className="flex items-center justify-center gap-2">
-              <span
-                className="auth-spinner"
-                style={{
-                  borderColor: "#080808",
-                  borderTopColor: "transparent",
-                }}
-              />
-              Processing...
-            </span>
-          ) : (
-            "Top up with Flutterwave \u2192"
-          )}
+          Top up with Flutterwave →
         </button>
+
+        {error && (
+          <div
+            className="mt-3 px-3 py-3 rounded-[6px] text-[13px]"
+            style={{
+              backgroundColor: "#1A0000",
+              border: "1px solid #FF4444",
+              color: "#FF4444",
+            }}
+          >
+            {error}
+          </div>
+        )}
       </div>
 
       {/* Transaction History */}
