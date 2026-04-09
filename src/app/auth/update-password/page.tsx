@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import AuthCard from "@/components/auth/AuthCard";
@@ -20,6 +20,35 @@ export default function UpdatePasswordPage() {
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [success, setSuccess] = useState(false);
+  const [codeExchanging, setCodeExchanging] = useState(false);
+
+  /** PKCE: recovery/invite links may land here with ?code= — exchange then clean URL. */
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get("code");
+    if (!code) return;
+
+    let cancelled = false;
+    setCodeExchanging(true);
+    const supabase = createClient();
+    supabase.auth
+      .exchangeCodeForSession(code)
+      .then(({ error: exErr }) => {
+        if (cancelled) return;
+        if (exErr) {
+          setError(exErr.message);
+          return;
+        }
+        router.replace("/auth/update-password", { scroll: false });
+      })
+      .finally(() => {
+        if (!cancelled) setCodeExchanging(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [router]);
 
   const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
     e.target.style.borderColor = "#00FF94";
@@ -100,6 +129,21 @@ export default function UpdatePasswordPage() {
         Choose a strong password for your account.
       </p>
 
+      {codeExchanging && (
+        <div className="flex items-center justify-center gap-2 py-8 mb-2">
+          <span
+            className="auth-spinner"
+            style={{
+              borderColor: "#00FF94",
+              borderTopColor: "transparent",
+              width: 24,
+              height: 24,
+            }}
+          />
+          <span className="text-[13px] text-[#555555]">Verifying link…</span>
+        </div>
+      )}
+
       {error && (
         <div
           className="mb-4 px-3 py-3 rounded-[6px] text-[13px]"
@@ -113,7 +157,10 @@ export default function UpdatePasswordPage() {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form
+        onSubmit={handleSubmit}
+        className={`space-y-4 ${codeExchanging ? "opacity-40 pointer-events-none" : ""}`}
+      >
         <div>
           <label
             htmlFor="password"

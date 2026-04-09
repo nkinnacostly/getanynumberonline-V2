@@ -4,14 +4,16 @@ interface AuthCardProps {
   children: React.ReactNode;
 }
 
+/** Grid texture — line color at 3% white max so it stays subtle on #080808 */
+const GRID_LINE = "rgba(255,255,255,0.03)";
+
 export default function AuthCard({ children }: AuthCardProps) {
   return (
     <div
       className="min-h-screen flex flex-col items-center justify-center px-4"
       style={{
         backgroundColor: "#080808",
-        backgroundImage:
-          "linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px)",
+        backgroundImage: `linear-gradient(${GRID_LINE} 1px, transparent 1px), linear-gradient(90deg, ${GRID_LINE} 1px, transparent 1px)`,
         backgroundSize: "40px 40px",
       }}
     >
@@ -32,7 +34,7 @@ export default function AuthCard({ children }: AuthCardProps) {
           className="p-8"
           style={{
             backgroundColor: "#0F0F0F",
-            border: "1px solid #1A1A1A",
+            border: "1px solid #222222",
             borderRadius: 8,
           }}
         >
@@ -40,22 +42,23 @@ export default function AuthCard({ children }: AuthCardProps) {
         </div>
       </div>
 
-      {/* Legal */}
+      {/* Legal — single copy below the card */}
       <p className="mt-6 text-[11px] text-[#555555] text-center max-w-xs">
         By continuing you agree to our{" "}
-        <a
-          href="#"
-          className="underline hover:text-[#888888] transition-colors"
+        <Link
+          href="/terms"
+          className="text-[#00FF94]/80 hover:text-[#00FF94] transition-colors"
         >
-          Terms
-        </a>{" "}
+          Terms of Service
+        </Link>{" "}
         and{" "}
-        <a
-          href="#"
-          className="underline hover:text-[#888888] transition-colors"
+        <Link
+          href="/privacy"
+          className="text-[#00FF94]/80 hover:text-[#00FF94] transition-colors"
         >
           Privacy Policy
-        </a>
+        </Link>
+        .
       </p>
     </div>
   );
