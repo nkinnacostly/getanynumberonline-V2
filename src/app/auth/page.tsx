@@ -331,14 +331,21 @@ export default function AuthPage() {
 
       {/* Terms & Privacy */}
       <p className="text-center text-[11px] text-[#555555] mt-4">
-        By continuing you agree to our{' '}
-        <Link href="/terms" className="text-[#00FF94]/80 hover:text-[#00FF94] transition-colors">
+        By continuing you agree to our{" "}
+        <Link
+          href="/terms"
+          className="text-[#00FF94]/80 hover:text-[#00FF94] transition-colors"
+        >
           Terms of Service
-        </Link>{' '}
-        and{' '}
-        <Link href="/privacy" className="text-[#00FF94]/80 hover:text-[#00FF94] transition-colors">
+        </Link>{" "}
+        and{" "}
+        <Link
+          href="/privacy"
+          className="text-[#00FF94]/80 hover:text-[#00FF94] transition-colors"
+        >
           Privacy Policy
-        </Link>.
+        </Link>
+        .
       </p>
 
       {/* Divider */}
