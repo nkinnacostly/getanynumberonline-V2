@@ -33,7 +33,9 @@ export default function WalletPage() {
   useEffect(() => {
     const load = async () => {
       const supabase = createClient();
-      const { data: { user: authUser } } = await supabase.auth.getUser();
+      const {
+        data: { user: authUser },
+      } = await supabase.auth.getUser();
       if (!authUser) return;
 
       setUser({ id: authUser.id, email: authUser.email ?? "" });
@@ -128,7 +130,9 @@ export default function WalletPage() {
               fetchBalance();
               txRef.current = `topup_${user?.id}_${Date.now()}`;
             } else {
-              setError("Payment received but balance update failed. Contact support.");
+              setError(
+                "Payment received but balance update failed. Contact support.",
+              );
             }
           } catch {
             setError("Failed to verify payment. Contact support.");
@@ -143,7 +147,9 @@ export default function WalletPage() {
 
   const fetchBalance = async () => {
     const supabase = createClient();
-    const { data: { user: authUser } } = await supabase.auth.getUser();
+    const {
+      data: { user: authUser },
+    } = await supabase.auth.getUser();
     if (!authUser) return;
     const { data } = await supabase
       .from("profiles")
@@ -155,7 +161,8 @@ export default function WalletPage() {
       typeof (window as unknown as { __refreshBalance?: () => void })
         .__refreshBalance === "function"
     ) {
-      (window as unknown as { __refreshBalance?: () => void }).__refreshBalance!();
+      (window as unknown as { __refreshBalance?: () => void })
+        .__refreshBalance!();
     }
     // Refresh transactions
     const { data: txs } = await supabase
