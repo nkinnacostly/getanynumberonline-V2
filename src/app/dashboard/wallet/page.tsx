@@ -193,13 +193,13 @@ export default function WalletPage() {
           setLoading(false);
         },
         onclose: () => {
-          console.log("Flutterwave modal closed")
+          console.log("Flutterwave modal closed");
           setLoading(false);
         },
         onerror: (error: unknown) => {
-          console.error("Flutterwave error:", error)
-          setTopupError("Payment failed. Please try again.")
-          setLoading(false)
+          console.error("Flutterwave error:", error);
+          setTopupError("Payment failed. Please try again.");
+          setLoading(false);
         },
       });
     } catch (err) {
