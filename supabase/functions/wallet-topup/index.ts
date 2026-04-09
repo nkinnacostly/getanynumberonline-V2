@@ -29,9 +29,9 @@ Deno.serve(async (req) => {
   }
 
   const url = new URL(req.url)
-  const path = url.pathname.split('/').pop()
+  const action = url.searchParams.get('action')
 
-  if (path === 'initiate') {
+  if (action === 'initiate') {
     return handleInitiate(req)
   }
 
