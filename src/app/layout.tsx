@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Syne, DM_Mono } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 
 const syne = Syne({
@@ -44,7 +45,14 @@ export default function RootLayout({
       lang="en"
       className={`${syne.variable} ${dmMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        <Script
+          defer
+          data-domain="getanynumberonline.com"
+          src="https://plausible.io/js/script.js"
+        />
+        {children}
+      </body>
     </html>
   );
 }
