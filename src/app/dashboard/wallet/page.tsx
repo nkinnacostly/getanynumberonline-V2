@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { useFlutterwave, closePaymentModal } from "flutterwave-react-v3";
+import { callEdgeFunction } from "@/lib/api";
 import { useToast } from "@/components/dashboard/Toast";
 
 interface Transaction {
@@ -18,7 +19,8 @@ const QUICK_AMOUNTS = [5, 10, 20, 50];
 
 export default function WalletPage() {
   const { toast } = useToast();
-  const [user, setUser] = useState<{ id: string; email: string } | null>(null);
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [balance, setBalance] = useState(0);
   const [amount, setAmount] = useState("");
   const [selectedQuick, setSelectedQuick] = useState<number | null>(null);
@@ -26,32 +28,49 @@ export default function WalletPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loadingTx, setLoadingTx] = useState(true);
   const [showSuccess, setShowSuccess] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const txRef = useRef(`topup_${Date.now()}`);
 
-  // Fetch user, balance + transactions
+  // Fetch balance + transactions
+  const fetchBalance = async () => {
+    const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data } = await supabase
+      .from("profiles")
+      .select("balance")
+      .eq("id", user.id)
+      .single();
+    if (data) setBalance(data.balance);
+    // Refresh sidebar balance too
+    if (
+      typeof (window as unknown as { __refreshBalance?: () => void })
+        .__refreshBalance === "function"
+    ) {
+      (window as unknown as { __refreshBalance?: () => void })
+        .__refreshBalance!();
+    }
+  };
+
   useEffect(() => {
     const load = async () => {
       const supabase = createClient();
       const {
-        data: { user: authUser },
+        data: { user },
       } = await supabase.auth.getUser();
-      if (!authUser) return;
-
-      setUser({ id: authUser.id, email: authUser.email ?? "" });
-      txRef.current = `topup_${authUser.id}_${Date.now()}`;
+      if (!user) return;
 
       const { data: profile } = await supabase
         .from("profiles")
         .select("balance")
-        .eq("id", authUser.id)
+        .eq("id", user.id)
         .single();
       if (profile) setBalance(profile.balance);
 
       const { data: txs } = await supabase
         .from("transactions")
         .select("*")
-        .eq("user_id", authUser.id)
+        .eq("user_id", user.id)
         .order("created_at", { ascending: false })
         .limit(50);
       if (txs) setTransactions(txs as Transaction[]);
@@ -60,11 +79,50 @@ export default function WalletPage() {
     load();
   }, []);
 
-  // Remove old redirect-based verification
+  // Verify payment on return from Flutterwave
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    if (params.get("topup") === "success") {
-      window.history.replaceState({}, "", "/dashboard/wallet");
+    if (
+      params.get("topup") === "success" &&
+      params.get("status") === "successful"
+    ) {
+      const transaction_id = params.get("transaction_id");
+      const tx_ref = params.get("tx_ref");
+      if (transaction_id && tx_ref) {
+        fetch("/api/verify-payment", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ transaction_id, tx_ref }),
+        })
+          .then((r) => r.json())
+          .then((data) => {
+            if (data.success) {
+              setShowSuccess(true);
+              fetchBalance();
+              // Refresh transactions
+              const refreshTxs = async () => {
+                const supabase = createClient();
+                const {
+                  data: { user },
+                } = await supabase.auth.getUser();
+                if (!user) return;
+                const { data: txs } = await supabase
+                  .from("transactions")
+                  .select("*")
+                  .eq("user_id", user.id)
+                  .order("created_at", { ascending: false })
+                  .limit(50);
+                if (txs) setTransactions(txs as Transaction[]);
+              };
+              refreshTxs();
+            }
+          })
+          .catch(console.error)
+          .finally(() => {
+            window.history.replaceState({}, "", "/dashboard/wallet");
+            setTimeout(() => setShowSuccess(false), 5000);
+          });
+      }
     }
   }, []);
 
@@ -76,102 +134,26 @@ export default function WalletPage() {
   const handleAmountChange = (val: string) => {
     setAmount(val);
     setSelectedQuick(QUICK_AMOUNTS.includes(Number(val)) ? Number(val) : null);
-    setError(null);
   };
 
-  // Flutterwave inline payment
-  const flutterwaveConfig = {
-    public_key: process.env.NEXT_PUBLIC_FLUTTERWAVE_PUBLIC_KEY!,
-    tx_ref: txRef.current,
-    amount: parseFloat(amount) || 0,
-    currency: "USD",
-    payment_options: "card, mobilemoney, ussd",
-    customer: {
-      email: user?.email ?? "",
-      phone_number: "",
-      name: "",
-    },
-    customizations: {
-      title: "Wallet Top-up",
-      description: "Add funds to your SMS verification wallet",
-      logo: "",
-    },
-  };
-
-  const handleFlutterPayment = useFlutterwave(flutterwaveConfig);
-
-  const handleTopup = () => {
-    if (!amount || parseFloat(amount) < 1) {
-      setError("Minimum top-up is $1");
+  const handleTopUp = async () => {
+    const num = parseFloat(amount);
+    if (!num || num < 1 || num > 500) {
+      toast("Enter an amount between $1 and $500", "error");
       return;
     }
-    if (parseFloat(amount) > 500) {
-      setError("Maximum top-up is $500");
-      return;
+    setLoading(true);
+    try {
+      const data = await callEdgeFunction("wallet-topup?action=initiate", {
+        amount: parseFloat(amount),
+      });
+      if (!data.payment_link) throw new Error("No payment link returned");
+      window.location.href = data.payment_link;
+    } catch (err) {
+      toast(err instanceof Error ? err.message : "Top-up failed", "error");
+    } finally {
+      setLoading(false);
     }
-
-    handleFlutterPayment({
-      callback: async (response: any) => {
-        closePaymentModal();
-        if (response.status === "successful") {
-          setLoading(true);
-          try {
-            const res = await fetch("/api/verify-payment", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                transaction_id: response.transaction_id,
-                tx_ref: response.tx_ref,
-              }),
-            });
-            const data = await res.json();
-            if (data.success) {
-              setShowSuccess(true);
-              fetchBalance();
-              txRef.current = `topup_${user?.id}_${Date.now()}`;
-            } else {
-              setError(
-                "Payment received but balance update failed. Contact support.",
-              );
-            }
-          } catch {
-            setError("Failed to verify payment. Contact support.");
-          } finally {
-            setLoading(false);
-          }
-        }
-      },
-      onClose: () => {},
-    });
-  };
-
-  const fetchBalance = async () => {
-    const supabase = createClient();
-    const {
-      data: { user: authUser },
-    } = await supabase.auth.getUser();
-    if (!authUser) return;
-    const { data } = await supabase
-      .from("profiles")
-      .select("balance")
-      .eq("id", authUser.id)
-      .single();
-    if (data) setBalance(data.balance);
-    if (
-      typeof (window as unknown as { __refreshBalance?: () => void })
-        .__refreshBalance === "function"
-    ) {
-      (window as unknown as { __refreshBalance?: () => void })
-        .__refreshBalance!();
-    }
-    // Refresh transactions
-    const { data: txs } = await supabase
-      .from("transactions")
-      .select("*")
-      .eq("user_id", authUser.id)
-      .order("created_at", { ascending: false })
-      .limit(50);
-    if (txs) setTransactions(txs as Transaction[]);
   };
 
   const formatDate = (d: string) => {
@@ -269,26 +251,26 @@ export default function WalletPage() {
         />
 
         <button
-          onClick={handleTopup}
-          disabled={!amount}
+          onClick={handleTopUp}
+          disabled={loading || !amount}
           className="w-full py-3 rounded-lg font-semibold text-sm transition-colors disabled:opacity-40"
           style={{ backgroundColor: "#00FF94", color: "#080808" }}
         >
-          Top up with Flutterwave →
+          {loading ? (
+            <span className="flex items-center justify-center gap-2">
+              <span
+                className="auth-spinner"
+                style={{
+                  borderColor: "#080808",
+                  borderTopColor: "transparent",
+                }}
+              />
+              Processing...
+            </span>
+          ) : (
+            "Top up with Flutterwave \u2192"
+          )}
         </button>
-
-        {error && (
-          <div
-            className="mt-3 px-3 py-3 rounded-[6px] text-[13px]"
-            style={{
-              backgroundColor: "#1A0000",
-              border: "1px solid #FF4444",
-              color: "#FF4444",
-            }}
-          >
-            {error}
-          </div>
-        )}
       </div>
 
       {/* Transaction History */}
