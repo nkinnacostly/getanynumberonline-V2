@@ -28,16 +28,16 @@ export default function WalletPage() {
 
   // Load Flutterwave inline checkout script
   useEffect(() => {
-    const script = document.createElement("script")
-    script.src = "https://checkout.flutterwave.com/v3.js"
-    script.async = true
-    script.onload = () => console.log("Flutterwave script loaded")
-    script.onerror = () => console.error("Failed to load Flutterwave script")
-    document.body.appendChild(script)
+    const script = document.createElement("script");
+    script.src = "https://checkout.flutterwave.com/v3.js";
+    script.async = true;
+    script.onload = () => console.log("Flutterwave script loaded");
+    script.onerror = () => console.error("Failed to load Flutterwave script");
+    document.body.appendChild(script);
     return () => {
-      if (document.body.contains(script)) document.body.removeChild(script)
-    }
-  }, [])
+      if (document.body.contains(script)) document.body.removeChild(script);
+    };
+  }, []);
 
   // Fetch balance + transactions
   const fetchBalance = async () => {
@@ -125,10 +125,16 @@ export default function WalletPage() {
 
       // Open Flutterwave inline modal
       if (typeof (window as any).FlutterwaveCheckout !== "function") {
-        throw new Error("Flutterwave checkout not loaded. Please refresh and try again.")
+        throw new Error(
+          "Flutterwave checkout not loaded. Please refresh and try again.",
+        );
       }
 
-      console.log("Opening Flutterwave modal with:", { txRef, amount: parsedAmount, email: session.user.email })
+      console.log("Opening Flutterwave modal with:", {
+        txRef,
+        amount: parsedAmount,
+        email: session.user.email,
+      });
 
       // @ts-ignore
       window.FlutterwaveCheckout({
@@ -148,7 +154,7 @@ export default function WalletPage() {
           transaction_id: string;
           tx_ref: string;
         }) => {
-          console.log("Flutterwave callback:", response)
+          console.log("Flutterwave callback:", response);
           if (response.status === "successful") {
             const res = await fetch("/api/verify-payment", {
               method: "POST",
