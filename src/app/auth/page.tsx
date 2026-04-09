@@ -71,11 +71,7 @@ export default function AuthPage() {
           password,
         });
         if (error) throw error;
-        if (!data.session)
-          throw new Error("Sign in failed — no session returned");
-        await supabase.auth.setSession(data.session);
-        // Give the session time to persist before navigating
-        await new Promise((resolve) => setTimeout(resolve, 500));
+        if (!data.session) throw new Error("Sign in failed");
         router.push("/dashboard");
         router.refresh();
       }
