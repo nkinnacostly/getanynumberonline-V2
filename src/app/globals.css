@@ -17,6 +17,16 @@ body {
   font-family: var(--font-sans), system-ui, sans-serif;
 }
 
+/* Tailwind v4's Preflight no longer sets a pointer cursor on buttons —
+   restore it app-wide so every clickable control feels interactive. */
+button:not(:disabled),
+[role="button"]:not(:disabled) {
+  cursor: pointer;
+}
+button:disabled {
+  cursor: not-allowed;
+}
+
 /* ---- Landing page animations ---- */
 
 @keyframes ticker-scroll {
