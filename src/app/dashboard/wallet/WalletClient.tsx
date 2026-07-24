@@ -77,7 +77,7 @@ export default function WalletClient({
 
   const publicKey = process.env.NEXT_PUBLIC_FLUTTERWAVE_PUBLIC_KEY;
   const amountNum = parseFloat(amount);
-  const validAmount = amountNum >= 1 && amountNum <= 500;
+  const validAmount = amountNum >= 5 && amountNum <= 500;
 
   const balance = initialBalance;
   const transactions = initialTransactions;
@@ -166,7 +166,7 @@ export default function WalletClient({
       return;
     }
     if (!validAmount) {
-      toast("Enter an amount between $1 and $500", "error");
+      toast("Enter an amount between $5 and $500", "error");
       return;
     }
     const w = window as unknown as {
@@ -302,11 +302,11 @@ export default function WalletClient({
 
         {/* Manual input */}
         <label className="block text-xs mb-1.5" style={{ color: "#555555" }}>
-          Or enter amount
+          Or enter amount (min $5)
         </label>
         <input
           type="number"
-          min={1}
+          min={5}
           max={500}
           value={amount}
           onChange={(e) => handleAmountChange(e.target.value)}
