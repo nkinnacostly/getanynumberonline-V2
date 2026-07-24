@@ -534,8 +534,9 @@ const { id } = params;
 
 After ANY Edge Function change:
 
-1. `supabase functions deploy {function-name}`
-2. Go to Supabase Dashboard → Edge Functions → {function} → Settings → toggle OFF "Verify JWT with legacy secret"
+1. `supabase functions deploy {function-name} --no-verify-jwt` (or run `supabase/functions/deploy.sh`)
+2. The `--no-verify-jwt` flag is REQUIRED. The Supabase CLI resets "Verify JWT with legacy secret" back to ON on every deploy. When ON, the gateway rejects any request without a valid Supabase JWT — including the Flutterwave webhook forwarded by getpaidly.co (which carries `verif-hash`, not a JWT) — with a 401 BEFORE the function code runs, silently breaking wallet top-ups. Each function does its own auth, so the gateway check must stay OFF.
+3. To toggle manually instead: Supabase Dashboard → Edge Functions → {function} → Settings → toggle OFF "Verify JWT with legacy secret".
 
 After ANY frontend change:
 

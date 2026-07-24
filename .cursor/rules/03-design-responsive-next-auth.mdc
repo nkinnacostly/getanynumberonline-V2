@@ -37,7 +37,7 @@ alwaysApply: true
 
 # Deployment
 
-- Edge change: `supabase functions deploy <name>` + JWT toggle off per function.
+- Edge change: `supabase functions deploy <name> --no-verify-jwt` (the `--no-verify-jwt` is required — the CLI re-enables "Verify JWT" on every deploy, and when ON the gateway 401s webhook forwards before the function runs). Or run `supabase/functions/deploy.sh`.
 - Frontend: deploy Vercel prod.
 - New env: `.env.local` + Vercel + redeploy.
 

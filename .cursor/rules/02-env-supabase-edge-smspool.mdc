@@ -24,7 +24,7 @@ alwaysApply: true
 - Import: `import { createClient } from "https://esm.sh/@supabase/supabase-js@2"`.
 - Template: OPTIONS + CORS; `Authorization` header → anon client + `auth.getUser()`; service role client for DB; `jsonResponse` / `errorResponse` helpers.
 - **SMSPool:** always `FormData` + `POST`, never JSON body. `key` from `Deno.env.get("SMSPOOL_API_KEY")!`.
-- After deploy: Dashboard → Edge Function → **toggle OFF** “Verify JWT with legacy secret”.
+- After deploy: **toggle OFF** “Verify JWT with legacy secret”. Prefer the CLI flag — `supabase functions deploy <name> --no-verify-jwt` — because the CLI **resets this to ON on every deploy**, and when ON the gateway rejects webhook forwards (which carry `verif-hash`, not a JWT) with **401 before your code runs**, silently breaking wallet top-ups. Use `supabase/functions/deploy.sh`.
 - **All SMSPool calls through Edge Functions** — never Next.js API routes, never the browser. Public catalog/pricing too.
 
 # Frontend → Edge
