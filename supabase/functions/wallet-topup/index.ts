@@ -75,7 +75,7 @@ async function handleInitiate(req: Request) {
       tx_ref: txRef,
       amount: parsedAmount,
       currency: "USD",
-      redirect_url: `${Deno.env.get("APP_URL")}/dashboard?topup=success`,
+      redirect_url: `${Deno.env.get("APP_URL")}/dashboard/wallet?topup=success`,
       customer: {
         email: user.email,
       },
@@ -85,6 +85,7 @@ async function handleInitiate(req: Request) {
       },
       meta: {
         user_id: user.id,
+        app: "getanynumberonline",
       },
     };
 
@@ -165,12 +166,22 @@ async function handleWebhook(req: Request) {
     }
 
     const { tx_ref, amount, currency, id: flwTransactionId } = event.data;
-    const userId = event.data?.meta?.user_id;
+
+    // user_id: prefer meta, but Flutterwave's charge.completed webhook often
+    // omits `meta` entirely. tx_ref is always present and encodes the user:
+    // `topup_<userId>_<timestamp>` (userId is a UUID — no underscores).
+    let userId: string | undefined = event.data?.meta?.user_id;
+    if (!userId && typeof tx_ref === "string" && tx_ref.startsWith("topup_")) {
+      const parts = tx_ref.split("_");
+      userId = parts.slice(1, -1).join("_") || undefined;
+    }
 
     if (!tx_ref || !userId) {
       console.error("Webhook missing tx_ref or user_id:", event);
       return new Response("Bad payload", { status: 400 });
     }
+
+    console.log("wallet-topup/webhook: processing", { tx_ref, userId });
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
@@ -208,7 +219,7 @@ async function handleWebhook(req: Request) {
     const verifiedAmount = parseFloat(verifyJson.data.amount);
 
     // ── Credit the balance ───────────────────────────────────
-    await supabase.rpc("credit_balance", {
+    const { error: creditError } = await supabase.rpc("credit_balance", {
       p_user_id: userId,
       p_amount: verifiedAmount,
       p_type: "topup",
@@ -218,16 +229,24 @@ async function handleWebhook(req: Request) {
       p_note: `Wallet top-up: $${verifiedAmount} ${currency}`,
     });
 
+    // Only mark completed if the credit actually succeeded — otherwise leave
+    // the row `pending` and return non-200 so the payment is never silently
+    // marked done without the balance moving.
+    if (creditError) {
+      console.error("credit_balance failed:", creditError, { tx_ref, userId });
+      return new Response("Credit failed", { status: 500 });
+    }
+
     // ── Update the pending transaction to completed ──────────
     await supabase
       .from("transactions")
       .update({
         status: "completed",
-        balance_after: verifyJson.data.amount, // will be slightly off, acceptable
         provider_meta: verifyJson.data,
       })
       .eq("provider_ref", tx_ref);
 
+    console.log("wallet-topup/webhook: credited", { tx_ref, userId, verifiedAmount });
     return new Response("OK", { status: 200 });
   } catch (err) {
     console.error("wallet-topup/webhook error:", err);

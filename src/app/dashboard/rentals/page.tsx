@@ -275,6 +275,16 @@ export default function RentalsPage() {
             Rent a number
           </h2>
 
+          <p
+            style={{
+              fontSize: "13px",
+              color: "#555555",
+              marginBottom: "16px",
+            }}
+          >
+            Rental numbers support SMS only — voice calls are not supported.
+          </p>
+
           <div className="space-y-5">
             <div ref={dropRef}>
               <label className="block text-[12px] text-[#888888] mb-1.5">
