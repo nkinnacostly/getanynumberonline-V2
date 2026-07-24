@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { callEdgeFunction } from "@/lib/api";
@@ -29,102 +29,105 @@ export default function WalletPage() {
   const [loadingTx, setLoadingTx] = useState(true);
   const [showSuccess, setShowSuccess] = useState(false);
 
-  // Fetch balance + transactions
-  const fetchBalance = async () => {
+  // Fetch balance + transactions. Returns the balance; ALWAYS clears the
+  // loading state (even when the session isn't ready), so the history panel
+  // can never get stuck on the spinner.
+  const loadWallet = useCallback(async (): Promise<number | null> => {
     const supabase = createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) return;
-    const { data } = await supabase
-      .from("profiles")
-      .select("balance")
-      .eq("id", user.id)
-      .single();
-    if (data) setBalance(data.balance);
-    // Refresh sidebar balance too
-    if (
-      typeof (window as unknown as { __refreshBalance?: () => void })
-        .__refreshBalance === "function"
-    ) {
-      (window as unknown as { __refreshBalance?: () => void })
-        .__refreshBalance!();
-    }
-  };
-
-  useEffect(() => {
-    const load = async () => {
-      const supabase = createClient();
+    try {
       const {
         data: { user },
       } = await supabase.auth.getUser();
-      if (!user) return;
+      if (!user) return null;
 
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("balance")
-        .eq("id", user.id)
-        .single();
+      const [{ data: profile }, { data: txs }] = await Promise.all([
+        supabase.from("profiles").select("balance").eq("id", user.id).single(),
+        supabase
+          .from("transactions")
+          .select("*")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false })
+          .limit(50),
+      ]);
+
       if (profile) setBalance(profile.balance);
-
-      const { data: txs } = await supabase
-        .from("transactions")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false })
-        .limit(50);
       if (txs) setTransactions(txs as Transaction[]);
+
+      // Keep the sidebar balance in sync too.
+      const w = window as unknown as { __refreshBalance?: () => void };
+      if (typeof w.__refreshBalance === "function") w.__refreshBalance();
+
+      return profile?.balance ?? null;
+    } catch (err) {
+      console.error("Failed to load wallet:", err);
+      return null;
+    } finally {
       setLoadingTx(false);
-    };
-    load();
+    }
   }, []);
 
-  // Verify payment on return from Flutterwave
+  useEffect(() => {
+    loadWallet();
+  }, [loadWallet]);
+
+  // On return from Flutterwave: kick the server-side verify (instant credit),
+  // then poll — the webhook credit can land a moment later, so we refresh until
+  // the balance reflects it instead of showing a stale $0.00.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (
-      params.get("topup") === "success" &&
-      params.get("status") === "successful"
+      params.get("topup") !== "success" ||
+      params.get("status") !== "successful"
     ) {
-      const transaction_id = params.get("transaction_id");
-      const tx_ref = params.get("tx_ref");
-      if (transaction_id && tx_ref) {
-        fetch("/api/verify-payment", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ transaction_id, tx_ref }),
-        })
-          .then((r) => r.json())
-          .then((data) => {
-            if (data.success) {
-              setShowSuccess(true);
-              fetchBalance();
-              // Refresh transactions
-              const refreshTxs = async () => {
-                const supabase = createClient();
-                const {
-                  data: { user },
-                } = await supabase.auth.getUser();
-                if (!user) return;
-                const { data: txs } = await supabase
-                  .from("transactions")
-                  .select("*")
-                  .eq("user_id", user.id)
-                  .order("created_at", { ascending: false })
-                  .limit(50);
-                if (txs) setTransactions(txs as Transaction[]);
-              };
-              refreshTxs();
-            }
-          })
-          .catch(console.error)
-          .finally(() => {
-            window.history.replaceState({}, "", "/dashboard/wallet");
-            setTimeout(() => setShowSuccess(false), 5000);
-          });
-      }
+      return;
     }
-  }, []);
+    const transaction_id = params.get("transaction_id");
+    const tx_ref = params.get("tx_ref");
+    // Clean the URL so a manual refresh doesn't re-trigger this flow.
+    window.history.replaceState({}, "", "/dashboard/wallet");
+
+    let cancelled = false;
+
+    const confirmTopUp = async () => {
+      const startBalance = (await loadWallet()) ?? 0;
+
+      if (transaction_id && tx_ref) {
+        try {
+          const res = await fetch("/api/verify-payment", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ transaction_id, tx_ref }),
+          });
+          const data = await res.json();
+          if (data.success && !cancelled) {
+            await loadWallet();
+            setShowSuccess(true);
+            setTimeout(() => setShowSuccess(false), 6000);
+            return;
+          }
+        } catch (err) {
+          console.error("verify-payment call failed:", err);
+        }
+      }
+
+      // Fallback: poll for the webhook credit to reflect (up to ~90s).
+      for (let i = 0; i < 30 && !cancelled; i++) {
+        await new Promise((r) => setTimeout(r, 3000));
+        const bal = await loadWallet();
+        if (bal !== null && bal > startBalance) {
+          setShowSuccess(true);
+          setTimeout(() => setShowSuccess(false), 6000);
+          return;
+        }
+      }
+    };
+
+    confirmTopUp();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [loadWallet]);
 
   const handleQuick = (val: number) => {
     setSelectedQuick(val);
