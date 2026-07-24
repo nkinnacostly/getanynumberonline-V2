@@ -101,6 +101,14 @@ export default function Sidebar({
   const user = useUser();
   const [balance, setBalance] = useState(initialBalance);
 
+  // Server is the source of truth: when a server render / router.refresh()
+  // provides a new balance, adopt it. This keeps the balance correct even when
+  // the client session is briefly unavailable (e.g. after the Flutterwave
+  // redirect), where the client-side refresh below can't run.
+  useEffect(() => {
+    setBalance(initialBalance);
+  }, [initialBalance]);
+
   const refreshBalance = useCallback(async () => {
     if (!user) return;
     const supabase = createClient();
