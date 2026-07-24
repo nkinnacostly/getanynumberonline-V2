@@ -44,8 +44,25 @@ export default function WalletClient({
   // Bumped after each payment attempt so the next one gets a fresh tx_ref.
   const [payNonce, setPayNonce] = useState(0);
 
+  const publicKey = process.env.NEXT_PUBLIC_FLUTTERWAVE_PUBLIC_KEY;
   const amountNum = parseFloat(amount);
-  const canPay = !!user && amountNum >= 1 && amountNum <= 500;
+  const canPay = !!user && !!publicKey && amountNum >= 1 && amountNum <= 500;
+
+  // Preload Flutterwave's checkout script so the modal opens instantly (the SDK
+  // otherwise lazy-downloads it on first click — that's the "takes time" delay)
+  // and so a blocked/failed script surfaces as an error instead of doing nothing.
+  const [scriptError, setScriptError] = useState(false);
+  useEffect(() => {
+    const w = window as unknown as { FlutterwaveCheckout?: unknown };
+    if (w.FlutterwaveCheckout) return;
+    const SRC = "https://checkout.flutterwave.com/v3.js";
+    if (document.querySelector(`script[src="${SRC}"]`)) return;
+    const s = document.createElement("script");
+    s.src = SRC;
+    s.async = true;
+    s.onerror = () => setScriptError(true);
+    document.body.appendChild(s);
+  }, []);
 
   // tx_ref MUST match the `topup_<userId>_<ts>` format the webhook /
   // verify-payment parse. Regenerated when the amount changes or after an
@@ -56,7 +73,7 @@ export default function WalletClient({
   );
 
   const flwConfig: FlutterWaveTypes.FlutterwaveConfig = {
-    public_key: process.env.NEXT_PUBLIC_FLUTTERWAVE_PUBLIC_KEY!,
+    public_key: publicKey ?? "",
     tx_ref: txRef,
     amount: amountNum || 0,
     currency: "USD",
@@ -290,6 +307,19 @@ export default function WalletClient({
           >
             Top up with Flutterwave →
           </button>
+        )}
+
+        {!publicKey && (
+          <p className="mt-2 text-xs" style={{ color: "#FF4444" }}>
+            Payments are temporarily unavailable — missing configuration. Please
+            try again shortly.
+          </p>
+        )}
+        {scriptError && (
+          <p className="mt-2 text-xs" style={{ color: "#FF4444" }}>
+            Couldn&apos;t load the payment window. Disable ad-blockers / browser
+            shields for this site and try again.
+          </p>
         )}
       </div>
 
