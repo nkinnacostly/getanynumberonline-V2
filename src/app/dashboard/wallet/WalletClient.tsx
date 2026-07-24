@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { closePaymentModal } from "flutterwave-react-v3";
 import { useToast } from "@/components/dashboard/Toast";
 import { useUser } from "@/hooks/useUser";
 
@@ -50,6 +51,29 @@ export default function WalletClient({
   const [showSuccess, setShowSuccess] = useState(false);
   const [scriptReady, setScriptReady] = useState(false);
   const [scriptError, setScriptError] = useState(false);
+  // "opening" = clicked, waiting for the Flutterwave modal to actually appear.
+  const [opening, setOpening] = useState(false);
+  const openWatch = useRef<ReturnType<typeof setInterval> | null>(null);
+  const openTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const stopOpening = () => {
+    setOpening(false);
+    if (openWatch.current) {
+      clearInterval(openWatch.current);
+      openWatch.current = null;
+    }
+    if (openTimeout.current) {
+      clearTimeout(openTimeout.current);
+      openTimeout.current = null;
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      if (openWatch.current) clearInterval(openWatch.current);
+      if (openTimeout.current) clearTimeout(openTimeout.current);
+    };
+  }, []);
 
   const publicKey = process.env.NEXT_PUBLIC_FLUTTERWAVE_PUBLIC_KEY;
   const amountNum = parseFloat(amount);
@@ -100,12 +124,21 @@ export default function WalletClient({
   // Fires in-page when the modal completes — no reload, so the browser session
   // stays intact (this is what the old redirect broke).
   const handlePaid = async (response: FlutterwaveResponse) => {
+    // Dismiss the Flutterwave modal — when calling FlutterwaveCheckout directly
+    // it does not auto-close on completion.
+    closePaymentModal();
+    stopOpening();
+
     const paid =
       response.status === "successful" || response.status === "completed";
     if (!paid) {
       toast("Payment was not completed", "error");
       return;
     }
+
+    // Reset the input now that the payment went through.
+    setAmount("");
+    setSelectedQuick(null);
     // Server-side verify + credit (never trust the client-reported status).
     try {
       await fetch("/api/verify-payment", {
@@ -143,27 +176,43 @@ export default function WalletClient({
       toast("Payment window is still loading — try again in a moment", "error");
       return;
     }
-    w.FlutterwaveCheckout({
-      public_key: publicKey,
-      // tx_ref MUST match the topup_<userId>_<ts> format verify-payment parses.
-      tx_ref: `topup_${user.id}_${Date.now()}`,
-      amount: amountNum,
-      currency: "USD",
-      payment_options: "card",
-      customer: {
-        email: user.email,
-        phone_number: "",
-        name: user.email,
-      },
-      customizations: {
-        title: "Wallet Top-up",
-        description: "Add funds to your SMS verification wallet",
-        logo: "",
-      },
-      meta: { user_id: user.id },
-      callback: handlePaid,
-      onclose: () => {},
-    });
+
+    setOpening(true);
+    try {
+      w.FlutterwaveCheckout({
+        public_key: publicKey,
+        // tx_ref MUST match the topup_<userId>_<ts> format verify-payment parses.
+        tx_ref: `topup_${user.id}_${Date.now()}`,
+        amount: amountNum,
+        currency: "USD",
+        payment_options: "card",
+        customer: {
+          email: user.email,
+          phone_number: "",
+          name: user.email,
+        },
+        customizations: {
+          title: "Wallet Top-up",
+          description: "Add funds to your SMS verification wallet",
+          logo: "",
+        },
+        meta: { user_id: user.id },
+        callback: handlePaid,
+        onclose: stopOpening,
+      });
+    } catch (err) {
+      console.error("Flutterwave open failed:", err);
+      stopOpening();
+      toast("Couldn't open the payment window. Please try again.", "error");
+      return;
+    }
+
+    // Hide the button spinner the moment the modal iframe is on screen; keep a
+    // safety timeout in case it never appears.
+    openWatch.current = setInterval(() => {
+      if (document.getElementsByName("checkout").length > 0) stopOpening();
+    }, 150);
+    openTimeout.current = setTimeout(stopOpening, 8000);
   };
 
   const handleQuick = (val: number) => {
@@ -193,7 +242,7 @@ export default function WalletClient({
     return { bg: "#1A1500", color: "#F5A623", border: "#F5A623" }; // refund
   };
 
-  const disabled = !validAmount || scriptError || !publicKey;
+  const disabled = !validAmount || scriptError || !publicKey || opening;
 
   return (
     <div className="max-w-3xl">
@@ -278,9 +327,22 @@ export default function WalletClient({
           className="w-full py-3 rounded-lg font-semibold text-sm transition-colors disabled:opacity-40"
           style={{ backgroundColor: "#00FF94", color: "#080808" }}
         >
-          {scriptReady || !validAmount
-            ? "Top up with Flutterwave →"
-            : "Loading payment…"}
+          {opening ? (
+            <span className="flex items-center justify-center gap-2">
+              <span
+                className="auth-spinner"
+                style={{
+                  borderColor: "#080808",
+                  borderTopColor: "transparent",
+                }}
+              />
+              Opening payment…
+            </span>
+          ) : !scriptReady && validAmount ? (
+            "Loading payment…"
+          ) : (
+            "Top up with Flutterwave →"
+          )}
         </button>
 
         {!publicKey && (
