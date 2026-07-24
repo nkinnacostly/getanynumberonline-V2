@@ -1,12 +1,7 @@
 "use client";
 
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import {
-  FlutterWaveButton,
-  closePaymentModal,
-  FlutterWaveTypes,
-} from "flutterwave-react-v3";
 import { useToast } from "@/components/dashboard/Toast";
 import { useUser } from "@/hooks/useUser";
 
@@ -19,14 +14,26 @@ export interface Transaction {
   note: string | null;
 }
 
+interface FlutterwaveResponse {
+  status?: string;
+  tx_ref?: string;
+  transaction_id?: number;
+}
+
+// Flutterwave's inline checkout, loaded from https://checkout.flutterwave.com/v3.js.
+// We call this global directly instead of the flutterwave-react-v3 wrapper,
+// whose <FlutterWaveButton>/useFlutterwave silently fail to open the modal on
+// Next.js (known issue: github.com/Flutterwave/React-v3/issues/8).
+type FlutterwaveCheckoutFn = (config: Record<string, unknown>) => void;
+
 const QUICK_AMOUNTS = [5, 10, 20, 50];
+const FLW_SCRIPT = "https://checkout.flutterwave.com/v3.js";
 
 /**
  * Balance + transactions are supplied by the server component (parent), so the
  * display works even when the client Supabase session is briefly unavailable —
- * e.g. right after the full-page redirect back from Flutterwave, when the
- * browser can't yet read the session but the server (via middleware) can.
- * router.refresh() re-runs the server fetch and updates these props.
+ * e.g. right after a payment. router.refresh() re-runs the server fetch and
+ * updates these props.
  */
 export default function WalletClient({
   initialBalance,
@@ -41,89 +48,42 @@ export default function WalletClient({
   const [amount, setAmount] = useState("");
   const [selectedQuick, setSelectedQuick] = useState<number | null>(null);
   const [showSuccess, setShowSuccess] = useState(false);
-  // Bumped after each payment attempt so the next one gets a fresh tx_ref.
-  const [payNonce, setPayNonce] = useState(0);
+  const [scriptReady, setScriptReady] = useState(false);
+  const [scriptError, setScriptError] = useState(false);
 
   const publicKey = process.env.NEXT_PUBLIC_FLUTTERWAVE_PUBLIC_KEY;
   const amountNum = parseFloat(amount);
-  const canPay = !!user && !!publicKey && amountNum >= 1 && amountNum <= 500;
-
-  // Preload Flutterwave's checkout script so the modal opens instantly (the SDK
-  // otherwise lazy-downloads it on first click — that's the "takes time" delay)
-  // and so a blocked/failed script surfaces as an error instead of doing nothing.
-  const [scriptError, setScriptError] = useState(false);
-  useEffect(() => {
-    const w = window as unknown as { FlutterwaveCheckout?: unknown };
-    if (w.FlutterwaveCheckout) return;
-    const SRC = "https://checkout.flutterwave.com/v3.js";
-    if (document.querySelector(`script[src="${SRC}"]`)) return;
-    const s = document.createElement("script");
-    s.src = SRC;
-    s.async = true;
-    s.onerror = () => setScriptError(true);
-    document.body.appendChild(s);
-  }, []);
-
-  // tx_ref MUST match the `topup_<userId>_<ts>` format the webhook /
-  // verify-payment parse. Regenerated when the amount changes or after an
-  // attempt, so each charge is unique.
-  const txRef = useMemo(
-    () => (user ? `topup_${user.id}_${Date.now()}` : ""),
-    [user, amount, payNonce],
-  );
-
-  const flwConfig: FlutterWaveTypes.FlutterwaveConfig = {
-    public_key: publicKey ?? "",
-    tx_ref: txRef,
-    amount: amountNum || 0,
-    currency: "USD",
-    payment_options: "card",
-    customer: {
-      email: user?.email ?? "",
-      phone_number: "",
-      name: user?.email ?? "",
-    },
-    customizations: {
-      title: "Wallet Top-up",
-      description: "Add funds to your SMS verification wallet",
-      logo: "",
-    },
-    meta: { user_id: user?.id ?? "" },
-  };
-
-  // Fires in-page when the Flutterwave modal completes — no page reload, so the
-  // browser session stays intact (this is what the old redirect broke).
-  const handlePaid = async (response: FlutterWaveTypes.FlutterWaveResponse) => {
-    closePaymentModal();
-    setPayNonce((n) => n + 1);
-
-    const paid =
-      response.status === "successful" || response.status === "completed";
-    if (!paid) {
-      toast("Payment was not completed", "error");
-      return;
-    }
-
-    // Server-side verify + credit (never trust the client-reported status).
-    try {
-      await fetch("/api/verify-payment", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          transaction_id: response.transaction_id,
-          tx_ref: response.tx_ref,
-        }),
-      });
-    } catch (err) {
-      console.error("verify-payment call failed:", err);
-    }
-
-    // Re-fetch server-rendered balance + transactions (in-page).
-    router.refresh();
-  };
+  const validAmount = amountNum >= 1 && amountNum <= 500;
 
   const balance = initialBalance;
   const transactions = initialTransactions;
+
+  // Load Flutterwave's checkout script up front so the modal opens instantly on
+  // click, and so a blocked/failed load surfaces as an error, never a dead button.
+  useEffect(() => {
+    const w = window as unknown as { FlutterwaveCheckout?: FlutterwaveCheckoutFn };
+    if (typeof w.FlutterwaveCheckout === "function") {
+      setScriptReady(true);
+      return;
+    }
+    let s = document.querySelector<HTMLScriptElement>(
+      `script[src="${FLW_SCRIPT}"]`,
+    );
+    const onLoad = () => setScriptReady(true);
+    const onError = () => setScriptError(true);
+    if (!s) {
+      s = document.createElement("script");
+      s.src = FLW_SCRIPT;
+      s.async = true;
+      document.body.appendChild(s);
+    }
+    s.addEventListener("load", onLoad);
+    s.addEventListener("error", onError);
+    return () => {
+      s?.removeEventListener("load", onLoad);
+      s?.removeEventListener("error", onError);
+    };
+  }, []);
 
   // Show the success banner whenever a credit lands (balance goes up after a
   // refresh), covering both the instant verify and the delayed webhook.
@@ -137,55 +97,74 @@ export default function WalletClient({
     }
   }, [initialBalance]);
 
-  // On return from Flutterwave: run the server-side verify (instant credit),
-  // then refresh the server data. The webhook credit can land a moment later,
-  // so keep refreshing for a bit until the new balance shows.
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (
-      params.get("topup") !== "success" ||
-      params.get("status") !== "successful"
-    ) {
+  // Fires in-page when the modal completes — no reload, so the browser session
+  // stays intact (this is what the old redirect broke).
+  const handlePaid = async (response: FlutterwaveResponse) => {
+    const paid =
+      response.status === "successful" || response.status === "completed";
+    if (!paid) {
+      toast("Payment was not completed", "error");
       return;
     }
-    const transaction_id = params.get("transaction_id");
-    const tx_ref = params.get("tx_ref");
-    // Clean the URL so a manual refresh doesn't re-trigger this flow.
-    window.history.replaceState({}, "", "/dashboard/wallet");
+    // Server-side verify + credit (never trust the client-reported status).
+    try {
+      await fetch("/api/verify-payment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          transaction_id: response.transaction_id,
+          tx_ref: response.tx_ref,
+        }),
+      });
+    } catch (err) {
+      console.error("verify-payment call failed:", err);
+    }
+    // Re-fetch server-rendered balance + transactions (in-page).
+    router.refresh();
+  };
 
-    let cancelled = false;
-
-    const confirmTopUp = async () => {
-      if (transaction_id && tx_ref) {
-        try {
-          const res = await fetch("/api/verify-payment", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ transaction_id, tx_ref }),
-          });
-          const data = await res.json();
-          if (data.success && !cancelled) {
-            router.refresh(); // pull fresh balance + transactions from the server
-            return;
-          }
-        } catch (err) {
-          console.error("verify-payment call failed:", err);
-        }
-      }
-
-      // Fallback: poll for the webhook credit to reflect (up to ~60s).
-      for (let i = 0; i < 20 && !cancelled; i++) {
-        await new Promise((r) => setTimeout(r, 3000));
-        if (!cancelled) router.refresh();
-      }
+  const openCheckout = () => {
+    if (!user || !user.email) {
+      toast("Please sign in again to add funds", "error");
+      return;
+    }
+    if (!publicKey) {
+      toast("Payments are temporarily unavailable", "error");
+      return;
+    }
+    if (!validAmount) {
+      toast("Enter an amount between $1 and $500", "error");
+      return;
+    }
+    const w = window as unknown as {
+      FlutterwaveCheckout?: FlutterwaveCheckoutFn;
     };
-
-    confirmTopUp();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [router]);
+    if (typeof w.FlutterwaveCheckout !== "function") {
+      toast("Payment window is still loading — try again in a moment", "error");
+      return;
+    }
+    w.FlutterwaveCheckout({
+      public_key: publicKey,
+      // tx_ref MUST match the topup_<userId>_<ts> format verify-payment parses.
+      tx_ref: `topup_${user.id}_${Date.now()}`,
+      amount: amountNum,
+      currency: "USD",
+      payment_options: "card",
+      customer: {
+        email: user.email,
+        phone_number: "",
+        name: user.email,
+      },
+      customizations: {
+        title: "Wallet Top-up",
+        description: "Add funds to your SMS verification wallet",
+        logo: "",
+      },
+      meta: { user_id: user.id },
+      callback: handlePaid,
+      onclose: () => {},
+    });
+  };
 
   const handleQuick = (val: number) => {
     setSelectedQuick(val);
@@ -213,6 +192,8 @@ export default function WalletClient({
       return { bg: "#1A0000", color: "#FF4444", border: "#FF4444" };
     return { bg: "#1A1500", color: "#F5A623", border: "#F5A623" }; // refund
   };
+
+  const disabled = !validAmount || scriptError || !publicKey;
 
   return (
     <div className="max-w-3xl">
@@ -291,28 +272,20 @@ export default function WalletClient({
           onBlur={(e) => (e.target.style.borderColor = "#1A1A1A")}
         />
 
-        {canPay ? (
-          <FlutterWaveButton
-            {...flwConfig}
-            text="Top up with Flutterwave →"
-            className="w-full py-3 rounded-lg font-semibold text-sm bg-[#00FF94] text-[#080808]"
-            callback={handlePaid}
-            onClose={() => {}}
-          />
-        ) : (
-          <button
-            disabled
-            className="w-full py-3 rounded-lg font-semibold text-sm opacity-40"
-            style={{ backgroundColor: "#00FF94", color: "#080808" }}
-          >
-            Top up with Flutterwave →
-          </button>
-        )}
+        <button
+          onClick={openCheckout}
+          disabled={disabled}
+          className="w-full py-3 rounded-lg font-semibold text-sm transition-colors disabled:opacity-40"
+          style={{ backgroundColor: "#00FF94", color: "#080808" }}
+        >
+          {scriptReady || !validAmount
+            ? "Top up with Flutterwave →"
+            : "Loading payment…"}
+        </button>
 
         {!publicKey && (
           <p className="mt-2 text-xs" style={{ color: "#FF4444" }}>
-            Payments are temporarily unavailable — missing configuration. Please
-            try again shortly.
+            Payments are temporarily unavailable — missing configuration.
           </p>
         )}
         {scriptError && (
