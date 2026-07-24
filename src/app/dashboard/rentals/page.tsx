@@ -39,9 +39,12 @@ export default function RentalsPage() {
 
   const loadBalance = useCallback(async () => {
     const supabase = createClient();
+    // getSession() is local + reliable; getUser() makes a network call that can
+    // transiently return null on a full page load and blank the balance.
     const {
-      data: { user },
-    } = await supabase.auth.getUser();
+      data: { session },
+    } = await supabase.auth.getSession();
+    const user = session?.user;
     if (!user) return;
     const { data } = await supabase
       .from("profiles")
@@ -54,8 +57,9 @@ export default function RentalsPage() {
   const loadRentals = useCallback(async () => {
     const supabase = createClient();
     const {
-      data: { user },
-    } = await supabase.auth.getUser();
+      data: { session },
+    } = await supabase.auth.getSession();
+    const user = session?.user;
     if (!user) return;
     const { data } = await supabase
       .from("rentals")

@@ -35,9 +35,13 @@ export default function WalletPage() {
   const loadWallet = useCallback(async (): Promise<number | null> => {
     const supabase = createClient();
     try {
+      // Use getSession() (local, reliable) rather than getUser() (network) —
+      // right after the cross-domain Flutterwave redirect getUser() can
+      // transiently return null and blank the whole page.
       const {
-        data: { user },
-      } = await supabase.auth.getUser();
+        data: { session },
+      } = await supabase.auth.getSession();
+      const user = session?.user;
       if (!user) return null;
 
       const [{ data: profile }, { data: txs }] = await Promise.all([
@@ -101,6 +105,7 @@ export default function WalletPage() {
           const data = await res.json();
           if (data.success && !cancelled) {
             await loadWallet();
+            router.refresh(); // re-sync server-rendered sidebar balance
             setShowSuccess(true);
             setTimeout(() => setShowSuccess(false), 6000);
             return;
@@ -115,6 +120,7 @@ export default function WalletPage() {
         await new Promise((r) => setTimeout(r, 3000));
         const bal = await loadWallet();
         if (bal !== null && bal > startBalance) {
+          router.refresh(); // re-sync server-rendered sidebar balance
           setShowSuccess(true);
           setTimeout(() => setShowSuccess(false), 6000);
           return;
@@ -127,7 +133,7 @@ export default function WalletPage() {
     return () => {
       cancelled = true;
     };
-  }, [loadWallet]);
+  }, [loadWallet, router]);
 
   const handleQuick = (val: number) => {
     setSelectedQuick(val);

@@ -46,31 +46,37 @@ export default function HistoryPage() {
   useEffect(() => {
     const load = async () => {
       const supabase = createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return;
+      try {
+        // getSession() is local + reliable; getUser() makes a network call that
+        // can transiently return null on a full page load and blank the page.
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        const user = session?.user;
+        if (!user) return;
 
-      const [oRes, rRes] = await Promise.all([
-        supabase
-          .from("orders")
-          .select("*")
-          .eq("user_id", user.id)
-          .order("created_at", { ascending: false })
-          .limit(100),
-        supabase
-          .from("rentals")
-          .select(
-            "id, created_at, service_name, country_name, phone_number, days, status, cost",
-          )
-          .eq("user_id", user.id)
-          .order("created_at", { ascending: false })
-          .limit(100),
-      ]);
+        const [oRes, rRes] = await Promise.all([
+          supabase
+            .from("orders")
+            .select("*")
+            .eq("user_id", user.id)
+            .order("created_at", { ascending: false })
+            .limit(100),
+          supabase
+            .from("rentals")
+            .select(
+              "id, created_at, service_name, country_name, phone_number, days, status, cost",
+            )
+            .eq("user_id", user.id)
+            .order("created_at", { ascending: false })
+            .limit(100),
+        ]);
 
-      if (oRes.data) setOrders(oRes.data as Order[]);
-      if (rRes.data) setRentals(rRes.data as RentalHist[]);
-      setLoading(false);
+        if (oRes.data) setOrders(oRes.data as Order[]);
+        if (rRes.data) setRentals(rRes.data as RentalHist[]);
+      } finally {
+        setLoading(false);
+      }
     };
     load();
   }, []);

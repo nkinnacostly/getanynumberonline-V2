@@ -101,9 +101,12 @@ export default function Sidebar({
 
   const refreshBalance = useCallback(async () => {
     const supabase = createClient();
+    // getSession() is local + reliable; getUser() makes a network call that can
+    // transiently fail right after the Flutterwave redirect and blank the balance.
     const {
-      data: { user },
-    } = await supabase.auth.getUser();
+      data: { session },
+    } = await supabase.auth.getSession();
+    const user = session?.user;
     if (!user) return;
     const { data } = await supabase
       .from("profiles")

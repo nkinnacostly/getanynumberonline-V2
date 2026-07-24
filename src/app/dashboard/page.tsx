@@ -22,9 +22,12 @@ export default function DashboardPage() {
   useEffect(() => {
     const fetchBalance = async () => {
       const supabase = createClient();
+      // getSession() is local + reliable; getUser() makes a network call that
+      // can transiently return null on a full page load and blank the balance.
       const {
-        data: { user },
-      } = await supabase.auth.getUser();
+        data: { session },
+      } = await supabase.auth.getSession();
+      const user = session?.user;
       if (!user) return;
       const { data } = await supabase
         .from("profiles")
@@ -72,7 +75,8 @@ export default function DashboardPage() {
       });
       // Refresh local balance
       const supabase = createClient();
-      supabase.auth.getUser().then(({ data: { user } }) => {
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        const user = session?.user;
         if (!user) return;
         supabase
           .from("profiles")
@@ -95,7 +99,8 @@ export default function DashboardPage() {
     setActiveOrder(null);
     // Refresh balance after refund
     const supabase = createClient();
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      const user = session?.user;
       if (!user) return;
       supabase
         .from("profiles")
