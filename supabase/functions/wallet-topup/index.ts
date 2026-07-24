@@ -167,17 +167,22 @@ async function handleWebhook(req: Request) {
 
     const { tx_ref, amount, currency, id: flwTransactionId } = event.data;
 
-    // user_id: prefer meta, but Flutterwave's charge.completed webhook often
-    // omits `meta` entirely. tx_ref is always present and encodes the user:
-    // `topup_<userId>_<timestamp>` (userId is a UUID — no underscores).
-    let userId: string | undefined = event.data?.meta?.user_id;
-    if (!userId && typeof tx_ref === "string" && tx_ref.startsWith("topup_")) {
-      const parts = tx_ref.split("_");
-      userId = parts.slice(1, -1).join("_") || undefined;
+    // This webhook is shared (via getpaidly.co) across several apps and the same
+    // payload is forwarded to each. Our wallet top-ups always use the tx_ref
+    // `topup_<userId>_<timestamp>`. Anything else is another app's payment —
+    // acknowledge with 200 and ignore, so it isn't logged as a forward error.
+    if (typeof tx_ref !== "string" || !tx_ref.startsWith("topup_")) {
+      return new Response("OK (not a wallet top-up)", { status: 200 });
     }
 
-    if (!tx_ref || !userId) {
-      console.error("Webhook missing tx_ref or user_id:", event);
+    // Derive user_id from tx_ref (Flutterwave's charge.completed webhook often
+    // omits `meta`); fall back to meta.user_id when present.
+    const userId: string | undefined =
+      event.data?.meta?.user_id ??
+      (tx_ref.split("_").slice(1, -1).join("_") || undefined);
+
+    if (!userId) {
+      console.error("Webhook: could not resolve user from tx_ref:", tx_ref);
       return new Response("Bad payload", { status: 400 });
     }
 
@@ -188,15 +193,19 @@ async function handleWebhook(req: Request) {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    // ── Idempotency: check if already processed ──────────────
-    const { data: existingTx } = await supabase
+    // ── Idempotency: skip if this ref was already credited ───
+    // (robust to multiple rows; credit_balance is also idempotent as a
+    // second line of defense against concurrent/duplicate deliveries.)
+    const { data: alreadyCredited } = await supabase
       .from("transactions")
-      .select("id, status")
+      .select("id")
       .eq("provider_ref", tx_ref)
-      .single();
+      .eq("status", "completed")
+      .limit(1)
+      .maybeSingle();
 
-    if (existingTx?.status === "completed") {
-      // Already credited — Flutterwave sometimes sends duplicate webhooks
+    if (alreadyCredited) {
+      console.log("wallet-topup/webhook: already credited, skipping", { tx_ref });
       return new Response("OK", { status: 200 });
     }
 
@@ -237,14 +246,14 @@ async function handleWebhook(req: Request) {
       return new Response("Credit failed", { status: 500 });
     }
 
-    // ── Update the pending transaction to completed ──────────
+    // credit_balance completes the pending placeholder row in place (see
+    // migration) — no separate status flip needed here, which is what used
+    // to create a duplicate row. Just attach the verified provider metadata.
     await supabase
       .from("transactions")
-      .update({
-        status: "completed",
-        provider_meta: verifyJson.data,
-      })
-      .eq("provider_ref", tx_ref);
+      .update({ provider_meta: verifyJson.data })
+      .eq("provider_ref", tx_ref)
+      .eq("status", "completed");
 
     console.log("wallet-topup/webhook: credited", { tx_ref, userId, verifiedAmount });
     return new Response("OK", { status: 200 });

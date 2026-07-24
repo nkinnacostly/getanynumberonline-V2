@@ -21,21 +21,17 @@ export async function POST(request: Request) {
 
     const supabase = await createClient();
 
-    const { data: existing } = await supabase
+    const { data: alreadyCredited } = await supabase
       .from("transactions")
-      .select("id, status")
+      .select("id")
       .eq("provider_ref", tx_ref)
-      .single();
+      .eq("status", "completed")
+      .limit(1)
+      .maybeSingle();
 
-    if (existing?.status === "completed") {
+    if (alreadyCredited) {
       return NextResponse.json({ success: true, already_processed: true });
     }
-
-    console.log("verify-payment: Verifying with Flutterwave", {
-      transaction_id,
-      tx_ref,
-      userId,
-    });
 
     const verifyRes = await fetch(
       `https://api.flutterwave.com/v3/transactions/${transaction_id}/verify`,
@@ -46,11 +42,6 @@ export async function POST(request: Request) {
       },
     );
     const verifyData = await verifyRes.json();
-
-    console.log(
-      "verify-payment: Flutterwave response",
-      JSON.stringify(verifyData, null, 2),
-    );
 
     if (
       verifyData.status !== "success" ||
@@ -80,17 +71,19 @@ export async function POST(request: Request) {
     });
 
     if (creditError) {
+      console.error("verify-payment: credit_balance failed", {
+        creditError,
+        tx_ref,
+        userId,
+      });
       return NextResponse.json(
         { error: "Failed to credit balance" },
         { status: 500 },
       );
     }
 
-    await supabase
-      .from("transactions")
-      .update({ status: "completed" })
-      .eq("provider_ref", tx_ref);
-
+    // credit_balance completes the pending placeholder row in place — no
+    // separate status flip (that used to create a duplicate transaction).
     return NextResponse.json({ success: true, amount });
   } catch (error) {
     return NextResponse.json({ error: "Internal error" }, { status: 500 });
