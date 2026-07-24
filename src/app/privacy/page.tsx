@@ -6,9 +6,9 @@ export default function PrivacyPage() {
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         <Link
           href="/"
-          className="font-mono text-sm text-[#555555] hover:text-[#F5F5F5] transition-colors mb-8 inline-block"
+          className="font-mono text-sm text-muted hover:text-foreground transition-colors mb-8 inline-block"
         >
-          <span className="text-[#00FF94]">&#x2588;</span> getanynumberonline
+          <span className="text-accent">&#x2588;</span> getanynumberonline
         </Link>
 
         <h1 className="text-3xl font-bold mb-2" style={{ color: "#F5F5F5" }}>
@@ -109,7 +109,7 @@ export default function PrivacyPage() {
                 Stores your account data and transaction records.{" "}
                 <a
                   href="https://supabase.com/privacy"
-                  className="text-[#00FF94] hover:underline"
+                  className="text-accent hover:underline"
                   target="_blank"
                   rel="noopener noreferrer"
                 >
@@ -122,14 +122,14 @@ export default function PrivacyPage() {
                 details.{" "}
                 <a
                   href="https://flutterwave.com/privacy"
-                  className="text-[#00FF94] hover:underline"
+                  className="text-accent hover:underline"
                   target="_blank"
                   rel="noopener noreferrer"
                 >
                   Privacy Policy
                 </a>
               </li>
-              <li>
+              {/* <li>
                 <strong>SMSPool</strong> — phone number and SMS delivery
                 provider. Processes your verification requests.{" "}
                 <a
@@ -140,7 +140,7 @@ export default function PrivacyPage() {
                 >
                   Privacy Policy
                 </a>
-              </li>
+              </li> */}
             </ul>
           </section>
 

@@ -11,6 +11,7 @@ import {
 } from "@/lib/rental-api";
 import { useToast } from "@/components/dashboard/Toast";
 import RentalCard, { type RentalRow } from "@/components/dashboard/RentalCard";
+import { useUser } from "@/hooks/useUser";
 import { useRouter } from "next/navigation";
 
 /** Catalog row + stable string id for React keys */
@@ -21,6 +22,7 @@ const DURATIONS = [7, 14, 30, 60] as const;
 export default function RentalsPage() {
   const router = useRouter();
   const { toast } = useToast();
+  const user = useUser();
   const [balance, setBalance] = useState(0);
   const [rentals, setRentals] = useState<RentalRow[]>([]);
   const [loadingList, setLoadingList] = useState(true);
@@ -38,29 +40,19 @@ export default function RentalsPage() {
   const dropRef = useRef<HTMLDivElement>(null);
 
   const loadBalance = useCallback(async () => {
-    const supabase = createClient();
-    // getSession() is local + reliable; getUser() makes a network call that can
-    // transiently return null on a full page load and blank the balance.
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    const user = session?.user;
     if (!user) return;
+    const supabase = createClient();
     const { data } = await supabase
       .from("profiles")
       .select("balance")
       .eq("id", user.id)
       .single();
     if (data) setBalance(Number(data.balance));
-  }, []);
+  }, [user]);
 
   const loadRentals = useCallback(async () => {
-    const supabase = createClient();
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    const user = session?.user;
     if (!user) return;
+    const supabase = createClient();
     const { data } = await supabase
       .from("rentals")
       .select(
@@ -70,7 +62,7 @@ export default function RentalsPage() {
       .eq("status", "active")
       .order("created_at", { ascending: false });
     if (data) setRentals(data as RentalRow[]);
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     loadBalance();

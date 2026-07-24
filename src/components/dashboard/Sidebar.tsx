@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { useUser } from "@/hooks/useUser";
 import BalanceChip from "./BalanceChip";
 
 interface SidebarProps {
@@ -97,24 +98,19 @@ export default function Sidebar({
 }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
+  const user = useUser();
   const [balance, setBalance] = useState(initialBalance);
 
   const refreshBalance = useCallback(async () => {
-    const supabase = createClient();
-    // getSession() is local + reliable; getUser() makes a network call that can
-    // transiently fail right after the Flutterwave redirect and blank the balance.
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    const user = session?.user;
     if (!user) return;
+    const supabase = createClient();
     const { data } = await supabase
       .from("profiles")
       .select("balance")
       .eq("id", user.id)
       .single();
     if (data) setBalance(data.balance);
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     refreshBalance();

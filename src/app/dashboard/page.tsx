@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { useUser } from "@/hooks/useUser";
 import OrderForm from "@/components/dashboard/OrderForm";
 import ActiveOrder from "@/components/dashboard/ActiveOrder";
 
@@ -16,44 +17,24 @@ interface Order {
 }
 
 export default function DashboardPage() {
+  const user = useUser();
   const [activeOrder, setActiveOrder] = useState<Order | null>(null);
   const [balance, setBalance] = useState(0);
 
+  const fetchBalance = useCallback(async () => {
+    if (!user) return;
+    const supabase = createClient();
+    const { data } = await supabase
+      .from("profiles")
+      .select("balance")
+      .eq("id", user.id)
+      .single();
+    if (data) setBalance(data.balance);
+  }, [user]);
+
   useEffect(() => {
-    const fetchBalance = async () => {
-      const supabase = createClient();
-      // getSession() is local + reliable; getUser() makes a network call that
-      // can transiently return null on a full page load and blank the balance.
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      const user = session?.user;
-      if (!user) return;
-      const { data } = await supabase
-        .from("profiles")
-        .select("balance")
-        .eq("id", user.id)
-        .single();
-      if (data) setBalance(data.balance);
-    };
     fetchBalance();
-
-    // Listen for balance refreshes from sidebar
-    const orig = (window as unknown as { __refreshBalance?: () => void })
-      .__refreshBalance;
-    const wrapped = () => {
-      if (orig) orig();
-      fetchBalance();
-    };
-    (
-      window as unknown as { __onBalanceRefresh?: () => void }
-    ).__onBalanceRefresh = fetchBalance;
-
-    return () => {
-      delete (window as unknown as { __onBalanceRefresh?: () => void })
-        .__onBalanceRefresh;
-    };
-  }, []);
+  }, [fetchBalance]);
 
   const handleOrder = useCallback(
     (order: {
@@ -73,22 +54,9 @@ export default function DashboardPage() {
         expires_at: order.expires_at,
         status: "active",
       });
-      // Refresh local balance
-      const supabase = createClient();
-      supabase.auth.getSession().then(({ data: { session } }) => {
-        const user = session?.user;
-        if (!user) return;
-        supabase
-          .from("profiles")
-          .select("balance")
-          .eq("id", user.id)
-          .single()
-          .then(({ data }) => {
-            if (data) setBalance(data.balance);
-          });
-      });
+      fetchBalance();
     },
-    [],
+    [fetchBalance],
   );
 
   const handleOrderComplete = useCallback(() => {
@@ -97,21 +65,8 @@ export default function DashboardPage() {
 
   const handleOrderCancelled = useCallback(() => {
     setActiveOrder(null);
-    // Refresh balance after refund
-    const supabase = createClient();
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      const user = session?.user;
-      if (!user) return;
-      supabase
-        .from("profiles")
-        .select("balance")
-        .eq("id", user.id)
-        .single()
-        .then(({ data }) => {
-          if (data) setBalance(data.balance);
-        });
-    });
-  }, []);
+    fetchBalance(); // refresh balance after refund
+  }, [fetchBalance]);
 
   return (
     <div>

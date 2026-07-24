@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { useUser } from "@/hooks/useUser";
 import Link from "next/link";
 
 interface Order {
@@ -36,6 +37,7 @@ interface Message {
 type Tab = "orders" | "rentals";
 
 export default function HistoryPage() {
+  const user = useUser();
   const [tab, setTab] = useState<Tab>("orders");
   const [orders, setOrders] = useState<Order[]>([]);
   const [rentals, setRentals] = useState<RentalHist[]>([]);
@@ -44,17 +46,10 @@ export default function HistoryPage() {
   const [messages, setMessages] = useState<Record<string, Message | null>>({});
 
   useEffect(() => {
+    if (!user) return;
     const load = async () => {
       const supabase = createClient();
       try {
-        // getSession() is local + reliable; getUser() makes a network call that
-        // can transiently return null on a full page load and blank the page.
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
-        const user = session?.user;
-        if (!user) return;
-
         const [oRes, rRes] = await Promise.all([
           supabase
             .from("orders")
@@ -79,7 +74,7 @@ export default function HistoryPage() {
       }
     };
     load();
-  }, []);
+  }, [user]);
 
   const toggleRow = async (order: Order) => {
     if (expandedId === order.id) {

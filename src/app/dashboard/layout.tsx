@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import Sidebar from "@/components/dashboard/Sidebar";
 import { ToastProvider } from "@/components/dashboard/Toast";
+import { UserProvider } from "@/hooks/useUser";
 
 export default async function DashboardLayout({
   children,
@@ -22,14 +23,16 @@ export default async function DashboardLayout({
   const initialEmail = user?.email ?? "";
 
   return (
-    <ToastProvider>
-      <div className="min-h-screen" style={{ backgroundColor: "#080808" }}>
-        <Sidebar initialBalance={initialBalance} initialEmail={initialEmail} />
-        {/* Main content — offset by sidebar width on desktop */}
-        <main className="md:ml-[220px] px-4 sm:px-6 lg:px-8 py-8 pb-24 md:pb-8">
-          {children}
-        </main>
-      </div>
-    </ToastProvider>
+    <UserProvider initialUser={user}>
+      <ToastProvider>
+        <div className="min-h-screen" style={{ backgroundColor: "#080808" }}>
+          <Sidebar initialBalance={initialBalance} initialEmail={initialEmail} />
+          {/* Main content — offset by sidebar width on desktop */}
+          <main className="md:ml-[220px] px-4 sm:px-6 lg:px-8 py-8 pb-24 md:pb-8">
+            {children}
+          </main>
+        </div>
+      </ToastProvider>
+    </UserProvider>
   );
 }

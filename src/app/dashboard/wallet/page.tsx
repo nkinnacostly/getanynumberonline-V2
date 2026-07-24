@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { callEdgeFunction } from "@/lib/api";
 import { useToast } from "@/components/dashboard/Toast";
+import { useUser } from "@/hooks/useUser";
 
 interface Transaction {
   id: string;
@@ -20,7 +21,7 @@ const QUICK_AMOUNTS = [5, 10, 20, 50];
 export default function WalletPage() {
   const { toast } = useToast();
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const user = useUser();
   const [balance, setBalance] = useState(0);
   const [amount, setAmount] = useState("");
   const [selectedQuick, setSelectedQuick] = useState<number | null>(null);
@@ -33,17 +34,9 @@ export default function WalletPage() {
   // loading state (even when the session isn't ready), so the history panel
   // can never get stuck on the spinner.
   const loadWallet = useCallback(async (): Promise<number | null> => {
+    if (!user) return null;
     const supabase = createClient();
     try {
-      // Use getSession() (local, reliable) rather than getUser() (network) —
-      // right after the cross-domain Flutterwave redirect getUser() can
-      // transiently return null and blank the whole page.
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      const user = session?.user;
-      if (!user) return null;
-
       const [{ data: profile }, { data: txs }] = await Promise.all([
         supabase.from("profiles").select("balance").eq("id", user.id).single(),
         supabase
@@ -68,7 +61,7 @@ export default function WalletPage() {
     } finally {
       setLoadingTx(false);
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => {
     loadWallet();
