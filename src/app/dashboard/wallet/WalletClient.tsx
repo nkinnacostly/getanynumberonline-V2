@@ -1,9 +1,14 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { callEdgeFunction } from "@/lib/api";
+import {
+  FlutterWaveButton,
+  closePaymentModal,
+  FlutterWaveTypes,
+} from "flutterwave-react-v3";
 import { useToast } from "@/components/dashboard/Toast";
+import { useUser } from "@/hooks/useUser";
 
 export interface Transaction {
   id: string;
@@ -32,10 +37,73 @@ export default function WalletClient({
 }) {
   const { toast } = useToast();
   const router = useRouter();
+  const user = useUser();
   const [amount, setAmount] = useState("");
   const [selectedQuick, setSelectedQuick] = useState<number | null>(null);
-  const [loading, setLoading] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  // Bumped after each payment attempt so the next one gets a fresh tx_ref.
+  const [payNonce, setPayNonce] = useState(0);
+
+  const amountNum = parseFloat(amount);
+  const canPay = !!user && amountNum >= 1 && amountNum <= 500;
+
+  // tx_ref MUST match the `topup_<userId>_<ts>` format the webhook /
+  // verify-payment parse. Regenerated when the amount changes or after an
+  // attempt, so each charge is unique.
+  const txRef = useMemo(
+    () => (user ? `topup_${user.id}_${Date.now()}` : ""),
+    [user, amount, payNonce],
+  );
+
+  const flwConfig: FlutterWaveTypes.FlutterwaveConfig = {
+    public_key: process.env.NEXT_PUBLIC_FLUTTERWAVE_PUBLIC_KEY!,
+    tx_ref: txRef,
+    amount: amountNum || 0,
+    currency: "USD",
+    payment_options: "card",
+    customer: {
+      email: user?.email ?? "",
+      phone_number: "",
+      name: user?.email ?? "",
+    },
+    customizations: {
+      title: "Wallet Top-up",
+      description: "Add funds to your SMS verification wallet",
+      logo: "",
+    },
+    meta: { user_id: user?.id ?? "" },
+  };
+
+  // Fires in-page when the Flutterwave modal completes — no page reload, so the
+  // browser session stays intact (this is what the old redirect broke).
+  const handlePaid = async (response: FlutterWaveTypes.FlutterWaveResponse) => {
+    closePaymentModal();
+    setPayNonce((n) => n + 1);
+
+    const paid =
+      response.status === "successful" || response.status === "completed";
+    if (!paid) {
+      toast("Payment was not completed", "error");
+      return;
+    }
+
+    // Server-side verify + credit (never trust the client-reported status).
+    try {
+      await fetch("/api/verify-payment", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          transaction_id: response.transaction_id,
+          tx_ref: response.tx_ref,
+        }),
+      });
+    } catch (err) {
+      console.error("verify-payment call failed:", err);
+    }
+
+    // Re-fetch server-rendered balance + transactions (in-page).
+    router.refresh();
+  };
 
   const balance = initialBalance;
   const transactions = initialTransactions;
@@ -110,26 +178,6 @@ export default function WalletClient({
   const handleAmountChange = (val: string) => {
     setAmount(val);
     setSelectedQuick(QUICK_AMOUNTS.includes(Number(val)) ? Number(val) : null);
-  };
-
-  const handleTopUp = async () => {
-    const num = parseFloat(amount);
-    if (!num || num < 1 || num > 500) {
-      toast("Enter an amount between $1 and $500", "error");
-      return;
-    }
-    setLoading(true);
-    try {
-      const data = await callEdgeFunction("wallet-topup?action=initiate", {
-        amount: parseFloat(amount),
-      });
-      if (!data.payment_link) throw new Error("No payment link returned");
-      window.location.href = data.payment_link;
-    } catch (err) {
-      toast(err instanceof Error ? err.message : "Top-up failed", "error");
-    } finally {
-      setLoading(false);
-    }
   };
 
   const formatDate = (d: string) => {
@@ -226,27 +274,23 @@ export default function WalletClient({
           onBlur={(e) => (e.target.style.borderColor = "#1A1A1A")}
         />
 
-        <button
-          onClick={handleTopUp}
-          disabled={loading || !amount}
-          className="w-full py-3 rounded-lg font-semibold text-sm transition-colors disabled:opacity-40"
-          style={{ backgroundColor: "#00FF94", color: "#080808" }}
-        >
-          {loading ? (
-            <span className="flex items-center justify-center gap-2">
-              <span
-                className="auth-spinner"
-                style={{
-                  borderColor: "#080808",
-                  borderTopColor: "transparent",
-                }}
-              />
-              Processing...
-            </span>
-          ) : (
-            "Top up with Flutterwave →"
-          )}
-        </button>
+        {canPay ? (
+          <FlutterWaveButton
+            {...flwConfig}
+            text="Top up with Flutterwave →"
+            className="w-full py-3 rounded-lg font-semibold text-sm bg-[#00FF94] text-[#080808]"
+            callback={handlePaid}
+            onClose={() => {}}
+          />
+        ) : (
+          <button
+            disabled
+            className="w-full py-3 rounded-lg font-semibold text-sm opacity-40"
+            style={{ backgroundColor: "#00FF94", color: "#080808" }}
+          >
+            Top up with Flutterwave →
+          </button>
+        )}
       </div>
 
       {/* Transaction History */}
