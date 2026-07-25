@@ -2,9 +2,8 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { closePaymentModal } from "flutterwave-react-v3";
-import { useToast } from "@/components/dashboard/Toast";
-import { useUser } from "@/hooks/useUser";
+import Pager from "@/components/dashboard/Pager";
+import TopupButton from "@/components/dashboard/TopupButton";
 
 export interface Transaction {
   id: string;
@@ -15,102 +14,48 @@ export interface Transaction {
   note: string | null;
 }
 
-interface FlutterwaveResponse {
-  status?: string;
-  tx_ref?: string;
-  transaction_id?: number;
-}
-
-// Flutterwave's inline checkout, loaded from https://checkout.flutterwave.com/v3.js.
-// We call this global directly instead of the flutterwave-react-v3 wrapper,
-// whose <FlutterWaveButton>/useFlutterwave silently fail to open the modal on
-// Next.js (known issue: github.com/Flutterwave/React-v3/issues/8).
-type FlutterwaveCheckoutFn = (config: Record<string, unknown>) => void;
+export type TxFilter = "all" | "topup" | "deduction" | "refund";
 
 const QUICK_AMOUNTS = [5, 10, 20, 50];
-const FLW_SCRIPT = "https://checkout.flutterwave.com/v3.js";
+
+const FILTER_TABS: { id: TxFilter; label: string }[] = [
+  { id: "all", label: "All" },
+  { id: "topup", label: "Top-ups" },
+  { id: "deduction", label: "Purchases" },
+  { id: "refund", label: "Refunds" },
+];
 
 /**
  * Balance + transactions are supplied by the server component (parent), so the
- * display works even when the client Supabase session is briefly unavailable —
- * e.g. right after a payment. router.refresh() re-runs the server fetch and
- * updates these props.
+ * display works even when the client Supabase session is briefly unavailable.
+ * router.refresh() (inside useTopup) re-runs the server fetch and updates props.
  */
 export default function WalletClient({
   initialBalance,
   initialTransactions,
+  total,
+  page,
+  pageSize,
+  filter,
 }: {
   initialBalance: number;
   initialTransactions: Transaction[];
+  total: number;
+  page: number;
+  pageSize: number;
+  filter: TxFilter;
 }) {
-  const { toast } = useToast();
   const router = useRouter();
-  const user = useUser();
   const [amount, setAmount] = useState("");
   const [selectedQuick, setSelectedQuick] = useState<number | null>(null);
   const [showSuccess, setShowSuccess] = useState(false);
-  const [scriptReady, setScriptReady] = useState(false);
-  const [scriptError, setScriptError] = useState(false);
-  // "opening" = clicked, waiting for the Flutterwave modal to actually appear.
-  const [opening, setOpening] = useState(false);
-  const openWatch = useRef<ReturnType<typeof setInterval> | null>(null);
-  const openTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const stopOpening = () => {
-    setOpening(false);
-    if (openWatch.current) {
-      clearInterval(openWatch.current);
-      openWatch.current = null;
-    }
-    if (openTimeout.current) {
-      clearTimeout(openTimeout.current);
-      openTimeout.current = null;
-    }
-  };
-
-  useEffect(() => {
-    return () => {
-      if (openWatch.current) clearInterval(openWatch.current);
-      if (openTimeout.current) clearTimeout(openTimeout.current);
-    };
-  }, []);
-
-  const publicKey = process.env.NEXT_PUBLIC_FLUTTERWAVE_PUBLIC_KEY;
   const amountNum = parseFloat(amount);
   const validAmount = amountNum >= 5 && amountNum <= 500;
-
   const balance = initialBalance;
   const transactions = initialTransactions;
 
-  // Load Flutterwave's checkout script up front so the modal opens instantly on
-  // click, and so a blocked/failed load surfaces as an error, never a dead button.
-  useEffect(() => {
-    const w = window as unknown as { FlutterwaveCheckout?: FlutterwaveCheckoutFn };
-    if (typeof w.FlutterwaveCheckout === "function") {
-      setScriptReady(true);
-      return;
-    }
-    let s = document.querySelector<HTMLScriptElement>(
-      `script[src="${FLW_SCRIPT}"]`,
-    );
-    const onLoad = () => setScriptReady(true);
-    const onError = () => setScriptError(true);
-    if (!s) {
-      s = document.createElement("script");
-      s.src = FLW_SCRIPT;
-      s.async = true;
-      document.body.appendChild(s);
-    }
-    s.addEventListener("load", onLoad);
-    s.addEventListener("error", onError);
-    return () => {
-      s?.removeEventListener("load", onLoad);
-      s?.removeEventListener("error", onError);
-    };
-  }, []);
-
-  // Show the success banner whenever a credit lands (balance goes up after a
-  // refresh), covering both the instant verify and the delayed webhook.
+  // Show the success banner whenever a credit lands (balance goes up).
   const seenBalance = useRef(initialBalance);
   useEffect(() => {
     if (initialBalance > seenBalance.current) {
@@ -121,98 +66,9 @@ export default function WalletClient({
     }
   }, [initialBalance]);
 
-  // Fires in-page when the modal completes — no reload, so the browser session
-  // stays intact (this is what the old redirect broke).
-  const handlePaid = async (response: FlutterwaveResponse) => {
-    // Dismiss the Flutterwave modal — when calling FlutterwaveCheckout directly
-    // it does not auto-close on completion.
-    closePaymentModal();
-    stopOpening();
-
-    const paid =
-      response.status === "successful" || response.status === "completed";
-    if (!paid) {
-      toast("Payment was not completed", "error");
-      return;
-    }
-
-    // Reset the input now that the payment went through.
+  const handleFunded = () => {
     setAmount("");
     setSelectedQuick(null);
-    // Server-side verify + credit (never trust the client-reported status).
-    try {
-      await fetch("/api/verify-payment", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          transaction_id: response.transaction_id,
-          tx_ref: response.tx_ref,
-        }),
-      });
-    } catch (err) {
-      console.error("verify-payment call failed:", err);
-    }
-    // Re-fetch server-rendered balance + transactions (in-page).
-    router.refresh();
-  };
-
-  const openCheckout = () => {
-    if (!user || !user.email) {
-      toast("Please sign in again to add funds", "error");
-      return;
-    }
-    if (!publicKey) {
-      toast("Payments are temporarily unavailable", "error");
-      return;
-    }
-    if (!validAmount) {
-      toast("Enter an amount between $5 and $500", "error");
-      return;
-    }
-    const w = window as unknown as {
-      FlutterwaveCheckout?: FlutterwaveCheckoutFn;
-    };
-    if (typeof w.FlutterwaveCheckout !== "function") {
-      toast("Payment window is still loading — try again in a moment", "error");
-      return;
-    }
-
-    setOpening(true);
-    try {
-      w.FlutterwaveCheckout({
-        public_key: publicKey,
-        // tx_ref MUST match the topup_<userId>_<ts> format verify-payment parses.
-        tx_ref: `topup_${user.id}_${Date.now()}`,
-        amount: amountNum,
-        currency: "USD",
-        payment_options: "card",
-        customer: {
-          email: user.email,
-          phone_number: "",
-          name: user.email,
-        },
-        customizations: {
-          title: "Wallet Top-up",
-          description: "Add funds to your SMS verification wallet",
-          logo: "",
-        },
-        meta: { user_id: user.id },
-        callback: handlePaid,
-        onclose: stopOpening,
-      });
-    } catch (err) {
-      console.error("Flutterwave open failed:", err);
-      stopOpening();
-      toast("Couldn't open the payment window. Please try again.", "error");
-      return;
-    }
-
-    // Hide the button spinner the moment the modal iframe is on screen; keep a
-    // safety timeout in case it never appears.
-    openWatch.current = setInterval(() => {
-      if (document.getElementsByName("checkout").length > 0) stopOpening();
-    }, 150);
-    openTimeout.current = setTimeout(stopOpening, 8000);
   };
 
   const handleQuick = (val: number) => {
@@ -225,24 +81,38 @@ export default function WalletClient({
     setSelectedQuick(QUICK_AMOUNTS.includes(Number(val)) ? Number(val) : null);
   };
 
-  const formatDate = (d: string) => {
-    return new Date(d).toLocaleDateString("en-US", {
+  const formatDate = (d: string) =>
+    new Date(d).toLocaleDateString("en-US", {
       month: "short",
       day: "numeric",
       hour: "2-digit",
       minute: "2-digit",
     });
-  };
 
-  const badgeColor = (type: string) => {
+  const badge = (type: string) => {
     if (type === "topup")
-      return { bg: "#0A1F0A", color: "#00FF94", border: "#00FF94" };
+      return { bg: "#0A1F0A", color: "#00FF94", border: "rgba(0,255,148,0.32)" };
     if (type === "deduction")
-      return { bg: "#1A0000", color: "#FF4444", border: "#FF4444" };
-    return { bg: "#1A1500", color: "#F5A623", border: "#F5A623" }; // refund
+      return { bg: "#1A0000", color: "#FF4444", border: "rgba(255,68,68,0.32)" };
+    return { bg: "#1A1500", color: "#F5A623", border: "rgba(245,166,35,0.32)" };
   };
 
-  const disabled = !validAmount || scriptError || !publicKey || opening;
+  // Server-side filter + pagination via the URL (survives the flaky client
+  // session, and works for any number of transactions).
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const buildQuery = (next: { type?: TxFilter; page?: number }) => {
+    const t = next.type ?? filter;
+    const p = next.page ?? page;
+    const params = new URLSearchParams();
+    if (t !== "all") params.set("type", t);
+    if (p > 1) params.set("page", String(p));
+    const qs = params.toString();
+    return `/dashboard/wallet${qs ? `?${qs}` : ""}`;
+  };
+  const goFilter = (t: TxFilter) => router.push(buildQuery({ type: t, page: 1 }));
+  const goPage = (p: number) => router.push(buildQuery({ page: p }));
+  const filterLabel =
+    FILTER_TABS.find((f) => f.id === filter)?.label.toLowerCase() ?? "";
 
   return (
     <div className="max-w-3xl">
@@ -282,7 +152,6 @@ export default function WalletClient({
           Add funds
         </h2>
 
-        {/* Quick amounts */}
         <div className="flex gap-2 mb-4">
           {QUICK_AMOUNTS.map((val) => (
             <button
@@ -300,7 +169,6 @@ export default function WalletClient({
           ))}
         </div>
 
-        {/* Manual input */}
         <label className="block text-xs mb-1.5" style={{ color: "#555555" }}>
           Or enter amount (min $5)
         </label>
@@ -321,144 +189,121 @@ export default function WalletClient({
           onBlur={(e) => (e.target.style.borderColor = "#1A1A1A")}
         />
 
-        <button
-          onClick={openCheckout}
-          disabled={disabled}
+        <TopupButton
+          amount={amountNum}
+          label="Top up with Flutterwave →"
+          openingLabel="Opening payment…"
+          loadingLabel="Loading payment…"
+          onFunded={handleFunded}
+          disabled={!validAmount}
           className="w-full py-3 rounded-lg font-semibold text-sm transition-colors disabled:opacity-40"
           style={{ backgroundColor: "#00FF94", color: "#080808" }}
-        >
-          {opening ? (
-            <span className="flex items-center justify-center gap-2">
-              <span
-                className="auth-spinner"
-                style={{
-                  borderColor: "#080808",
-                  borderTopColor: "transparent",
-                }}
-              />
-              Opening payment…
-            </span>
-          ) : !scriptReady && validAmount ? (
-            "Loading payment…"
-          ) : (
-            "Top up with Flutterwave →"
-          )}
-        </button>
-
-        {!publicKey && (
-          <p className="mt-2 text-xs" style={{ color: "#FF4444" }}>
-            Payments are temporarily unavailable — missing configuration.
-          </p>
-        )}
-        {scriptError && (
-          <p className="mt-2 text-xs" style={{ color: "#FF4444" }}>
-            Couldn&apos;t load the payment window. Disable ad-blockers / browser
-            shields for this site and try again.
-          </p>
-        )}
+        />
       </div>
 
-      {/* Transaction History */}
+      {/* Transaction history — responsive card rows (no sideways scroll) */}
       <div>
-        <h2 className="text-lg font-semibold mb-4" style={{ color: "#F5F5F5" }}>
-          Transaction history
-        </h2>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+          <h2 className="text-lg font-semibold" style={{ color: "#F5F5F5" }}>
+            Transaction history
+          </h2>
+          <div className="flex gap-2 flex-wrap">
+            {FILTER_TABS.map((f) => {
+              const active = f.id === filter;
+              return (
+                <button
+                  key={f.id}
+                  onClick={() => goFilter(f.id)}
+                  className="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
+                  style={{
+                    backgroundColor: active ? "#141414" : "transparent",
+                    color: active ? "#00FF94" : "#888888",
+                    border: `1px solid ${active ? "#00FF94" : "#1A1A1A"}`,
+                  }}
+                >
+                  {f.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
 
         {transactions.length === 0 ? (
           <p className="text-sm py-8 text-center" style={{ color: "#555555" }}>
-            No transactions yet
+            {filter === "all"
+              ? "No transactions yet"
+              : `No ${filterLabel} yet`}
           </p>
         ) : (
           <div
             className="rounded-xl overflow-hidden"
             style={{ border: "1px solid #1A1A1A" }}
           >
-            <table className="w-full text-[13px]">
-              <thead>
-                <tr style={{ backgroundColor: "#0F0F0F" }}>
-                  <th
-                    className="text-left py-3 px-4 font-medium"
-                    style={{ color: "#555555" }}
-                  >
-                    Date
-                  </th>
-                  <th
-                    className="text-left py-3 px-4 font-medium"
-                    style={{ color: "#555555" }}
-                  >
-                    Type
-                  </th>
-                  <th
-                    className="text-right py-3 px-4 font-medium"
-                    style={{ color: "#555555" }}
-                  >
-                    Amount
-                  </th>
-                  <th
-                    className="text-right py-3 px-4 font-medium hidden sm:table-cell"
-                    style={{ color: "#555555" }}
-                  >
-                    Balance
-                  </th>
-                  <th
-                    className="text-left py-3 px-4 font-medium hidden md:table-cell"
-                    style={{ color: "#555555" }}
-                  >
-                    Note
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {transactions.map((tx) => {
-                  const badge = badgeColor(tx.type);
-                  const isPositive =
-                    tx.type === "topup" || tx.type === "refund";
-                  return (
-                    <tr key={tx.id} style={{ borderTop: "1px solid #1A1A1A" }}>
-                      <td
-                        className="py-3 px-4 font-mono"
+            {transactions.map((tx, i) => {
+              const b = badge(tx.type);
+              const positive = tx.type === "topup" || tx.type === "refund";
+              const label =
+                tx.type === "topup"
+                  ? "Wallet top-up"
+                  : tx.type === "refund"
+                    ? "Refund"
+                    : "Number purchase";
+              return (
+                <div
+                  key={tx.id}
+                  className="flex items-center justify-between gap-3 px-4 py-3.5"
+                  style={{
+                    borderTop: i === 0 ? "none" : "1px solid #1A1A1A",
+                    backgroundColor: "#0F0F0F",
+                  }}
+                >
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span
+                        className="inline-block px-2 py-0.5 rounded text-[10px] font-mono font-medium uppercase"
+                        style={{
+                          backgroundColor: b.bg,
+                          color: b.color,
+                          border: `1px solid ${b.border}`,
+                        }}
+                      >
+                        {tx.type}
+                      </span>
+                      <span
+                        className="text-[13px] truncate"
                         style={{ color: "#F5F5F5" }}
                       >
-                        {formatDate(tx.created_at)}
-                      </td>
-                      <td className="py-3 px-4">
-                        <span
-                          className="inline-block px-2 py-0.5 rounded text-[11px] font-mono font-medium"
-                          style={{
-                            backgroundColor: badge.bg,
-                            color: badge.color,
-                            border: `1px solid ${badge.border}`,
-                          }}
-                        >
-                          {tx.type}
-                        </span>
-                      </td>
-                      <td
-                        className="py-3 px-4 text-right font-mono"
-                        style={{ color: isPositive ? "#00FF94" : "#FF4444" }}
-                      >
-                        {isPositive ? "+" : "-"}$
-                        {Math.abs(tx.amount).toFixed(2)}
-                      </td>
-                      <td
-                        className="py-3 px-4 text-right font-mono hidden sm:table-cell"
-                        style={{ color: "#F5F5F5" }}
-                      >
-                        ${tx.balance_after.toFixed(2)}
-                      </td>
-                      <td
-                        className="py-3 px-4 hidden md:table-cell"
-                        style={{ color: "#555555" }}
-                      >
-                        {tx.note || "—"}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                        {tx.note || label}
+                      </span>
+                    </div>
+                    <div
+                      className="font-mono text-[11px] mt-1"
+                      style={{ color: "#555555" }}
+                    >
+                      {formatDate(tx.created_at)}
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <div
+                      className="font-mono text-sm"
+                      style={{ color: positive ? "#00FF94" : "#FF4444" }}
+                    >
+                      {positive ? "+" : "-"}${Math.abs(tx.amount).toFixed(2)}
+                    </div>
+                    <div
+                      className="font-mono text-[11px] mt-1"
+                      style={{ color: "#555555" }}
+                    >
+                      bal ${tx.balance_after.toFixed(2)}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
+
+        <Pager page={page} totalPages={totalPages} onPage={goPage} />
       </div>
     </div>
   );

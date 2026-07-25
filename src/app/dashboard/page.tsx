@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useUser } from "@/hooks/useUser";
 import OrderForm from "@/components/dashboard/OrderForm";
 import ActiveOrder from "@/components/dashboard/ActiveOrder";
+import FirstRunGuide from "@/components/dashboard/FirstRunGuide";
 
 interface Order {
   order_id: string;
@@ -20,6 +21,9 @@ export default function DashboardPage() {
   const user = useUser();
   const [activeOrder, setActiveOrder] = useState<Order | null>(null);
   const [balance, setBalance] = useState(0);
+  // null = unknown yet; only decide "brand new" once we've confirmed no activity,
+  // so existing users never see the welcome flash.
+  const [hasActivity, setHasActivity] = useState<boolean | null>(null);
 
   const fetchBalance = useCallback(async () => {
     if (!user) return;
@@ -35,6 +39,19 @@ export default function DashboardPage() {
   useEffect(() => {
     fetchBalance();
   }, [fetchBalance]);
+
+  useEffect(() => {
+    if (!user) return;
+    const supabase = createClient();
+    supabase
+      .from("transactions")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", user.id)
+      .then(({ count }) => setHasActivity((count ?? 0) > 0));
+  }, [user]);
+
+  // Brand-new user: no money in, nothing done yet, nothing in flight.
+  const showGuide = hasActivity === false && balance === 0 && !activeOrder;
 
   const handleOrder = useCallback(
     (order: {
@@ -73,9 +90,14 @@ export default function DashboardPage() {
       <h1 className="text-2xl font-bold mb-6" style={{ color: "#F5F5F5" }}>
         GetAnyNumberOnline
       </h1>
+      {showGuide && <FirstRunGuide onFunded={fetchBalance} />}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div>
-          <OrderForm onOrder={handleOrder} balance={balance} />
+          <OrderForm
+            onOrder={handleOrder}
+            balance={balance}
+            onFunded={fetchBalance}
+          />
         </div>
         <div>
           <ActiveOrder

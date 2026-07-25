@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { callEdgeFunction, fetchSMSPool } from "@/lib/api";
 import { useToast } from "@/components/dashboard/Toast";
+import { useTopup } from "@/hooks/useTopup";
 
 interface Service {
   ID: string;
@@ -24,6 +25,8 @@ interface OrderFormProps {
     expires_at: string;
   }) => void;
   balance: number;
+  /** Called after an inline top-up so the parent can refresh the balance. */
+  onFunded?: () => void;
 }
 
 const POPULAR_SERVICES = [
@@ -55,9 +58,14 @@ function applyMarkup(raw: number): number {
   return Math.ceil(raw * (1 + m) * 100) / 100;
 }
 
-export default function OrderForm({ onOrder, balance }: OrderFormProps) {
+export default function OrderForm({
+  onOrder,
+  balance,
+  onFunded,
+}: OrderFormProps) {
   const router = useRouter();
   const { toast } = useToast();
+  const topup = useTopup();
   const [services, setServices] = useState<Service[]>([]);
   const [countries, setCountries] = useState<Country[]>([]);
   const [selectedService, setSelectedService] = useState<Service | null>(null);
@@ -139,13 +147,16 @@ export default function OrderForm({ onOrder, balance }: OrderFormProps) {
   );
 
   const insufficientBalance = price !== null && price > balance;
+  // Smallest allowed top-up (min $5) that covers the shortfall.
+  const fundAmount = Math.min(
+    500,
+    Math.max(5, Math.ceil((price ?? 0) - balance)),
+  );
+  const startFunding = () =>
+    topup.open(fundAmount, { onFunded: () => onFunded?.() });
 
   const handleOrder = async () => {
     if (!selectedService || !selectedCountry || price === null) return;
-    if (insufficientBalance) {
-      router.push("/dashboard/wallet");
-      return;
-    }
 
     setLoading(true);
     setError(null);
@@ -376,30 +387,92 @@ export default function OrderForm({ onOrder, balance }: OrderFormProps) {
           </div>
         )}
 
-        {/* Submit */}
-        <button
-          onClick={handleOrder}
-          disabled={
-            loading || !selectedService || !selectedCountry || price === null
-          }
-          className="w-full h-[44px] rounded-[6px] text-[14px] font-bold transition-opacity disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-          style={{
-            backgroundColor: insufficientBalance ? "transparent" : "#00FF94",
-            color: insufficientBalance ? "#FF4444" : "#080808",
-            border: insufficientBalance ? "1px solid #FF4444" : "none",
-          }}
-        >
-          {loading ? (
-            <>
-              <span className="auth-spinner" />
-              Requesting number...
-            </>
-          ) : insufficientBalance ? (
-            "Insufficient balance — Top up"
-          ) : (
-            "Get Number"
-          )}
-        </button>
+        {/* Submit — or fund inline when the balance is short */}
+        {insufficientBalance ? (
+          <div
+            className="rounded-[6px] p-3"
+            style={{
+              backgroundColor: "#141414",
+              border: "1px solid rgba(245,166,35,0.35)",
+            }}
+          >
+            <p className="text-[13px] mb-3" style={{ color: "#cdd2cf" }}>
+              This number costs{" "}
+              <span className="font-mono" style={{ color: "#F5F5F5" }}>
+                ${price?.toFixed(2)}
+              </span>
+              . You have{" "}
+              <span className="font-mono" style={{ color: "#F5A623" }}>
+                ${balance.toFixed(2)}
+              </span>
+              .
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={startFunding}
+                disabled={
+                  topup.opening || topup.scriptError || !topup.available
+                }
+                className="flex-1 h-[44px] rounded-[6px] text-[14px] font-bold flex items-center justify-center gap-2 disabled:opacity-40"
+                style={{ backgroundColor: "#00FF94", color: "#080808" }}
+              >
+                {topup.opening ? (
+                  <>
+                    <span
+                      className="auth-spinner"
+                      style={{
+                        borderColor: "#080808",
+                        borderTopColor: "transparent",
+                      }}
+                    />
+                    Opening…
+                  </>
+                ) : (
+                  `Add $${fundAmount} & continue`
+                )}
+              </button>
+              <button
+                onClick={() => router.push("/dashboard/wallet")}
+                className="h-[44px] px-4 rounded-[6px] text-[14px] font-medium"
+                style={{
+                  backgroundColor: "transparent",
+                  border: "1px solid #333333",
+                  color: "#F5F5F5",
+                }}
+              >
+                Wallet
+              </button>
+            </div>
+            {!topup.available && (
+              <p className="text-[11px] mt-2" style={{ color: "#FF4444" }}>
+                Payments are temporarily unavailable.
+              </p>
+            )}
+            {topup.scriptError && (
+              <p className="text-[11px] mt-2" style={{ color: "#FF4444" }}>
+                Couldn&apos;t load the payment window. Disable shields and retry.
+              </p>
+            )}
+          </div>
+        ) : (
+          <button
+            onClick={handleOrder}
+            disabled={
+              loading || !selectedService || !selectedCountry || price === null
+            }
+            className="w-full h-[44px] rounded-[6px] text-[14px] font-bold transition-opacity disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            style={{ backgroundColor: "#00FF94", color: "#080808" }}
+          >
+            {loading ? (
+              <>
+                <span className="auth-spinner" />
+                Requesting number...
+              </>
+            ) : (
+              "Get Number"
+            )}
+          </button>
+        )}
       </div>
     </div>
   );
