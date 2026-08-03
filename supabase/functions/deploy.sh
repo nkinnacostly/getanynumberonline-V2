@@ -19,13 +19,17 @@ set -euo pipefail
 FUNCTIONS=(
   cancel-order
   cancel-rental
+  get-esim-catalog
+  get-esim-profile
   get-rental-catalog
   get-rental-pricing
+  order-esim
   order-number
   poll-rental-sms
   poll-sms
   reconcile-topups
   rent-number
+  sync-smspool-catalog
   wallet-topup
 )
 

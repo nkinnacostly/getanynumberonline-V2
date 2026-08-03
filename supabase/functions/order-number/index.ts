@@ -12,6 +12,7 @@
 // ============================================================
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { resolveName } from "../_shared/smspool-names.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -119,7 +120,19 @@ Deno.serve(async (req) => {
     }
 
     // --------------------------------------------------------
-    // 5. Atomically deduct balance + create order
+    // 5. Resolve human-readable names. SMSPool's price/purchase responses only
+    // carry numeric IDs, so the *_name columns must be filled from the catalog
+    // lists — otherwise we'd store the ID (e.g. "1734") as the display name.
+    // Falls back to the ID only if the catalog is unreachable, so an order is
+    // never blocked by naming.
+    // --------------------------------------------------------
+    const [serviceName, countryName] = await Promise.all([
+      resolveName(supabase, smsPoolKey, "service", service),
+      resolveName(supabase, smsPoolKey, "country", country),
+    ]);
+
+    // --------------------------------------------------------
+    // 6. Atomically deduct balance + create order
     // This uses FOR UPDATE locking — race-condition safe
     // --------------------------------------------------------
     const { data: orderId, error: deductError } = await supabase.rpc(
@@ -128,9 +141,9 @@ Deno.serve(async (req) => {
         p_user_id: user.id,
         p_cost: cost,
         p_country: country,
-        p_country_name: priceJson.country_name ?? country,
+        p_country_name: countryName ?? priceJson.country_name ?? country,
         p_service: service,
-        p_service_name: priceJson.service_name ?? service,
+        p_service_name: serviceName ?? priceJson.service_name ?? service,
         p_pool: pool ?? null,
       },
     );
@@ -148,7 +161,7 @@ Deno.serve(async (req) => {
     }
 
     // --------------------------------------------------------
-    // 6. Purchase number from SMSPool
+    // 7. Purchase number from SMSPool
     // If this fails, we refund the user
     // --------------------------------------------------------
     const orderData = new FormData();
@@ -191,7 +204,7 @@ Deno.serve(async (req) => {
     }
 
     // --------------------------------------------------------
-    // 7. Store the SMSPool order details
+    // 8. Store the SMSPool order details
     // --------------------------------------------------------
     await supabase.rpc("update_order_smspool_details", {
       p_order_id: orderId,
@@ -200,14 +213,16 @@ Deno.serve(async (req) => {
     });
 
     // --------------------------------------------------------
-    // 8. Return to client
+    // 9. Return to client
     // --------------------------------------------------------
     return jsonResponse({
       success: true,
       order_id: orderId,
       phone_number: orderJson.number,
       service,
+      service_name: serviceName ?? priceJson.service_name ?? service,
       country,
+      country_name: countryName ?? priceJson.country_name ?? country,
       cost,
       expires_at: new Date(Date.now() + 20 * 60 * 1000).toISOString(),
     });

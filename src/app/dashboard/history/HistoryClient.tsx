@@ -6,7 +6,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import Pager from "@/components/dashboard/Pager";
 
-export type HistoryTab = "orders" | "rentals";
+export type HistoryTab = "orders" | "rentals" | "esims";
 
 export interface OrderRow {
   id: string;
@@ -14,8 +14,6 @@ export interface OrderRow {
   created_at: string;
   service_name: string | null;
   country_name: string | null;
-  service: string;
-  country: string;
   phone_number: string | null;
   status: string;
   cost: number;
@@ -28,6 +26,17 @@ export interface RentalRow {
   country_name: string | null;
   phone_number: string | null;
   days: number;
+  status: string;
+  cost: number;
+}
+
+export interface EsimHistoryRow {
+  id: string;
+  created_at: string;
+  country_name: string | null;
+  country: string | null;
+  data_gb: number | null;
+  duration_days: number | null;
   status: string;
   cost: number;
 }
@@ -51,6 +60,13 @@ const STATUS_TABS: Record<HistoryTab, { id: string; label: string }[]> = {
     { id: "expired", label: "Expired" },
     { id: "cancelled", label: "Cancelled" },
   ],
+  esims: [
+    { id: "all", label: "All" },
+    { id: "active", label: "Active" },
+    { id: "expired", label: "Expired" },
+    { id: "archived", label: "Archived" },
+    { id: "failed", label: "Failed" },
+  ],
 };
 
 function statusBadge(status: string) {
@@ -59,7 +75,9 @@ function statusBadge(status: string) {
     active: { bg: "#0A1F0A", color: "#00FF94", border: "rgba(0,255,148,0.32)" },
     completed: { bg: "#0A1F0A", color: "#00FF94", border: "rgba(0,255,148,0.32)" },
     cancelled: { bg: "#1A0000", color: "#FF4444", border: "rgba(255,68,68,0.32)" },
+    failed: { bg: "#1A0000", color: "#FF4444", border: "rgba(255,68,68,0.32)" },
     expired: { bg: "#141414", color: "#555555", border: "#242424" },
+    archived: { bg: "#141414", color: "#555555", border: "#242424" },
     refunded: { bg: "#1A1500", color: "#F5A623", border: "rgba(245,166,35,0.32)" },
   };
   const s = map[status] || map.expired;
@@ -89,6 +107,7 @@ export default function HistoryClient({
   total,
   orders,
   rentals,
+  esims,
 }: {
   tab: HistoryTab;
   status: string;
@@ -97,6 +116,7 @@ export default function HistoryClient({
   total: number;
   orders: OrderRow[];
   rentals: RentalRow[];
+  esims: EsimHistoryRow[];
 }) {
   const router = useRouter();
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -158,7 +178,8 @@ export default function HistoryClient({
     </button>
   );
 
-  const rows = tab === "orders" ? orders : rentals;
+  const rows =
+    tab === "orders" ? orders : tab === "rentals" ? rentals : esims;
 
   return (
     <div>
@@ -170,6 +191,7 @@ export default function HistoryClient({
         <div className="flex gap-2">
           {chip("orders", "One-time orders", tab === "orders", () => goTab("orders"))}
           {chip("rentals", "Rentals", tab === "rentals", () => goTab("rentals"))}
+          {chip("esims", "eSIMs", tab === "esims", () => goTab("esims"))}
         </div>
       </div>
 
@@ -183,18 +205,24 @@ export default function HistoryClient({
       {rows.length === 0 ? (
         <div className="text-center py-16">
           <p className="text-sm mb-2" style={{ color: "#555555" }}>
-            {status === "all"
-              ? tab === "orders"
-                ? "No orders yet."
-                : "No rentals yet."
-              : `No ${status} ${tab}.`}
+            {status === "all" ? `No ${tab} yet.` : `No ${status} ${tab}.`}
           </p>
           <Link
-            href={tab === "orders" ? "/dashboard" : "/dashboard/rentals"}
+            href={
+              tab === "orders"
+                ? "/dashboard"
+                : tab === "rentals"
+                  ? "/dashboard/rentals"
+                  : "/dashboard/esim"
+            }
             className="text-sm font-medium hover:underline"
             style={{ color: "#00FF94" }}
           >
-            {tab === "orders" ? "Get a number →" : "Rent a number →"}
+            {tab === "orders"
+              ? "Get a number →"
+              : tab === "rentals"
+                ? "Rent a number →"
+                : "Buy an eSIM →"}
           </Link>
         </div>
       ) : (
@@ -216,14 +244,14 @@ export default function HistoryClient({
                       <div className="flex items-center gap-2 flex-wrap">
                         {statusBadge(o.status)}
                         <span className="text-[13px]" style={{ color: "#F5F5F5" }}>
-                          {o.service_name || o.service}
+                          {o.service_name || "—"}
                         </span>
                       </div>
                       <div
                         className="font-mono text-[11px] mt-1 truncate"
                         style={{ color: "#555555" }}
                       >
-                        {formatDate(o.created_at)} · {o.country_name || o.country}
+                        {formatDate(o.created_at)} · {o.country_name || "—"}
                         {o.phone_number ? ` · ${o.phone_number}` : ""}
                       </div>
                     </div>
@@ -275,7 +303,8 @@ export default function HistoryClient({
                   )}
                 </div>
               ))
-            : rentals.map((r, i) => (
+            : tab === "rentals"
+            ? rentals.map((r, i) => (
                 <div
                   key={r.id}
                   className="px-4 py-3.5 flex items-center justify-between gap-3"
@@ -298,6 +327,32 @@ export default function HistoryClient({
                   </div>
                   <div className="font-mono text-sm shrink-0" style={{ color: "#00FF94" }}>
                     ${r.cost.toFixed(2)}
+                  </div>
+                </div>
+              ))
+            : esims.map((e, i) => (
+                <div
+                  key={e.id}
+                  className="px-4 py-3.5 flex items-center justify-between gap-3"
+                  style={{ borderTop: i === 0 ? "none" : "1px solid #1A1A1A" }}
+                >
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {statusBadge(e.status)}
+                      <span className="text-[13px]" style={{ color: "#F5F5F5" }}>
+                        {e.country_name || e.country || "eSIM"}
+                      </span>
+                    </div>
+                    <div
+                      className="font-mono text-[11px] mt-1 truncate"
+                      style={{ color: "#555555" }}
+                    >
+                      {formatDate(e.created_at)} · {e.data_gb ?? "?"} GB
+                      {e.duration_days ? ` · ${e.duration_days}d` : ""}
+                    </div>
+                  </div>
+                  <div className="font-mono text-sm shrink-0" style={{ color: "#00FF94" }}>
+                    ${e.cost.toFixed(2)}
                   </div>
                 </div>
               ))}

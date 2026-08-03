@@ -53,6 +53,27 @@ const navItems = [
     ),
   },
   {
+    label: "eSIM",
+    href: "/dashboard/esim",
+    icon: (
+      <svg
+        width="18"
+        height="18"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="M17 2H8a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V6z" />
+        <path d="M17 2l1 4" />
+        <rect x="9" y="12" width="6" height="6" rx="1" />
+        <path d="M9 15h6M12 12v6" />
+      </svg>
+    ),
+  },
+  {
     label: "Wallet",
     href: "/dashboard/wallet",
     icon: (
@@ -128,7 +149,9 @@ export default function Sidebar({
 
   // Expose refreshBalance globally so OrderForm / wallet can call it
   useEffect(() => {
-    (window as any).__refreshBalance = refreshBalance;
+    (
+      window as unknown as { __refreshBalance?: () => void }
+    ).__refreshBalance = refreshBalance;
   }, [refreshBalance]);
 
   const handleSignOut = async () => {

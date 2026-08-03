@@ -6,6 +6,7 @@
 // ============================================================
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { isBlankOrNumeric, resolveName } from "../_shared/smspool-names.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -107,11 +108,28 @@ Deno.serve(async (req) => {
 
     const country =
       String(item.country ?? item.country_id ?? item.Country ?? "");
-    const country_name = String(
-      item.country_name ?? item.countryName ?? item.Country ?? "—",
-    );
     const service = String(item.service ?? item.service_id ?? "");
-    const service_name = String(item.name ?? item.service_name ?? "Rental");
+
+    // The rental catalog item normally carries real labels, but never trust a
+    // blank or bare-ID value into a *_name column — resolve it from the catalog
+    // lists instead (same guarantee as order-number).
+    let service_name = String(item.name ?? item.service_name ?? "").trim();
+    if (isBlankOrNumeric(service_name)) {
+      service_name =
+        (service
+          ? await resolveName(supabase, smsPoolKey, "service", service)
+          : null) ?? "Rental";
+    }
+
+    let country_name = String(
+      item.country_name ?? item.countryName ?? item.Country ?? "",
+    ).trim();
+    if (isBlankOrNumeric(country_name)) {
+      country_name =
+        (country
+          ? await resolveName(supabase, smsPoolKey, "country", country)
+          : null) ?? "—";
+    }
 
     const raw = readRawFromCatalogItem(item, days);
     if (raw === null) {
