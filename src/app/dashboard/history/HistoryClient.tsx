@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import Pager from "@/components/dashboard/Pager";
+import { formatBytes } from "@/lib/esim-api";
 
 export type HistoryTab = "orders" | "rentals" | "esims";
 
@@ -36,6 +37,9 @@ export interface EsimHistoryRow {
   country_name: string | null;
   country: string | null;
   data_gb: number | null;
+  /** Authoritative volume from the provider; data_gb is the display fallback. */
+  total_bytes: number | null;
+  iccid: string | null;
   duration_days: number | null;
   status: string;
   cost: number;
@@ -64,6 +68,7 @@ const STATUS_TABS: Record<HistoryTab, { id: string; label: string }[]> = {
     { id: "all", label: "All" },
     { id: "active", label: "Active" },
     { id: "expired", label: "Expired" },
+    { id: "cancelled", label: "Cancelled" },
     { id: "archived", label: "Archived" },
     { id: "failed", label: "Failed" },
   ],
@@ -347,8 +352,12 @@ export default function HistoryClient({
                       className="font-mono text-[11px] mt-1 truncate"
                       style={{ color: "#555555" }}
                     >
-                      {formatDate(e.created_at)} · {e.data_gb ?? "?"} GB
+                      {formatDate(e.created_at)} ·{" "}
+                      {e.total_bytes
+                        ? formatBytes(e.total_bytes)
+                        : `${e.data_gb ?? "?"} GB`}
                       {e.duration_days ? ` · ${e.duration_days}d` : ""}
+                      {e.iccid ? ` · ${e.iccid}` : ""}
                     </div>
                   </div>
                   <div className="font-mono text-sm shrink-0" style={{ color: "#00FF94" }}>

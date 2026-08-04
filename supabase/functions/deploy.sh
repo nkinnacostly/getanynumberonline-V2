@@ -6,9 +6,10 @@
 # deploy. When it is ON, the Supabase gateway rejects any request without a
 # valid Supabase JWT — including the Flutterwave webhook forwarded by
 # getpaidly.co (which carries `verif-hash`, not a JWT) — with a 401 BEFORE the
-# function code runs. That silently breaks wallet top-ups. Each function does
-# its own auth (verif-hash for webhooks, auth.getUser() for user calls), so the
-# gateway JWT check must stay OFF.
+# function code runs. That silently breaks wallet top-ups. The same applies to
+# esimaccess-webhook, which authenticates with a `token` query param. Each
+# function does its own auth (verif-hash / token for webhooks, auth.getUser()
+# for user calls), so the gateway JWT check must stay OFF.
 #
 # Usage:
 #   ./supabase/functions/deploy.sh                # deploy all functions
@@ -19,6 +20,7 @@ set -euo pipefail
 FUNCTIONS=(
   cancel-order
   cancel-rental
+  esimaccess-webhook
   get-esim-catalog
   get-esim-profile
   get-rental-catalog
@@ -27,6 +29,7 @@ FUNCTIONS=(
   order-number
   poll-rental-sms
   poll-sms
+  reconcile-esims
   reconcile-topups
   rent-number
   sync-smspool-catalog

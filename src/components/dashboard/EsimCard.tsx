@@ -1,41 +1,118 @@
 "use client";
 
-import { useState } from "react";
-import { useCopy } from "@/hooks/useCopy";
+import { useEffect, useRef, useState } from "react";
 import { useToast } from "@/components/dashboard/Toast";
-import { fetchEsimProfile, type EsimProfile } from "@/lib/esim-api";
+import ActivationPanel from "@/components/dashboard/esim/ActivationPanel";
+import {
+  type EsimProfile,
+  fetchEsimProfile,
+  formatBytes,
+} from "@/lib/esim-api";
 
 export interface EsimRow {
   id: string;
-  smspool_transaction_id: string | null;
-  country_name: string | null;
+  provider: string;
+  provider_order_no: string | null;
+  provider_tran_no: string | null;
+  iccid: string | null;
   country: string | null;
+  country_name: string | null;
   data_gb: number | null;
   duration_days: number | null;
   cost: number;
   status: string;
+  smdp_status: string | null;
+  total_bytes: number | null;
+  used_bytes: number | null;
+  expires_at: string | null;
   created_at: string;
 }
+
+// eSIM Access allocates profiles asynchronously — usually seconds, up to ~30s.
+// order-esim already waited a few seconds, so a row that is still 'pending'
+// here needs a little longer. Give up after ~2 minutes and stop hammering.
+const POLL_MS = 5000;
+const POLL_LIMIT = 24;
 
 function statusTone(status: string) {
   if (status === "active")
     return { bg: "#0A1F0A", color: "#00FF94", border: "rgba(0,255,148,0.32)" };
-  if (status === "pending")
+  if (status === "pending" || status === "suspended")
     return { bg: "#1A1500", color: "#F5A623", border: "rgba(245,166,35,0.32)" };
-  if (status === "failed")
+  if (status === "failed" || status === "cancelled")
     return { bg: "#1A0000", color: "#FF4444", border: "rgba(255,68,68,0.32)" };
   return { bg: "#141414", color: "#555555", border: "#242424" };
 }
 
-export default function EsimCard({ esim }: { esim: EsimRow }) {
-  const { copy, isCopied } = useCopy();
+/** Human label for the SM-DP+ state, which is what tells you if it's installed. */
+function smdpLabel(smdp: string | null): string | null {
+  switch (smdp) {
+    case "RELEASED":
+      return "Ready to install";
+    case "DOWNLOAD":
+    case "INSTALLATION":
+      return "Installing…";
+    case "ENABLED":
+      return "Installed & active";
+    case "DISABLED":
+      return "Installed, turned off";
+    case "DELETED":
+      return "Removed from device";
+    default:
+      return null;
+  }
+}
+
+export default function EsimCard({
+  esim,
+  onUpdated,
+}: {
+  esim: EsimRow;
+  onUpdated?: () => void;
+}) {
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
   const [profile, setProfile] = useState<EsimProfile | null>(null);
   const [loading, setLoading] = useState(false);
 
   const tone = statusTone(esim.status);
-  const canActivate = esim.status === "active" && !!esim.smspool_transaction_id;
+  const isLegacy = esim.provider === "smspool";
+  const canActivate = esim.status === "active" && !isLegacy;
+
+  // Poll a still-provisioning eSIM until the profile lands.
+  const onUpdatedRef = useRef(onUpdated);
+  onUpdatedRef.current = onUpdated;
+
+  useEffect(() => {
+    if (esim.status !== "pending" || isLegacy) return;
+
+    let tries = 0;
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout>;
+
+    const tick = async () => {
+      tries += 1;
+      try {
+        const { status } = await fetchEsimProfile(esim.id);
+        if (!cancelled && status !== "pending") {
+          onUpdatedRef.current?.();
+          return;
+        }
+      } catch {
+        // Transient upstream failure — the next tick retries. A visible error
+        // here would be noise during normal provisioning.
+      }
+      if (!cancelled && tries < POLL_LIMIT) {
+        timer = setTimeout(tick, POLL_MS);
+      }
+    };
+
+    timer = setTimeout(tick, POLL_MS);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [esim.id, esim.status, isLegacy]);
 
   const toggle = async () => {
     if (open) {
@@ -43,29 +120,34 @@ export default function EsimCard({ esim }: { esim: EsimRow }) {
       return;
     }
     setOpen(true);
-    if (!profile && esim.smspool_transaction_id) {
-      setLoading(true);
-      try {
-        setProfile(await fetchEsimProfile(esim.smspool_transaction_id));
-      } catch (e) {
-        toast(e instanceof Error ? e.message : "Could not load activation", "error");
+    if (profile) return;
+
+    setLoading(true);
+    try {
+      const { profile: loaded } = await fetchEsimProfile(esim.id);
+      if (!loaded) {
+        toast("Activation details aren't ready yet — try again shortly", "error");
         setOpen(false);
-      } finally {
-        setLoading(false);
+      } else {
+        setProfile(loaded);
       }
+    } catch (e) {
+      toast(
+        e instanceof Error ? e.message : "Could not load activation",
+        "error",
+      );
+      setOpen(false);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const doCopy = async (text: string, key: string) => {
-    const ok = await copy(text, key);
-    toast(ok ? "Copied" : "Couldn't copy — select it manually", ok ? "success" : "error");
-  };
-
-  const iosLink = profile?.activation_string
-    ? `https://esimsetup.apple.com/esim_qrcode_provisioning?carddata=${encodeURIComponent(
-        profile.activation_string,
-      )}`
-    : null;
+  const smdp = smdpLabel(esim.smdp_status);
+  const volume = esim.total_bytes
+    ? formatBytes(esim.total_bytes)
+    : esim.data_gb
+      ? `${esim.data_gb} GB`
+      : "?";
 
   return (
     <div
@@ -75,17 +157,28 @@ export default function EsimCard({ esim }: { esim: EsimRow }) {
       <div className="p-5">
         <div className="flex items-start justify-between gap-3 mb-3">
           <div className="min-w-0">
-            <p className="text-[15px] font-semibold" style={{ color: "#F5F5F5" }}>
+            <p
+              className="text-[15px] font-semibold"
+              style={{ color: "#F5F5F5" }}
+            >
               {esim.country_name || esim.country || "eSIM"}
             </p>
-            <p className="font-mono text-[11px] mt-1" style={{ color: "#555555" }}>
-              {esim.data_gb ?? "?"} GB
+            <p
+              className="font-mono text-[11px] mt-1"
+              style={{ color: "#555555" }}
+            >
+              {volume}
               {esim.duration_days ? ` · ${esim.duration_days} days` : ""}
+              {smdp ? ` · ${smdp}` : ""}
             </p>
           </div>
           <span
             className="inline-block px-2 py-0.5 rounded text-[10px] font-mono font-medium uppercase shrink-0"
-            style={{ backgroundColor: tone.bg, color: tone.color, border: `1px solid ${tone.border}` }}
+            style={{
+              backgroundColor: tone.bg,
+              color: tone.color,
+              border: `1px solid ${tone.border}`,
+            }}
           >
             {esim.status}
           </span>
@@ -103,11 +196,24 @@ export default function EsimCard({ esim }: { esim: EsimRow }) {
           >
             {open ? "Hide activation" : "View activation"}
           </button>
+        ) : isLegacy ? (
+          <p className="text-[12px] leading-relaxed" style={{ color: "#555555" }}>
+            Issued by our previous eSIM provider, which has shut down its API.
+            Contact support if you still need its activation details.
+          </p>
+        ) : esim.status === "pending" ? (
+          <div className="flex items-center gap-2">
+            <span
+              className="auth-spinner"
+              style={{ borderColor: "#F5A623", borderTopColor: "transparent" }}
+            />
+            <p className="text-[12px]" style={{ color: "#555555" }}>
+              Provisioning your eSIM — this usually takes under a minute.
+            </p>
+          </div>
         ) : (
           <p className="text-[12px]" style={{ color: "#555555" }}>
-            {esim.status === "pending"
-              ? "Finalizing purchase…"
-              : "Activation unavailable"}
+            Activation unavailable
           </p>
         )}
       </div>
@@ -125,87 +231,10 @@ export default function EsimCard({ esim }: { esim: EsimRow }) {
               </span>
             </div>
           ) : profile ? (
-            <div className="space-y-3 pt-3">
-              {(profile.remaining_data || profile.total_data) && (
-                <p className="font-mono text-[12px]" style={{ color: "#888888" }}>
-                  Data: {profile.remaining_data ?? "?"} / {profile.total_data ?? "?"}
-                </p>
-              )}
-
-              {iosLink && (
-                <a
-                  href={iosLink}
-                  className="block w-full text-center h-[44px] leading-[44px] rounded-[6px] text-[14px] font-bold"
-                  style={{ backgroundColor: "#00FF94", color: "#080808" }}
-                >
-                  Install on iPhone (iOS 17.4+)
-                </a>
-              )}
-
-              <ActivationField label="Activation string (SM-DP+)" value={profile.activation_string} k="ac" doCopy={doCopy} isCopied={isCopied} />
-              <ActivationField label="SM-DP+ address" value={profile.smdp} k="smdp" doCopy={doCopy} isCopied={isCopied} />
-              <ActivationField label="Activation code" value={profile.activation_code} k="code" doCopy={doCopy} isCopied={isCopied} />
-
-              <div className="grid grid-cols-2 gap-2">
-                {profile.pin && <MiniField label="PIN" value={profile.pin} />}
-                {profile.puk && <MiniField label="PUK" value={profile.puk} />}
-                {profile.apn && <MiniField label="APN" value={profile.apn} />}
-              </div>
-
-              <p className="text-[11px] leading-relaxed" style={{ color: "#555555" }}>
-                On Android or older iPhones, add a data-only eSIM manually using
-                the SM-DP+ address and activation code above.
-              </p>
-            </div>
+            <ActivationPanel profile={profile} />
           ) : null}
         </div>
       )}
-    </div>
-  );
-}
-
-function ActivationField({
-  label,
-  value,
-  k,
-  doCopy,
-  isCopied,
-}: {
-  label: string;
-  value: string | null;
-  k: string;
-  doCopy: (t: string, key: string) => void;
-  isCopied: (key: string) => boolean;
-}) {
-  if (!value) return null;
-  return (
-    <div>
-      <p className="text-[11px] uppercase mb-1" style={{ color: "#555555", letterSpacing: "0.08em" }}>
-        {label}
-      </p>
-      <button
-        onClick={() => doCopy(value, k)}
-        className="w-full text-left rounded-[6px] px-3 py-2 font-mono text-[12px] break-all transition-colors"
-        style={{ backgroundColor: "#0F0F0F", border: "1px solid #1A1A1A", color: "#F5F5F5" }}
-      >
-        {value}
-        <span className="ml-2 text-[10px]" style={{ color: "#00FF94" }}>
-          {isCopied(k) ? "✓ copied" : "tap to copy"}
-        </span>
-      </button>
-    </div>
-  );
-}
-
-function MiniField({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-[6px] px-3 py-2" style={{ backgroundColor: "#0F0F0F", border: "1px solid #1A1A1A" }}>
-      <p className="text-[10px] uppercase" style={{ color: "#555555" }}>
-        {label}
-      </p>
-      <p className="font-mono text-[13px]" style={{ color: "#F5F5F5" }}>
-        {value}
-      </p>
     </div>
   );
 }

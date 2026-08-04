@@ -12,7 +12,13 @@ export const dynamic = "force-dynamic";
 const PAGE_SIZE = 8;
 const ORDER_STATUSES = ["pending", "active", "cancelled", "expired", "refunded"];
 const RENTAL_STATUSES = ["active", "expired", "cancelled"];
-const ESIM_STATUSES = ["active", "expired", "archived", "failed"];
+const ESIM_STATUSES = [
+  "active",
+  "expired",
+  "cancelled",
+  "archived",
+  "failed",
+];
 
 export default async function HistoryPage({
   searchParams,
@@ -76,7 +82,7 @@ export default async function HistoryPage({
       let q = supabase
         .from("esims")
         .select(
-          "id, created_at, country_name, country, data_gb, duration_days, status, cost",
+          "id, created_at, country_name, country, data_gb, total_bytes, iccid, duration_days, status, cost",
           { count: "exact" },
         )
         .eq("user_id", user.id);
