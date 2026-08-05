@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useTopup } from "@/hooks/useTopup";
+import { shortfallTopup } from "@/lib/wallet";
 
 /**
  * The inline "you're short — top up and continue" panel shown in place of a
@@ -27,8 +28,7 @@ export default function FundShortfall({
   const router = useRouter();
   const topup = useTopup();
 
-  // Smallest allowed top-up (min $5, max $500) that covers the shortfall.
-  const fundAmount = Math.min(500, Math.max(5, Math.ceil(price - balance)));
+  const fundAmount = shortfallTopup(price, balance);
   const disabled = topup.opening || topup.scriptError || !topup.available;
 
   return (

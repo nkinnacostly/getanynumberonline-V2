@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { closePaymentModal } from "flutterwave-react-v3";
 import { useUser } from "@/hooks/useUser";
 import { useToast } from "@/components/dashboard/Toast";
+import { isValidTopup, TOPUP_RANGE_LABEL } from "@/lib/wallet";
 
 interface FlutterwaveResponse {
   status?: string;
@@ -143,8 +144,8 @@ export function useTopup(): UseTopup {
         toast("Payments are temporarily unavailable", "error");
         return;
       }
-      if (!(amount >= 5 && amount <= 500)) {
-        toast("Amount must be between $5 and $500", "error");
+      if (!isValidTopup(amount)) {
+        toast(`Amount must be ${TOPUP_RANGE_LABEL}`, "error");
         return;
       }
       const w = window as unknown as {

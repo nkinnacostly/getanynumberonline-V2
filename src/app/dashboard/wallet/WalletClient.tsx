@@ -4,6 +4,12 @@ import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Pager from "@/components/dashboard/Pager";
 import TopupButton from "@/components/dashboard/TopupButton";
+import {
+  isValidTopup,
+  QUICK_AMOUNTS as WALLET_QUICK_AMOUNTS,
+  TOPUP_MAX,
+  TOPUP_MIN,
+} from "@/lib/wallet";
 
 export interface Transaction {
   id: string;
@@ -16,7 +22,7 @@ export interface Transaction {
 
 export type TxFilter = "all" | "topup" | "deduction" | "refund";
 
-const QUICK_AMOUNTS = [5, 10, 20, 50];
+const QUICK_AMOUNTS = [...WALLET_QUICK_AMOUNTS];
 
 const FILTER_TABS: { id: TxFilter; label: string }[] = [
   { id: "all", label: "All" },
@@ -51,7 +57,7 @@ export default function WalletClient({
   const [showSuccess, setShowSuccess] = useState(false);
 
   const amountNum = parseFloat(amount);
-  const validAmount = amountNum >= 5 && amountNum <= 500;
+  const validAmount = isValidTopup(amountNum);
   const balance = initialBalance;
   const transactions = initialTransactions;
 
@@ -170,12 +176,12 @@ export default function WalletClient({
         </div>
 
         <label className="block text-xs mb-1.5" style={{ color: "#555555" }}>
-          Or enter amount (min $5)
+          Or enter amount (min ${TOPUP_MIN})
         </label>
         <input
           type="number"
-          min={5}
-          max={500}
+          min={TOPUP_MIN}
+          max={TOPUP_MAX}
           value={amount}
           onChange={(e) => handleAmountChange(e.target.value)}
           placeholder="0.00"

@@ -1,12 +1,13 @@
 "use client";
 
 import TopupButton from "@/components/dashboard/TopupButton";
+import { TOPUP_MIN, TOPUP_SUGGESTED } from "@/lib/wallet";
 
 const STEPS = [
   {
     n: 1,
     title: "Add funds",
-    body: "Top up your wallet with as little as $5. Pay securely by card.",
+    body: `Top up your wallet with as little as $${TOPUP_MIN}. Pay securely by card.`,
   },
   {
     n: 2,
@@ -72,7 +73,7 @@ export default function FirstRunGuide({ onFunded }: { onFunded: () => void }) {
       </div>
 
       <TopupButton
-        amount={5}
+        amount={TOPUP_SUGGESTED}
         label="Add funds to get started →"
         onFunded={onFunded}
         className="w-full sm:w-auto sm:px-6 py-3 rounded-lg font-semibold text-sm transition-colors disabled:opacity-40 flex items-center justify-center"
