@@ -1,7 +1,14 @@
+import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import Sidebar from "@/components/dashboard/Sidebar";
 import { ToastProvider } from "@/components/dashboard/Toast";
 import { UserProvider } from "@/hooks/useUser";
+
+/** Authenticated area — never indexable, regardless of the robots.txt rules. */
+export const metadata: Metadata = {
+  title: "Dashboard",
+  robots: { index: false, follow: false },
+};
 
 export default async function DashboardLayout({
   children,

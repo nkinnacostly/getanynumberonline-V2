@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { callEdgeFunction, fetchSMSPool } from "@/lib/api";
 import { useToast } from "@/components/dashboard/Toast";
 import FundShortfall from "@/components/dashboard/FundShortfall";
+import { applyMarkup } from "@/lib/pricing";
 
 interface Service {
   ID: string;
@@ -48,14 +49,6 @@ const POPULAR_COUNTRIES = [
   "Canada",
   "Australia",
 ];
-
-function applyMarkup(raw: number): number {
-  let m: number;
-  if (raw < 0.1) m = 0.4;
-  else if (raw <= 0.3) m = 0.3;
-  else m = 0.2;
-  return Math.ceil(raw * (1 + m) * 100) / 100;
-}
 
 export default function OrderForm({
   onOrder,

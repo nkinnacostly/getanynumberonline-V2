@@ -1,4 +1,12 @@
+import type { Metadata } from "next";
 import Link from "next/link";
+
+
+export const metadata: Metadata = {
+  title: "Terms of Service",
+  description: "The terms governing your use of GetAnyNumberOnline.",
+  alternates: { canonical: "/terms" },
+};
 
 export default function TermsPage() {
   return (

@@ -1,6 +1,15 @@
 import type { Metadata } from "next";
 import { Syne, DM_Mono } from "next/font/google";
 import Script from "next/script";
+import JsonLd from "@/components/seo/JsonLd";
+import {
+  ROBOTS_META,
+  SITE_DESCRIPTION,
+  SITE_NAME,
+  SITE_TAGLINE,
+  SITE_URL,
+} from "@/lib/seo/config";
+import { organizationSchema, websiteSchema } from "@/lib/seo/jsonld";
 import "./globals.css";
 
 const syne = Syne({
@@ -16,23 +25,34 @@ const dmMono = DM_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "GetAnyNumberOnline — Temporary Phone Numbers for SMS Verification",
-  description:
-    "Get real SIM-based temporary phone numbers instantly. Verify any app or service. Pay only when you receive an SMS. No subscriptions.",
-  keywords:
-    "temporary phone number, receive sms online, sms verification, virtual phone number, disposable number",
+  // Everything relative below resolves against this, so og:url and canonicals
+  // can never drift onto the vercel.app preview host again.
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: `${SITE_NAME} — ${SITE_TAGLINE}`,
+    // Child pages set only their own title; the brand is appended here.
+    template: `%s | ${SITE_NAME}`,
+  },
+  description: SITE_DESCRIPTION,
+  applicationName: SITE_NAME,
+  alternates: { canonical: "/" },
+  // `keywords` is ignored by Google and has been since 2009 — removed.
   openGraph: {
-    title: "GetAnyNumberOnline — Temporary Phone Numbers",
-    description: "Real SIM cards. Instant delivery. Pay per use.",
-    url: "https://getanynumberonline-v2.vercel.app",
-    siteName: "GetAnyNumberOnline",
+    title: `${SITE_NAME} — ${SITE_TAGLINE}`,
+    description: SITE_DESCRIPTION,
+    url: "/",
+    siteName: SITE_NAME,
+    locale: "en_US",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "GetAnyNumberOnline — Temporary Phone Numbers",
-    description: "Real SIM cards. Instant delivery. Pay per use.",
+    title: `${SITE_NAME} — ${SITE_TAGLINE}`,
+    description: SITE_DESCRIPTION,
   },
+  // Preview/branch deployments get noindex so the *.vercel.app host never
+  // competes with the real domain. See IS_PRODUCTION_DEPLOY.
+  robots: ROBOTS_META,
 };
 
 export default function RootLayout({
@@ -46,6 +66,9 @@ export default function RootLayout({
       className={`${syne.variable} ${dmMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
+        {/* Site-wide identity. Page-level schema (FAQ, Product) is added by
+            the individual routes and references these by @id. */}
+        <JsonLd data={[organizationSchema(), websiteSchema()]} />
         <Script
           defer
           data-domain="getanynumberonline.com"
