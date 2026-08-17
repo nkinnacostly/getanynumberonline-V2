@@ -79,13 +79,25 @@ Deno.serve(async (req) => {
       return jsonResponse({ status: order.status })
     }
 
-    // Check if expired by time (cron may not have run yet)
+    // Expired with no code — refund, don't just relabel it.
+    //
+    // This previously only set status='expired' and returned, so a user who
+    // waited out the window was charged for a code that never arrived. The
+    // refund goes through refund_order, which locks the row, refuses to refund
+    // an order that reached 'active', and is idempotent on a provider_ref
+    // derived from the order id — so this racing reconcile-orders is harmless.
     if (new Date(order.expires_at) < new Date()) {
-      await supabase
-        .from('orders')
-        .update({ status: 'expired' })
-        .eq('id', order.id)
-      return jsonResponse({ status: 'expired' })
+      const { error: refundErr } = await supabase.rpc('refund_order', {
+        p_order_id: order.id,
+        p_status: 'refunded',
+        p_reason: 'Refund: no verification code received',
+      })
+      if (refundErr) {
+        // Loud: the user is out of pocket until reconcile-orders sweeps it.
+        console.error('ALERT refund_order failed for', order.id, refundErr)
+        return jsonResponse({ status: 'expired' })
+      }
+      return jsonResponse({ status: 'refunded', refunded: order.cost })
     }
 
     // --------------------------------------------------------

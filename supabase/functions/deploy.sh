@@ -31,6 +31,7 @@ FUNCTIONS=(
   poll-rental-sms
   poll-sms
   reconcile-esims
+  reconcile-orders
   reconcile-topups
   rent-number
   sync-smspool-catalog

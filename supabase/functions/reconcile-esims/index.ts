@@ -31,6 +31,7 @@ import {
   queryBalance,
   queryProfiles,
 } from "../_shared/esimaccess.ts";
+import { isReconcileAuthorized } from "../_shared/reconcile-auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -46,17 +47,6 @@ const REFUND_AFTER_MIN = 15;
 const MAX_ATTEMPTS = 8;
 /** Bound the work per run so one bad batch can't blow the function timeout. */
 const BATCH = 50;
-
-/**
- * Constant-time compare. A plain `!==` on a secret leaks its prefix through
- * response timing to anyone who can call this endpoint.
- */
-function timingSafeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-  let diff = 0;
-  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  return diff === 0;
-}
 
 interface PendingEsim {
   id: string;
@@ -74,33 +64,14 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const presented = req.headers.get("x-reconcile-secret") ?? "";
-    if (!presented) return errorResponse("Forbidden", 403);
-
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    // Two accepted credentials:
-    //   • internal_secrets.reconcile — generated in-DB and used by the cron, so
-    //     it never has to be handled by a human or committed anywhere
-    //   • RECONCILE_SECRET env — manual/operator invocation, same as the other
-    //     reconcile functions
-    const envSecret = Deno.env.get("RECONCILE_SECRET") ?? "";
-    let authorized = envSecret !== "" && timingSafeEqual(presented, envSecret);
-
-    if (!authorized) {
-      const { data: stored } = await supabase
-        .from("internal_secrets")
-        .select("value")
-        .eq("name", "reconcile")
-        .maybeSingle();
-      const dbSecret = String(stored?.value ?? "");
-      authorized = dbSecret !== "" && timingSafeEqual(presented, dbSecret);
+    if (!(await isReconcileAuthorized(req, supabase))) {
+      return errorResponse("Forbidden", 403);
     }
-
-    if (!authorized) return errorResponse("Forbidden", 403);
 
     const report = {
       balance: null as number | null,

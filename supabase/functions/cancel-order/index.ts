@@ -94,27 +94,34 @@ Deno.serve(async (req) => {
     }
 
     // --------------------------------------------------------
-    // 4. Update order status to cancelled
+    // 4. Refund + mark cancelled, atomically
+    //
+    // Previously this updated the status and then called credit_balance with
+    // no provider_ref, so nothing stopped two concurrent cancels both passing
+    // the status check above and refunding twice. refund_order locks the row,
+    // re-checks the status inside the transaction, and derives an idempotency
+    // key from the order id.
     // --------------------------------------------------------
-    await supabase
-      .from('orders')
-      .update({ status: 'cancelled' })
-      .eq('id', order_id)
+    const { data: refunded, error: refundErr } = await supabase.rpc(
+      'refund_order',
+      {
+        p_order_id: order_id,
+        p_status: 'cancelled',
+        p_reason: `Refund: cancelled order (${order.service_name}, ${order.country_name})`,
+      },
+    )
 
-    // --------------------------------------------------------
-    // 5. Refund the balance
-    // --------------------------------------------------------
-    await supabase.rpc('credit_balance', {
-      p_user_id:  user.id,
-      p_amount:   order.cost,
-      p_type:     'refund',
-      p_order_id: order_id,
-      p_note:     `Refund: cancelled order (${order.service_name}, ${order.country_name})`,
-    })
+    if (refundErr) {
+      console.error('ALERT refund_order failed for', order_id, refundErr)
+      return errorResponse('Could not cancel the order. Please try again.', 500)
+    }
 
     return jsonResponse({
       success: true,
-      refunded: order.cost,
+      // false means it was already settled — cancelled, refunded, or the code
+      // landed first. Either way nothing further is owed.
+      refunded: refunded ? order.cost : 0,
+      already_settled: !refunded,
       smspool_cancelled: smsPoolCancelled,
     })
 
