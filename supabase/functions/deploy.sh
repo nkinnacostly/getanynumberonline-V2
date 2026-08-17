@@ -18,6 +18,7 @@
 set -euo pipefail
 
 FUNCTIONS=(
+  admin-api
   cancel-order
   cancel-rental
   esimaccess-webhook
