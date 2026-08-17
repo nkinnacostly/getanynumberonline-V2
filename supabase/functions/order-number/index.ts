@@ -181,20 +181,22 @@ Deno.serve(async (req) => {
     if (!orderJson.success || !orderJson.number) {
       console.error("SMSPool purchase failed:", orderJson);
 
-      // Refund
-      await supabase.rpc("credit_balance", {
-        p_user_id: user.id,
-        p_amount: cost,
-        p_type: "refund",
+      // Refund through the single order-refund path.
+      //
+      // This previously called credit_balance directly with no provider_ref
+      // and left the order at 'expired'. Both mattered: the missing ref made
+      // the refund invisible to the idempotency check, and 'expired' looked
+      // unsettled to the reconcile sweeper — which is how 169 of these got
+      // paid a second time. refund_order sets the ref, marks the row
+      // 'refunded', and a unique index now makes a second payout impossible.
+      const { error: refundErr } = await supabase.rpc("refund_order", {
         p_order_id: orderId,
-        p_note: "Auto-refund: SMSPool number unavailable",
+        p_status: "refunded",
+        p_reason: "Auto-refund: SMSPool number unavailable",
       });
-
-      // Mark order as expired
-      await supabase
-        .from("orders")
-        .update({ status: "expired" })
-        .eq("id", orderId);
+      if (refundErr) {
+        console.error("ALERT refund_order failed for", orderId, refundErr);
+      }
 
       return errorResponse(
         orderJson.message ??

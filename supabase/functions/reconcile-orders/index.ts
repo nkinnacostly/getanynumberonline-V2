@@ -196,7 +196,26 @@ Deno.serve(async (req) => {
       );
     }
 
-    return jsonResponse({ success: true, ...report, remaining: remaining ?? 0 });
+    // ── Ledger integrity ─────────────────────────────────────
+    // Asserts every run that no order is refunded for more than it cost and
+    // that every stored balance equals its own ledger. The double-refund this
+    // function caused ran for a day and was found by accident; this surfaces
+    // the next drift, from any cause, within minutes.
+    const { data: integrity } = await supabase.rpc("check_ledger_integrity");
+    if (integrity && integrity.ok === false) {
+      console.error(
+        `ALERT ledger integrity violated: ${integrity.over_refunded_orders} over-refunded ` +
+          `order(s) ($${integrity.over_refunded_amount}), ${integrity.balance_drift_users} ` +
+          `balance drift(s) ($${integrity.balance_drift_amount})`,
+      );
+    }
+
+    return jsonResponse({
+      success: true,
+      ...report,
+      remaining: remaining ?? 0,
+      integrity: integrity ?? null,
+    });
   } catch (err) {
     console.error("reconcile-orders unhandled error:", err);
     return errorResponse("Internal server error", 500);
