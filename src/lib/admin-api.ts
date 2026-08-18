@@ -76,10 +76,49 @@ export interface AdminTransaction {
   created_at: string;
 }
 
+/**
+ * One user's account, as the support desk needs to read it.
+ *
+ * Deliberately splits real deposits from admin credits, and spend that
+ * DELIVERED from spend that bounced back — "they spent $40" is meaningless if
+ * $30 of it was refunded. `orders_delivered` counts orders with an actual
+ * messages row, not orders whose status says 'active'.
+ */
+export interface AdminUserDetail {
+  found: true;
+  user_id: string;
+  email: string | null;
+  joined: string;
+  balance: number;
+  is_banned: boolean;
+  is_admin: boolean;
+  deposited_real: number;
+  credited_by_admin: number;
+  deposit_count: number;
+  pending_topups: number;
+  total_deducted: number;
+  total_refunded: number;
+  orders_total: number;
+  orders_delivered: number;
+  spent_on_delivered: number;
+  orders_by_status: Record<string, number>;
+  rentals_total: number;
+  spent_on_rentals: number;
+  esims_total: number;
+  spent_on_esims: number;
+}
+
 export interface Paged<T> {
   rows: T[];
   total: number;
   limit: number;
+}
+
+/** Filters accepted by every list_* action. `user_id` scopes to one account. */
+export interface ListParams {
+  offset?: number;
+  limit?: number;
+  user_id?: string;
 }
 
 /** Page size used by every admin table. */
@@ -91,16 +130,19 @@ export const getStats = () =>
 export const getSmspoolBalance = () =>
   callAdminApi<{ balance: number }>("smspool_balance");
 
-export const listUsers = (params: { search?: string; offset?: number; limit?: number }) =>
+export const listUsers = (params: ListParams & { search?: string }) =>
   callAdminApi<Paged<AdminUser>>("list_users", { limit: ADMIN_PAGE_SIZE, ...params });
 
-export const listOrders = (params: { status?: string; offset?: number; limit?: number }) =>
+export const getUser = (user_id: string) =>
+  callAdminApi<{ user: AdminUserDetail }>("get_user", { user_id });
+
+export const listOrders = (params: ListParams & { status?: string }) =>
   callAdminApi<Paged<AdminOrder>>("list_orders", { limit: ADMIN_PAGE_SIZE, ...params });
 
-export const listRentals = (params: { status?: string; offset?: number; limit?: number }) =>
+export const listRentals = (params: ListParams & { status?: string }) =>
   callAdminApi<Paged<AdminRental>>("list_rentals", { limit: ADMIN_PAGE_SIZE, ...params });
 
-export const listTransactions = (params: { type?: string; offset?: number; limit?: number }) =>
+export const listTransactions = (params: ListParams & { type?: string }) =>
   callAdminApi<Paged<AdminTransaction>>("list_transactions", {
     limit: ADMIN_PAGE_SIZE,
     ...params,

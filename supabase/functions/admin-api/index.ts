@@ -13,8 +13,11 @@
 // turn that into a bypass. Reading it as the service role means the answer is
 // the actual column value, always.
 //
-// Actions: get_stats, list_users, list_orders, list_rentals, list_transactions,
-//          adjust_balance, set_ban, smspool_balance
+// Actions: get_stats, list_users, get_user, list_orders, list_rentals,
+//          list_transactions, adjust_balance, set_ban, smspool_balance
+//
+// The three list_* actions take an optional user_id, which is what the user
+// detail page is built on — same query, same paging, scoped to one account.
 // ============================================================
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -40,6 +43,25 @@ function paging(body: Record<string, unknown>) {
   const offset = Number.isFinite(rawOffset) ? Math.max(Math.trunc(rawOffset), 0) : 0;
   return { limit, offset, from: offset, to: offset + limit - 1 };
 }
+
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Optional user_id scope shared by the three list actions.
+ *
+ * Validated here rather than handed straight to PostgREST: a non-uuid string
+ * comes back as a Postgres cast error, which the admin UI can only show as an
+ * opaque failure. Throwing a typed error keeps the message useful.
+ */
+function userScope(body: Record<string, unknown>): string | null {
+  const raw = String(body.user_id ?? "").trim();
+  if (!raw) return null;
+  if (!UUID_RE.test(raw)) throw new BadRequest("user_id must be a UUID");
+  return raw;
+}
+
+class BadRequest extends Error {}
 
 /**
  * Attach user emails to rows that only carry user_id.
@@ -133,9 +155,31 @@ async function listUsers(supabase: Supabase, body: Record<string, unknown>) {
   return { rows: data ?? [], total: count ?? 0, limit };
 }
 
+/**
+ * One user's profile plus the money summary the support question actually
+ * needs — deposited vs credited, spent vs refunded, and how many orders
+ * genuinely delivered a code. The maths lives in the RPC so the panel and any
+ * ad-hoc SQL report cannot disagree.
+ */
+async function getUser(supabase: Supabase, body: Record<string, unknown>) {
+  const userId = userScope(body);
+  if (!userId) return { error: "user_id is required", status: 400 };
+
+  const { data, error } = await supabase.rpc("admin_user_summary_by_id", {
+    p_user_id: userId,
+  });
+  if (error) return { error: error.message, status: 400 };
+
+  const summary = data as { found?: boolean } | null;
+  if (!summary?.found) return { error: "User not found", status: 404 };
+
+  return { user: summary };
+}
+
 async function listOrders(supabase: Supabase, body: Record<string, unknown>) {
   const { limit, from, to } = paging(body);
   const status = String(body.status ?? "").trim();
+  const userId = userScope(body);
 
   let query = supabase
     .from("orders")
@@ -147,6 +191,7 @@ async function listOrders(supabase: Supabase, body: Record<string, unknown>) {
     .range(from, to);
 
   if (status) query = query.eq("status", status);
+  if (userId) query = query.eq("user_id", userId);
 
   const { data, error, count } = await query;
   if (error) throw error;
@@ -156,6 +201,7 @@ async function listOrders(supabase: Supabase, body: Record<string, unknown>) {
 async function listRentals(supabase: Supabase, body: Record<string, unknown>) {
   const { limit, from, to } = paging(body);
   const status = String(body.status ?? "").trim();
+  const userId = userScope(body);
 
   let query = supabase
     .from("rentals")
@@ -167,6 +213,7 @@ async function listRentals(supabase: Supabase, body: Record<string, unknown>) {
     .range(from, to);
 
   if (status) query = query.eq("status", status);
+  if (userId) query = query.eq("user_id", userId);
 
   const { data, error, count } = await query;
   if (error) throw error;
@@ -176,6 +223,7 @@ async function listRentals(supabase: Supabase, body: Record<string, unknown>) {
 async function listTransactions(supabase: Supabase, body: Record<string, unknown>) {
   const { limit, from, to } = paging(body);
   const type = String(body.type ?? "").trim();
+  const userId = userScope(body);
 
   let query = supabase
     .from("transactions")
@@ -187,6 +235,7 @@ async function listTransactions(supabase: Supabase, body: Record<string, unknown
     .range(from, to);
 
   if (type) query = query.eq("type", type);
+  if (userId) query = query.eq("user_id", userId);
 
   const { data, error, count } = await query;
   if (error) throw error;
@@ -301,6 +350,11 @@ Deno.serve(async (req) => {
         return jsonResponse({ success: true, ...(await getStats(supabase)) });
       case "list_users":
         return jsonResponse({ success: true, ...(await listUsers(supabase, body)) });
+      case "get_user": {
+        const result = await getUser(supabase, body);
+        if ("error" in result) return errorResponse(result.error!, result.status!);
+        return jsonResponse({ success: true, ...result });
+      }
       case "list_orders":
         return jsonResponse({ success: true, ...(await listOrders(supabase, body)) });
       case "list_rentals":
@@ -326,6 +380,9 @@ Deno.serve(async (req) => {
         return errorResponse(`Unknown action: ${action || "(none)"}`, 400);
     }
   } catch (err) {
+    // A malformed user_id is the caller's mistake, not ours — say so instead of
+    // returning a 500 the admin can do nothing with.
+    if (err instanceof BadRequest) return errorResponse(err.message, 400);
     console.error("admin-api unhandled error:", err);
     return errorResponse("Internal server error", 500);
   }

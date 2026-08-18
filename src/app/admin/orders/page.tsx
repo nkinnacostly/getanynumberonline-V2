@@ -1,10 +1,10 @@
 "use client";
 
 import FilterTabs from "@/components/admin/FilterTabs";
-import { StatusBadge, TableShell, Td, Th, Tr } from "@/components/admin/AdminTable";
+import { OrdersTable } from "@/components/admin/EntityTables";
 import Pager from "@/components/dashboard/Pager";
 import { useAdminList } from "@/hooks/useAdminList";
-import { type AdminOrder, dateTime, listOrders, money } from "@/lib/admin-api";
+import { type AdminOrder, listOrders } from "@/lib/admin-api";
 
 const STATUSES = [
   { value: "", label: "All" },
@@ -28,39 +28,7 @@ export default function AdminOrdersPage() {
 
       <FilterTabs options={STATUSES} value={filter} onChange={changeFilter} label="Filter by status" />
 
-      <TableShell
-        loading={loading}
-        empty={rows.length === 0}
-        emptyLabel="No orders match this filter"
-        colSpan={7}
-        head={
-          <>
-            <Th hide="md">Date</Th>
-            <Th>User</Th>
-            <Th hide="sm">Service</Th>
-            <Th hide="lg">Country</Th>
-            <Th hide="sm">Number</Th>
-            <Th>Status</Th>
-            <Th align="right">Cost</Th>
-          </>
-        }
-      >
-        {rows.map((o) => (
-          <Tr key={o.id}>
-            <Td hide="md" mono color="#555555">{dateTime(o.created_at)}</Td>
-            <Td mono>
-              <span className="block truncate max-w-[160px] sm:max-w-[220px]">
-                {o.email ?? "—"}
-              </span>
-            </Td>
-            <Td hide="sm">{o.service_name ?? "—"}</Td>
-            <Td hide="lg" color="#888888">{o.country_name ?? "—"}</Td>
-            <Td hide="sm" mono>{o.smspool_number ?? "—"}</Td>
-            <Td><StatusBadge status={o.status} /></Td>
-            <Td mono align="right">{money(o.cost)}</Td>
-          </Tr>
-        ))}
-      </TableShell>
+      <OrdersTable rows={rows} loading={loading} />
 
       <Pager page={page} totalPages={totalPages} onPage={setPage} />
     </div>
