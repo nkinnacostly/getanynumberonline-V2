@@ -83,10 +83,19 @@ export default function AdminOverviewPage() {
       )}
 
       {/* Metrics */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4 mb-10">
+      <div className="grid grid-cols-2 lg:grid-cols-6 gap-4 mb-10">
         <Metric label="Total revenue" value={stats ? money(stats.total_revenue) : null} loading={loading} accent />
         <Metric label="Total users" value={stats ? String(stats.total_users) : null} loading={loading}
           sub={stats?.banned_users ? `${stats.banned_users} banned` : undefined} />
+        <Metric
+          label="Flagged users"
+          value={stats ? String(stats.flagged_users) : null}
+          loading={loading}
+          // Amber only when there is something to review; a permanent warning
+          // colour on a zero is noise people learn to skip past.
+          tone={stats?.flagged_users ? "#F5A623" : undefined}
+          sub={stats?.flagged_users ? "awaiting review" : undefined}
+        />
         <Metric label="Orders today" value={stats ? String(stats.orders_today) : null} loading={loading}
           sub={stats ? `${stats.total_orders} all time` : undefined} />
         <Metric label="Active rentals" value={stats ? String(stats.active_rentals) : null} loading={loading} />

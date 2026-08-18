@@ -14,7 +14,8 @@
 // the actual column value, always.
 //
 // Actions: get_stats, list_users, get_user, list_orders, list_rentals,
-//          list_transactions, adjust_balance, set_ban, smspool_balance
+//          list_transactions, adjust_balance, set_ban, smspool_balance,
+//          list_flagged, clear_flag, get_settings, update_setting
 //
 // The three list_* actions take an optional user_id, which is what the user
 // detail page is built on — same query, same paging, scoped to one account.
@@ -100,6 +101,7 @@ async function getStats(supabase: Supabase) {
   const [
     totalUsers,
     bannedUsers,
+    flaggedUsers,
     ordersToday,
     totalOrders,
     activeRentals,
@@ -108,6 +110,7 @@ async function getStats(supabase: Supabase) {
   ] = await Promise.all([
     supabase.from("profiles").select("id", { count: "exact", head: true }),
     supabase.from("profiles").select("id", { count: "exact", head: true }).eq("is_banned", true),
+    supabase.from("profiles").select("id", { count: "exact", head: true }).eq("is_flagged", true),
     supabase.from("orders").select("id", { count: "exact", head: true })
       .gte("created_at", startOfDay.toISOString()),
     supabase.from("orders").select("id", { count: "exact", head: true }),
@@ -126,6 +129,7 @@ async function getStats(supabase: Supabase) {
   return {
     total_users: count(totalUsers),
     banned_users: count(bannedUsers),
+    flagged_users: count(flaggedUsers),
     total_revenue: Math.round(sum(topups.data as { amount: number }[]) * 100) / 100,
     total_spent: Math.round(sum(deductions.data as { amount: number }[]) * 100) / 100,
     orders_today: count(ordersToday),
@@ -283,6 +287,77 @@ async function setBan(
   return { banned: data };
 }
 
+// ── Fraud review ────────────────────────────────────────────
+
+/**
+ * The flagged-user review queue. Order and cancel counts come back with each
+ * row because judging a flag without them is guesswork.
+ */
+async function listFlagged(supabase: Supabase, adminId: string) {
+  const { data, error } = await supabase.rpc("admin_list_flagged", {
+    p_admin_id: adminId,
+  });
+  if (error) return { error: error.message, status: 400 };
+  return { rows: data ?? [] };
+}
+
+/**
+ * Mark a flag reviewed. Deliberately separate from banning — clearing says
+ * "looked at it, not fraud", and the RPC records who decided that.
+ */
+async function clearFlag(
+  supabase: Supabase,
+  adminId: string,
+  body: Record<string, unknown>,
+) {
+  const userId = userScope(body);
+  if (!userId) return { error: "user_id is required", status: 400 };
+
+  const { error } = await supabase.rpc("admin_clear_flag", {
+    p_admin_id: adminId,
+    p_user_id: userId,
+  });
+  if (error) return { error: error.message, status: 400 };
+  return { cleared: true };
+}
+
+// ── Platform settings ───────────────────────────────────────
+
+async function getSettings(supabase: Supabase, adminId: string) {
+  const { data, error } = await supabase.rpc("admin_get_settings", {
+    p_admin_id: adminId,
+  });
+  if (error) return { error: error.message, status: 400 };
+  return { rows: data ?? [] };
+}
+
+/**
+ * Write one lever. Bounds and the allowed key list are enforced by the RPC,
+ * not here — these values gate ordering and money, so the guarantee belongs in
+ * the database where nothing can route around it.
+ */
+async function updateSetting(
+  supabase: Supabase,
+  adminId: string,
+  body: Record<string, unknown>,
+) {
+  const key = String(body.key ?? "").trim();
+  const value = Number(body.value);
+
+  if (!key) return { error: "key is required", status: 400 };
+  if (!Number.isFinite(value)) {
+    return { error: "value must be a number", status: 400 };
+  }
+
+  const { data, error } = await supabase.rpc("admin_update_setting", {
+    p_admin_id: adminId,
+    p_key: key,
+    p_value: value,
+  });
+  if (error) return { error: error.message, status: 400 };
+  return { key, value: Number(data) };
+}
+
 /** Our own float at SMSPool — the operational "can we still sell" number. */
 async function smspoolBalance() {
   const key = Deno.env.get("SMSPOOL_API_KEY");
@@ -368,6 +443,26 @@ Deno.serve(async (req) => {
       }
       case "set_ban": {
         const result = await setBan(supabase, user.id, body);
+        if ("error" in result) return errorResponse(result.error!, result.status!);
+        return jsonResponse({ success: true, ...result });
+      }
+      case "list_flagged": {
+        const result = await listFlagged(supabase, user.id);
+        if ("error" in result) return errorResponse(result.error!, result.status!);
+        return jsonResponse({ success: true, ...result });
+      }
+      case "clear_flag": {
+        const result = await clearFlag(supabase, user.id, body);
+        if ("error" in result) return errorResponse(result.error!, result.status!);
+        return jsonResponse({ success: true, ...result });
+      }
+      case "get_settings": {
+        const result = await getSettings(supabase, user.id);
+        if ("error" in result) return errorResponse(result.error!, result.status!);
+        return jsonResponse({ success: true, ...result });
+      }
+      case "update_setting": {
+        const result = await updateSetting(supabase, user.id, body);
         if ("error" in result) return errorResponse(result.error!, result.status!);
         return jsonResponse({ success: true, ...result });
       }

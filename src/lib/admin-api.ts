@@ -20,11 +20,33 @@ export async function callAdminApi<T = Record<string, unknown>>(
 export interface AdminStats {
   total_users: number;
   banned_users: number;
+  flagged_users: number;
   total_revenue: number;
   total_spent: number;
   orders_today: number;
   total_orders: number;
   active_rentals: number;
+}
+
+/** A user auto-flagged by evaluate_user_fraud, awaiting human review. */
+export interface AdminFlaggedUser {
+  id: string;
+  email: string | null;
+  balance: number;
+  flag_reason: string | null;
+  is_banned: boolean;
+  created_at: string;
+  flagged_at: string;
+  order_count: number;
+  cancel_count: number;
+}
+
+/** One configurable fraud lever from platform_settings. */
+export interface AdminSetting {
+  key: string;
+  value: number;
+  description: string | null;
+  updated_at: string;
 }
 
 export interface AdminUser {
@@ -92,6 +114,8 @@ export interface AdminUserDetail {
   balance: number;
   is_banned: boolean;
   is_admin: boolean;
+  is_flagged: boolean;
+  flag_reason: string | null;
   deposited_real: number;
   credited_by_admin: number;
   deposit_count: number;
@@ -153,6 +177,90 @@ export const adjustBalance = (user_id: string, amount: number, note: string) =>
 
 export const setBan = (user_id: string, banned: boolean) =>
   callAdminApi<{ banned: boolean }>("set_ban", { user_id, banned });
+
+// ── Fraud review ────────────────────────────────────────────
+
+/**
+ * Dispatched on `window` after a flag is cleared or a flagged user banned.
+ *
+ * The sidebar badge lives in the admin layout, which stays mounted across
+ * navigations, so it has no other way to learn the count changed — and
+ * re-fetching stats on every route change to catch a rare event would be the
+ * expensive way round.
+ */
+export const FLAGS_CHANGED_EVENT = "admin:flags-changed";
+
+export const notifyFlagsChanged = () => {
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new Event(FLAGS_CHANGED_EVENT));
+  }
+};
+
+export const listFlagged = () =>
+  callAdminApi<{ rows: AdminFlaggedUser[] }>("list_flagged");
+
+export const clearFlag = (user_id: string) =>
+  callAdminApi<{ cleared: boolean }>("clear_flag", { user_id });
+
+export const getSettings = () =>
+  callAdminApi<{ rows: AdminSetting[] }>("get_settings");
+
+export const updateSetting = (key: string, value: number) =>
+  callAdminApi<{ key: string; value: number }>("update_setting", { key, value });
+
+/**
+ * Presentation rules per setting key, so the flagged page, the settings page
+ * and the sidebar all describe a lever the same way.
+ *
+ * flag_cancel_rate is stored 0-1 but is only meaningful to a human as a
+ * percentage, so it is scaled on the way in and out.
+ */
+export const SETTING_META: Record<
+  string,
+  { label: string; unit: "usd" | "percent" | "count"; step: number; hint?: string }
+> = {
+  min_first_deposit: {
+    label: "Minimum first deposit",
+    unit: "usd",
+    step: 0.5,
+    hint: "Applies only to a user's first top-up.",
+  },
+  max_orders_per_hour: {
+    label: "Max orders per hour",
+    unit: "count",
+    step: 1,
+    hint: "Rolling hour, per user. Rentals are limited too but don't add to the count.",
+  },
+  flag_cancel_rate: {
+    label: "Flag at cancel rate",
+    unit: "percent",
+    step: 5,
+    hint: "Cancel/refund share that trips a review flag.",
+  },
+  flag_min_orders: {
+    label: "Flag after at least",
+    unit: "count",
+    step: 1,
+    hint: "Minimum orders before the cancel rate is judged at all.",
+  },
+};
+
+/** Stored value → what the admin types. */
+export const settingToDisplay = (key: string, value: number) =>
+  SETTING_META[key]?.unit === "percent"
+    ? Math.round(value * 100)
+    : value;
+
+/** What the admin typed → what gets stored. */
+export const settingToStored = (key: string, display: number) =>
+  SETTING_META[key]?.unit === "percent" ? display / 100 : display;
+
+export const formatSetting = (key: string, value: number) => {
+  const unit = SETTING_META[key]?.unit;
+  if (unit === "usd") return `$${Number(value).toFixed(2)}`;
+  if (unit === "percent") return `${Math.round(value * 100)}%`;
+  return String(value);
+};
 
 // ── Formatting helpers, shared by every admin table ─────────
 

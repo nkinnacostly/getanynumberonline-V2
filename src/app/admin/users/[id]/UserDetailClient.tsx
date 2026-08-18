@@ -122,11 +122,40 @@ export default function UserDetailClient({ userId }: { userId: string }) {
           {user.email ?? "(no email)"}
         </h1>
         {user.is_admin && <Tag label="ADMIN" color="#F5A623" />}
+        {user.is_flagged && <Tag label="FLAGGED" color="#F5A623" />}
         {user.is_banned && <Tag label="BANNED" color="#FF4444" />}
       </div>
       <p className="font-mono text-[11px] mb-6" style={{ color: "#555555" }}>
         {user.user_id} · joined {dateTime(user.joined)}
       </p>
+
+      {/* The reason an account was auto-flagged is the thing an admin arriving
+          from the review queue came here to read, so it leads. */}
+      {user.is_flagged && (
+        <div
+          className="rounded-lg p-4 mb-6 flex flex-wrap items-center justify-between gap-3"
+          style={{
+            backgroundColor: "rgba(245,166,35,0.08)",
+            border: "1px solid rgba(245,166,35,0.32)",
+          }}
+        >
+          <div>
+            <p className="text-[13px] font-semibold" style={{ color: "#F5A623" }}>
+              Flagged for review
+            </p>
+            <p className="text-[12px] mt-1" style={{ color: "#888888" }}>
+              {user.flag_reason ?? "No reason recorded."}
+            </p>
+          </div>
+          <Link
+            href="/admin/flagged"
+            className="font-mono text-[11px] underline underline-offset-2 shrink-0"
+            style={{ color: "#F5A623" }}
+          >
+            Review queue →
+          </Link>
+        </div>
+      )}
 
       {/* ── Money ──────────────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">

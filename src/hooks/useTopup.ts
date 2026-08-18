@@ -22,8 +22,12 @@ export interface TopupOptions {
 }
 
 export interface UseTopup {
-  /** Open Flutterwave's inline modal to add `amount` USD. */
-  open: (amount: number, opts?: TopupOptions) => void;
+  /**
+   * Open Flutterwave's inline modal to add `amount` USD. Async because it runs
+   * a server-side pre-flight (first-deposit minimum) before opening; callers
+   * can fire and forget — `opening` covers the wait.
+   */
+  open: (amount: number, opts?: TopupOptions) => Promise<void>;
   /** Clicked — waiting for the modal iframe to appear. */
   opening: boolean;
   /** Checkout script loaded and callable. */
@@ -135,7 +139,7 @@ export function useTopup(): UseTopup {
   );
 
   const open = useCallback(
-    (amount: number, opts?: TopupOptions) => {
+    async (amount: number, opts?: TopupOptions) => {
       if (!user || !user.email) {
         toast("Please sign in again to add funds", "error");
         return;
@@ -161,6 +165,40 @@ export function useTopup(): UseTopup {
 
       onFundedRef.current = opts?.onFunded;
       setOpening(true);
+
+      // Server-side pre-flight: enforces the minimum FIRST deposit before the
+      // payment window opens, so an under-minimum user is told why instead of
+      // paying and then finding out. Errors other than a rejection fail open —
+      // this is an abuse control, and it must not block paying customers if the
+      // check itself is unavailable.
+      try {
+        const res = await fetch("/api/create-pending-topup", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ amount }),
+        });
+        // 4xx is a real decision about this top-up (under the first-deposit
+        // minimum, not signed in, suspended) and must stop it. 5xx means our
+        // own check broke — fail open there rather than block someone who is
+        // trying to pay us over a fault on our side.
+        if (!res.ok && res.status < 500) {
+          const data = await res.json().catch(() => null);
+          stopOpening();
+          toast(
+            data?.error ?? "Could not start this top-up. Please try again.",
+            "error",
+          );
+          return;
+        }
+        if (!res.ok) {
+          console.error("top-up pre-flight returned", res.status);
+        }
+      } catch (err) {
+        // Network failure reaching our own API — proceed rather than strand
+        // someone who is trying to pay us.
+        console.error("top-up pre-flight failed:", err);
+      }
+
       try {
         w.FlutterwaveCheckout({
           public_key: publicKey,

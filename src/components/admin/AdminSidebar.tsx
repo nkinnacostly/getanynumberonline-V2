@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { FLAGS_CHANGED_EVENT, getStats } from "@/lib/admin-api";
 
 /**
  * Admin navigation. Same shape as the dashboard Sidebar — 220px rail on
@@ -64,11 +66,80 @@ const navItems = [
       </svg>
     ),
   },
+  {
+    label: "Flagged",
+    href: "/admin/flagged",
+    // Carries the review-queue count — the only nav item that needs attention
+    // rather than just navigation.
+    badge: true,
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 9v4M12 17h.01" />
+        <path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z" />
+      </svg>
+    ),
+  },
+  {
+    label: "Settings",
+    href: "/admin/settings",
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="3" />
+        <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.6a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9v.09a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+      </svg>
+    ),
+  },
 ];
+
+/** Amber pill carrying the number of users awaiting review. */
+function FlagBadge({ count, compact }: { count: number; compact?: boolean }) {
+  if (count <= 0) return null;
+  return (
+    <span
+      className={`font-mono text-[10px] font-medium rounded-full leading-none ${
+        compact
+          ? "absolute top-1 right-1 min-w-[16px] h-[16px] px-1 flex items-center justify-center"
+          : "ml-auto min-w-[18px] h-[18px] px-1.5 flex items-center justify-center"
+      }`}
+      style={{
+        backgroundColor: "rgba(245,166,35,0.16)",
+        color: "#F5A623",
+        border: "1px solid rgba(245,166,35,0.4)",
+      }}
+    >
+      {count > 99 ? "99+" : count}
+    </span>
+  );
+}
 
 export default function AdminSidebar({ email }: { email: string }) {
   const pathname = usePathname();
   const router = useRouter();
+  const [flagged, setFlagged] = useState(0);
+
+  // Fetched once — this layout stays mounted across admin navigations, so the
+  // count is not re-requested on every page change. The flagged page dispatches
+  // FLAGS_CHANGED_EVENT after clearing or banning, which is the only thing that
+  // can change the number from inside the panel.
+  useEffect(() => {
+    let cancelled = false;
+
+    const refresh = async () => {
+      try {
+        const stats = await getStats();
+        if (!cancelled) setFlagged(stats.flagged_users ?? 0);
+      } catch {
+        // A failed count must not break navigation — show no badge.
+      }
+    };
+
+    refresh();
+    window.addEventListener(FLAGS_CHANGED_EVENT, refresh);
+    return () => {
+      cancelled = true;
+      window.removeEventListener(FLAGS_CHANGED_EVENT, refresh);
+    };
+  }, []);
 
   const handleSignOut = async () => {
     const supabase = createClient();
@@ -129,6 +200,7 @@ export default function AdminSidebar({ email }: { email: string }) {
                 >
                   {item.icon}
                   {item.label}
+                  {item.badge && <FlagBadge count={flagged} />}
                 </Link>
               );
             })}
@@ -163,11 +235,16 @@ export default function AdminSidebar({ email }: { email: string }) {
             <Link
               key={item.href}
               href={item.href}
-              aria-label={item.label}
-              className="flex items-center justify-center min-w-[44px] min-h-[44px] rounded-md transition-colors"
+              aria-label={
+                item.badge && flagged > 0
+                  ? `${item.label} (${flagged} awaiting review)`
+                  : item.label
+              }
+              className="relative flex items-center justify-center min-w-[44px] min-h-[44px] rounded-md transition-colors"
               style={{ color: active ? "#00FF94" : "#555555" }}
             >
               {item.icon}
+              {item.badge && <FlagBadge count={flagged} compact />}
             </Link>
           );
         })}

@@ -13,6 +13,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { resolveName } from "../_shared/smspool-names.ts";
+import { checkVelocity, evaluateFraudInBackground } from "../_shared/fraud.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -84,6 +85,17 @@ Deno.serve(async (req) => {
 
     if (!profile) return errorResponse("Profile not found", 404);
     if (profile.is_banned) return errorResponse("Account suspended", 403);
+
+    // --------------------------------------------------------
+    // 3b. Order velocity
+    //
+    // Before any money moves and before we ask SMSPool for anything, so a
+    // scripted user burning through numbers costs us neither balance
+    // operations nor supplier calls. A flagged user is NOT blocked here —
+    // flagging is for human review, not automatic enforcement.
+    // --------------------------------------------------------
+    const velocityError = await checkVelocity(supabase, user.id);
+    if (velocityError) return errorResponse(velocityError, 429);
 
     // --------------------------------------------------------
     // 4. Get price from SMSPool before deducting balance
@@ -215,8 +227,13 @@ Deno.serve(async (req) => {
     });
 
     // --------------------------------------------------------
-    // 9. Return to client
+    // 9. Re-score the user, then return
+    //
+    // Fire-and-forget: a slow or failing fraud evaluation must never delay or
+    // fail an order the customer has already paid for.
     // --------------------------------------------------------
+    evaluateFraudInBackground(supabase, user.id);
+
     return jsonResponse({
       success: true,
       order_id: orderId,

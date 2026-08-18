@@ -7,6 +7,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { isBlankOrNumeric, resolveName } from "../_shared/smspool-names.ts";
+import { checkVelocity, evaluateFraudInBackground } from "../_shared/fraud.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -75,6 +76,13 @@ Deno.serve(async (req) => {
 
     if (!profile) return errorResponse("Profile not found", 404);
     if (profile.is_banned) return errorResponse("Account suspended", 403);
+
+    // Same rolling-hour limit as one-time numbers, checked before any money
+    // moves or any SMSPool call is made. The underlying RPC counts the `orders`
+    // table, so rentals are limited by recent order activity but do not add to
+    // the count themselves.
+    const velocityError = await checkVelocity(supabase, user.id);
+    if (velocityError) return errorResponse(velocityError, 429);
 
     const smsPoolKey = Deno.env.get("SMSPOOL_API_KEY")!;
 
@@ -261,6 +269,9 @@ Deno.serve(async (req) => {
       .select("expires_at, phone_number")
       .eq("id", rentalUuid)
       .single();
+
+    // Fire-and-forget — never delays or fails a completed rental.
+    evaluateFraudInBackground(supabase, user.id);
 
     return jsonResponse({
       success: true,

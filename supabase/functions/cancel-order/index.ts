@@ -11,6 +11,7 @@
 // ============================================================
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { evaluateFraudInBackground } from '../_shared/fraud.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -115,6 +116,11 @@ Deno.serve(async (req) => {
       console.error('ALERT refund_order failed for', order_id, refundErr)
       return errorResponse('Could not cancel the order. Please try again.', 500)
     }
+
+    // Re-score after the cancel lands. This is the event that actually moves a
+    // user's cancel rate, so it is the one most likely to trip the flag.
+    // Fire-and-forget: never delay or fail a refund the user has already got.
+    evaluateFraudInBackground(supabase, user.id)
 
     return jsonResponse({
       success: true,
