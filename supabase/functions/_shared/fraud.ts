@@ -49,13 +49,13 @@ export async function getSetting(
 }
 
 /**
- * Rolling-hour order velocity.
+ * Rolling-hour purchase velocity, counting orders AND rentals.
  *
  * Returns null when the user may proceed, or a ready-to-send message when they
- * are at or over the limit.
- *
- * NOTE: check_order_velocity counts rows in `orders` only. Rentals are subject
- * to the same limit but do not themselves count toward it.
+ * are at or over the limit. One shared budget across both paths, so neither can
+ * be used to sidestep the other. eSIMs are not counted — order-esim is not
+ * gated by this check, and counting an unlimited purchase would throttle number
+ * ordering for a reason the user cannot see.
  */
 export async function checkVelocity(
   supabase: Supabase,

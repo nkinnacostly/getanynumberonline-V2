@@ -77,10 +77,9 @@ Deno.serve(async (req) => {
     if (!profile) return errorResponse("Profile not found", 404);
     if (profile.is_banned) return errorResponse("Account suspended", 403);
 
-    // Same rolling-hour limit as one-time numbers, checked before any money
-    // moves or any SMSPool call is made. The underlying RPC counts the `orders`
-    // table, so rentals are limited by recent order activity but do not add to
-    // the count themselves.
+    // Same rolling-hour budget as one-time numbers — orders and rentals share
+    // one count, so neither path can be used to sidestep the other. Checked
+    // before any money moves or any SMSPool call is made.
     const velocityError = await checkVelocity(supabase, user.id);
     if (velocityError) return errorResponse(velocityError, 429);
 

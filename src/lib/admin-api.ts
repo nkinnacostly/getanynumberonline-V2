@@ -229,7 +229,7 @@ export const SETTING_META: Record<
     label: "Max orders per hour",
     unit: "count",
     step: 1,
-    hint: "Rolling hour, per user. Rentals are limited too but don't add to the count.",
+    hint: "Rolling hour, per user. Orders and rentals share this budget.",
   },
   flag_cancel_rate: {
     label: "Flag at cancel rate",
