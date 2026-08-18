@@ -12,6 +12,7 @@ import {
   findCountry,
   flagEmoji,
   PRICING_SERVICE_SLUGS,
+  searchName,
   servicesBySlugs,
   TOP_COUNTRY_SLUGS,
 } from "@/lib/seo/catalog";
@@ -56,10 +57,11 @@ export async function generateMetadata({
   const low = cheapest(rows);
   const available = rows.filter((r) => r.quote).length;
 
-  const title = `Temporary ${country.name} Phone Numbers for SMS Verification`;
+  const short = searchName(country);
+  const title = `Temporary ${short} Phone Numbers \u2014 Receive SMS Online`;
   const description = low
-    ? `Rent a real SIM ${country.adjective} mobile number from ${formatPrice(low.price)} per SMS. Verify ${available}+ services including WhatsApp, Telegram and Google. Automatic refund if no code arrives.`
-    : `Get a real SIM-based temporary ${country.adjective} phone number for SMS verification. Pay per code received, with an automatic refund if none arrives.`;
+    ? `Receive SMS online with a temporary ${short} phone number from ${formatPrice(low.price)} per code. Real ${country.name} SIM, ${available}+ services including WhatsApp, Telegram and Google. Automatic refund if no code arrives.`
+    : `Receive SMS online with a real SIM-based temporary ${short} phone number. Genuine ${country.name} mobile line, pay per code received, automatic refund if none arrives.`;
 
   return {
     title,
@@ -186,7 +188,7 @@ export default async function CountryPage({
           </nav>
 
           <h1 className="font-sans text-4xl sm:text-5xl font-bold tracking-tight mb-5 leading-[1.1]">
-            Temporary {country.name} Phone Numbers for SMS Verification
+            Temporary {searchName(country)} Phone Numbers for SMS Verification
           </h1>
 
           <p className="text-[#555555] text-base sm:text-lg leading-relaxed max-w-2xl">

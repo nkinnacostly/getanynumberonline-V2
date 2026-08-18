@@ -36,6 +36,21 @@ export interface CountryEntry {
   iso: string;
   /** Demonym / adjective for natural copy ("a UK number"). */
   adjective: string;
+  /**
+   * The form people actually type into Google, when it differs from `name`.
+   *
+   * Search Console shows the UK page taking impressions for "receive sms uk",
+   * "uk sms receive" and "uk number sms" while its title and H1 only ever said
+   * "United Kingdom". The body already used "UK" 21 times; the title did not,
+   * and on a domain with no authority the title is one of the few levers left.
+   * Only set where the abbreviation is what gets searched.
+   */
+  short?: string;
+}
+
+/** Title/H1 form: the searched abbreviation if there is one, else the name. */
+export function searchName(country: CountryEntry): string {
+  return country.short ?? country.name;
 }
 
 export const SERVICES: ServiceEntry[] = [
@@ -76,8 +91,8 @@ export const SERVICES: ServiceEntry[] = [
 ];
 
 export const COUNTRIES: CountryEntry[] = [
-  { slug: "usa", name: "United States", id: 1, iso: "US", adjective: "US" },
-  { slug: "uk", name: "United Kingdom", id: 2, iso: "GB", adjective: "UK" },
+  { slug: "usa", name: "United States", id: 1, iso: "US", adjective: "US", short: "USA" },
+  { slug: "uk", name: "United Kingdom", id: 2, iso: "GB", adjective: "UK", short: "UK" },
   { slug: "germany", name: "Germany", id: 24, iso: "DE", adjective: "German" },
   { slug: "france", name: "France", id: 23, iso: "FR", adjective: "French" },
   { slug: "netherlands", name: "Netherlands", id: 3, iso: "NL", adjective: "Dutch" },
