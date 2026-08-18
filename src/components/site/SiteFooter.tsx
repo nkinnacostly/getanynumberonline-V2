@@ -1,5 +1,5 @@
 import Link from "next/link";
-import Brand from "./Brand";
+import Logo from "./Logo";
 import {
   countriesBySlugs,
   flagEmoji,
@@ -112,15 +112,10 @@ export default function SiteFooter() {
         </div>
 
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-8 border-t border-[#1A1A1A]">
+          {/* Recessive in the footer — the mark drops to muted rather than
+              carrying the accent a second time on the same page. */}
           <Link href="/" aria-label="GetAnyNumberOnline home">
-            {/* Recessive in the footer — the mark drops to muted rather than
-                carrying the accent a second time on the same page. */}
-            <Brand
-              id="footer"
-              markHeight={16}
-              markClassName="text-[#555555]"
-              nameClassName="text-[#555555] text-sm"
-            />
+            <Logo id="footer" className="h-4 w-auto text-[#555555]" />
           </Link>
           <p className="text-xs text-[#555555]/60">
             &copy; {new Date().getFullYear()} {SITE_NAME}. All rights reserved.

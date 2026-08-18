@@ -1,5 +1,5 @@
 import Link from "next/link";
-import Brand from "./Brand";
+import Logo from "./Logo";
 
 /**
  * Public marketing nav. Extracted from the homepage so /pricing, the
@@ -10,8 +10,10 @@ export default function SiteNav() {
   return (
     <nav className="sticky top-0 z-50 backdrop-blur-md bg-[#080808]/80 border-b border-[#1A1A1A]">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between">
+        {/* Mark only — the accessible name carries "GetAnyNumberOnline" for
+            screen readers and search, so the wordmark does not have to. */}
         <Link href="/" aria-label="GetAnyNumberOnline home">
-          <Brand id="nav" markHeight={20} />
+          <Logo id="nav" className="h-5 w-auto text-[#00FF94]" />
         </Link>
 
         <div className="flex items-center gap-4 sm:gap-6">

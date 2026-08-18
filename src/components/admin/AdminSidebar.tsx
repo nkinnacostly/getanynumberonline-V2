@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import Brand from "@/components/site/Brand";
+import Logo from "@/components/site/Logo";
 import { FLAGS_CHANGED_EVENT, getStats } from "@/lib/admin-api";
 
 /**
@@ -167,11 +167,7 @@ export default function AdminSidebar({ email }: { email: string }) {
         <div>
           <div className="mb-10 px-2">
             <Link href="/admin" aria-label="Admin overview">
-              <Brand
-                id="admin"
-                markHeight={16}
-                nameClassName="text-[#F5F5F5] text-xs"
-              />
+              <Logo id="admin" className="h-[18px] w-auto text-[#00FF94]" />
             </Link>
             <span
               className="inline-block mt-2 px-2 py-0.5 rounded font-mono text-[10px] font-medium tracking-wider"
