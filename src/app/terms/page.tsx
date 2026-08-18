@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import Logo from "@/components/site/Logo";
 
 
 export const metadata: Metadata = {
@@ -14,9 +15,10 @@ export default function TermsPage() {
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         <Link
           href="/"
-          className="font-mono text-sm text-[#555555] hover:text-[#F5F5F5] transition-colors mb-8 inline-block"
+          aria-label="GetAnyNumberOnline home"
+          className="text-[#555555] hover:text-[#F5F5F5] transition-colors mb-8 inline-block"
         >
-          <span className="text-[#00FF94]">&#x2588;</span> getanynumberonline
+          <Logo id="terms" className="h-4 w-auto" />
         </Link>
 
         <h1 className="text-3xl font-bold mb-2" style={{ color: "#F5F5F5" }}>

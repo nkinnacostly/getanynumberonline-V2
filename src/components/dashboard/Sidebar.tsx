@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useUser } from "@/hooks/useUser";
+import Logo from "@/components/site/Logo";
 import BalanceChip from "./BalanceChip";
 
 interface SidebarProps {
@@ -176,10 +177,10 @@ export default function Sidebar({
           {/* Logo */}
           <Link
             href="/"
-            className="flex items-center gap-2 font-mono text-xs text-[#F5F5F5] mb-10 px-2"
+            aria-label="GetAnyNumberOnline home"
+            className="block mb-10 px-2"
           >
-            <span className="text-[#00FF94]">&#x2588;</span>
-            getanynumberonline
+            <Logo id="dash" className="h-[18px] w-auto text-[#00FF94]" />
           </Link>
 
           {/* Nav */}

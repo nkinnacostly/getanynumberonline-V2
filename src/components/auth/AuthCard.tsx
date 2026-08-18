@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Logo from "@/components/site/Logo";
 
 interface AuthCardProps {
   children: React.ReactNode;
@@ -19,12 +20,8 @@ export default function AuthCard({ children }: AuthCardProps) {
     >
       {/* Logo — top-left fixed */}
       <div className="fixed top-0 left-0 p-5">
-        <Link
-          href="/"
-          className="flex items-center gap-2 font-mono text-sm text-[#F5F5F5]"
-        >
-          <span className="text-[#00FF94]">&#x2588;</span>
-          getnumber
+        <Link href="/" aria-label="GetAnyNumberOnline home">
+          <Logo id="auth" className="h-5 w-auto text-[#00FF94]" />
         </Link>
       </div>
 
