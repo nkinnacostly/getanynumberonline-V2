@@ -55,6 +55,32 @@ button:disabled {
   animation: status-pulse 1.5s ease-in-out infinite;
 }
 
+/* Hero collage: rotating seal + equalizer bars */
+
+@keyframes spin-slow {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.badge-spin {
+  animation: spin-slow 18s linear infinite;
+}
+
+@keyframes eq-bounce {
+  0%, 100% {
+    transform: scaleY(0.35);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
+.eq-bar {
+  transform-origin: bottom;
+  animation: eq-bounce 1.4s ease-in-out infinite;
+}
+
 /* ---- Auth spinner ---- */
 
 @keyframes auth-spin {
@@ -77,6 +103,8 @@ button:disabled {
 @media (prefers-reduced-motion: reduce) {
   .ticker-track,
   .status-dot,
+  .badge-spin,
+  .eq-bar,
   .confetti-piece,
   .auth-spinner {
     animation: none;
