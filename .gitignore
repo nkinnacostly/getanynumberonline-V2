@@ -45,3 +45,7 @@ next-env.d.ts
 
 #claude
 CLAUDE.md
+
+# no markdown files in git — local docs only
+*.md
+!node_modules/**/*.md
