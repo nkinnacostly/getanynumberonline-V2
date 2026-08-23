@@ -28,9 +28,10 @@ export interface EsimRow {
   created_at: string;
 }
 
-// eSIM Access allocates profiles asynchronously — usually seconds, up to ~30s.
-// order-esim already waited a few seconds, so a row that is still 'pending'
-// here needs a little longer. Give up after ~2 minutes and stop hammering.
+// Profiles are allocated asynchronously by the supplier — usually seconds, up
+// to ~30s. order-esim already waited a few seconds, so a row that is still
+// 'pending' here needs a little longer. Give up after ~2 minutes and stop
+// hammering.
 const POLL_MS = 5000;
 const POLL_LIMIT = 24;
 
@@ -76,6 +77,8 @@ export default function EsimCard({
   const [loading, setLoading] = useState(false);
 
   const tone = statusTone(esim.status);
+  // Only SMSPool rows are unreadable — eSIM Access rows still resolve through
+  // the legacy read path in get-esim-profile.
   const isLegacy = esim.provider === "smspool";
   const canActivate = esim.status === "active" && !isLegacy;
 

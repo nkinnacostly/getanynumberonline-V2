@@ -3,28 +3,40 @@
 // POST /functions/v1/get-esim-profile
 // Body: { esim_id }   (our esims.id — ownership is checked against it)
 //
-// Returns the live activation profile from eSIM Access (LPA string, QR image,
-// SM-DP+ address, ICCID, PIN/PUK/APN, data used) and writes the volatile bits
-// back to the row so History and the card can render without another upstream
-// call.
+// Returns the live activation profile (LPA string, QR image, SM-DP+ address,
+// usage counters) and writes the volatile bits back to the row so History and
+// the card can render without another upstream call.
 //
 // Doubles as the completion path for an order that was still provisioning when
 // order-esim returned: the client polls this until status leaves 'pending'.
+//
+// Provider routing:
+//   simjuno    — GET /esim/{provider_tran_no}. SimJuno exposes no ICCID and no
+//                smdpStatus on this endpoint; both stay whatever the webhooks
+//                last wrote.
+//   esimaccess — legacy rows keep reading eSIM Access until they expire; new
+//                orders never go there.
+//   smspool    — upstream discontinued, nothing to query.
 // ============================================================
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import {
-  EsimAccessError,
-  ERR_ALLOCATING,
-  type EsimProfile,
-  queryProfiles,
-} from "../_shared/esimaccess.ts";
+import { EsimAccessError, queryProfiles } from "../_shared/esimaccess.ts";
+import { getEsim } from "../_shared/simjuno.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type",
 };
+
+interface EsimRowLite {
+  id: string;
+  provider: string;
+  provider_order_no: string | null;
+  provider_tran_no: string | null;
+  iccid: string | null;
+  smdp_status: string | null;
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -59,14 +71,15 @@ Deno.serve(async (req) => {
     const { data: esim } = await supabase
       .from("esims")
       .select(
-        "id, provider, provider_order_no, provider_tran_no, iccid, status",
+        "id, provider, provider_order_no, provider_tran_no, iccid, smdp_status",
       )
       .eq("id", esimId)
       .eq("user_id", user.id)
       .maybeSingle();
     if (!esim) return errorResponse("eSIM not found", 404);
+    const row = esim as unknown as EsimRowLite;
 
-    if (esim.provider === "smspool") {
+    if (row.provider === "smspool") {
       // SMSPool discontinued eSIMs; there is no upstream left to query.
       return errorResponse(
         "This eSIM was issued by a provider we no longer integrate with. Contact support for its activation details.",
@@ -74,65 +87,134 @@ Deno.serve(async (req) => {
       );
     }
 
-    // esimTranNo is the recommended key — ICCIDs get recycled upstream.
-    const filter = esim.provider_tran_no
-      ? { esimTranNo: esim.provider_tran_no }
-      : esim.provider_order_no
-      ? { orderNo: esim.provider_order_no }
-      : null;
-    if (!filter) {
-      return jsonResponse({ success: true, status: "pending", profile: null });
+    if (row.provider !== "simjuno" && row.provider !== "esimaccess") {
+      return errorResponse(
+        `Unknown eSIM provider '${row.provider}'. Contact support.`,
+        422,
+      );
     }
 
-    let profile: EsimProfile | undefined;
-    try {
-      [profile] = await queryProfiles(filter);
-    } catch (err) {
-      // 200010 = SM-DP+ still allocating. Not an error the user should see.
-      if (err instanceof EsimAccessError && err.code === ERR_ALLOCATING) {
-        return jsonResponse({
-          success: true,
-          status: "pending",
-          profile: null,
-        });
-      }
-      throw err;
+    if (row.provider === "simjuno") {
+      return await serveSimJuno(supabase, row);
     }
-
-    if (!profile) {
-      return jsonResponse({ success: true, status: "pending", profile: null });
-    }
-
-    // ── Write the volatile fields back ───────────────────────
-    const { error: updErr } = await supabase
-      .from("esims")
-      .update({
-        provider_tran_no: profile.esim_tran_no || esim.provider_tran_no,
-        iccid: profile.iccid ?? esim.iccid,
-        smdp_status: profile.smdp_status,
-        status: profile.status,
-        expires_at: profile.expires_at,
-        total_bytes: profile.total_bytes || null,
-        used_bytes: profile.used_bytes ?? 0,
-        usage_updated_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", esimId);
-    if (updErr) {
-      // Non-fatal: the live profile below is still correct for this response.
-      console.error("Failed to sync esim row from profile:", updErr);
-    }
-
-    return jsonResponse({ success: true, status: profile.status, profile });
+    return await serveEsimAccess(supabase, row); // legacy read-only path
   } catch (err) {
-    if (err instanceof EsimAccessError) {
-      console.error("get-esim-profile provider error:", err.code, err.message);
-      return errorResponse("Could not load eSIM activation details", err.httpStatus);
-    }
     console.error("get-esim-profile unhandled error:", err);
     return errorResponse("Internal server error", 500);
   }
 });
+
+/** Current provider: GET /esim/{id}, keyed on our stored esim id. */
+async function serveSimJuno(
+  supabase: ReturnType<typeof createClient>,
+  row: EsimRowLite,
+): Promise<Response> {
+  if (!row.provider_tran_no) {
+    // The order call never returned an esim id and no webhook has filled it in
+    // yet — genuinely still provisioning.
+    return jsonResponse({ success: true, status: "pending", profile: null });
+  }
+
+  let profile;
+  try {
+    profile = await getEsim(row.provider_tran_no);
+  } catch (err) {
+    console.error("get-esim-profile simjuno error:", String(err));
+    return errorResponse(
+      "Could not load eSIM activation details. Try again shortly.",
+      503,
+    );
+  }
+
+  if (!profile) {
+    return jsonResponse({ success: true, status: "pending", profile: null });
+  }
+
+  const stillAllocating = !profile.activation_string && !profile.qr_code_url;
+
+  // Write the volatile fields back. While allocation is still running the
+  // upstream status alone is not yet actionable — keep 'pending' so the card
+  // keeps polling rather than showing a QR-less "active" eSIM.
+  const { error: updErr } = await supabase
+    .from("esims")
+    .update({
+      status: stillAllocating ? "pending" : profile.status,
+      expires_at: profile.expires_at,
+      total_bytes: profile.total_bytes || null,
+      used_bytes: profile.used_bytes ?? 0,
+      usage_updated_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", row.id);
+  if (updErr) {
+    // Non-fatal: the live profile below is still correct for this response.
+    console.error("Failed to sync esim row from profile:", updErr);
+  }
+
+  if (stillAllocating) {
+    return jsonResponse({ success: true, status: "pending", profile: null });
+  }
+  return jsonResponse({ success: true, status: profile.status, profile });
+}
+
+/**
+ * Legacy path for pre-SimJuno rows. Read-only: it exists only so customers who
+ * already bought an eSIM Access plan can still retrieve its activation
+ * details. Remove once every esimaccess row has expired.
+ */
+async function serveEsimAccess(
+  supabase: ReturnType<typeof createClient>,
+  row: EsimRowLite,
+): Promise<Response> {
+  // esimTranNo was eSIM Access's recommended key — ICCIDs get recycled there.
+  const filter = row.provider_tran_no
+    ? { esimTranNo: row.provider_tran_no }
+    : row.provider_order_no
+    ? { orderNo: row.provider_order_no }
+    : null;
+  if (!filter) {
+    return jsonResponse({ success: true, status: "pending", profile: null });
+  }
+
+  let profile;
+  try {
+    [profile] = await queryProfiles(filter);
+  } catch (err) {
+    if (err instanceof EsimAccessError && err.code === "200010") {
+      // SM-DP+ still allocating — same answer as "not ready yet".
+      return jsonResponse({ success: true, status: "pending", profile: null });
+    }
+    // Missing access code / upstream gone: these rows have no live source left.
+    console.error("get-esim-profile legacy esimaccess error:", String(err));
+    return errorResponse(
+      "This eSIM's original provider is being phased out and its details couldn't be loaded. Contact support.",
+      410,
+    );
+  }
+
+  if (!profile) {
+    return jsonResponse({ success: true, status: "pending", profile: null });
+  }
+
+  const { error: updErr } = await supabase
+    .from("esims")
+    .update({
+      iccid: profile.iccid ?? row.iccid,
+      smdp_status: profile.smdp_status ?? row.smdp_status,
+      status: profile.status,
+      expires_at: profile.expires_at,
+      total_bytes: profile.total_bytes || null,
+      used_bytes: profile.used_bytes ?? 0,
+      usage_updated_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", row.id);
+  if (updErr) {
+    console.error("Failed to sync legacy esim row:", updErr);
+  }
+
+  return jsonResponse({ success: true, status: profile.status, profile });
+}
 
 function jsonResponse(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), {

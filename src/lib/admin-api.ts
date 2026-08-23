@@ -154,6 +154,22 @@ export const getStats = () =>
 export const getSmspoolBalance = () =>
   callAdminApi<{ balance: number }>("smspool_balance");
 
+/** Cached SimJuno reseller-wallet state (what reconcile-esims last saw). */
+export interface AdminSimJunoStatus {
+  balance: number;
+  available: boolean;
+  min_balance: number;
+  note: string | null;
+  checked_at: string | null;
+}
+
+export const getSimJunoStatus = () =>
+  callAdminApi<AdminSimJunoStatus>("simjuno_status");
+
+/** Live balance re-check; also persists into esim_provider_status. */
+export const refreshSimJunoBalance = () =>
+  callAdminApi<AdminSimJunoStatus>("simjuno_refresh");
+
 export const listUsers = (params: ListParams & { search?: string }) =>
   callAdminApi<Paged<AdminUser>>("list_users", { limit: ADMIN_PAGE_SIZE, ...params });
 

@@ -2,54 +2,42 @@
 // Edge Function: order-esim
 // POST /functions/v1/order-esim
 // Body: {
-//   package_code,                 // eSIM Access packageCode
-//   catalog_scope,                // "country" | "regional" | "global"
-//   location_code,                // ISO code when scope is "country"
-//   location_name,                // display label (country or region name)
-//   raw_price?,                   // optional client mismatch guard (USD)
-//   period_num?                   // days, day-pass plans only
+//   slug,                         // SimJuno package slug — what we order with
+//   catalog_scope,                // "country" | "region" | "global"
+//   destination_slug,             // destination the client picked it from
+//   location_name,                // display label (country/region/global name)
+//   raw_price?                    // optional client mismatch guard (USD)
 // }
 //
-// Flow (mirrors order-number / rent-number, plus the async provisioning step):
+// Flow (mirrors order-number / rent-number, plus async provisioning):
 //   1. Auth + ban check
-//   2. Re-fetch the package from eSIM Access and price it server-side — never
+//   2. Re-fetch the package from SimJuno and price it server-side — never
 //      trust the client's price
 //   3. Atomically deduct + create the esim row ('pending') with our own
-//      transactionId as the idempotency key
-//   4. POST esim/order; on failure refund and mark 'failed'
-//   5. Provisioning is ASYNCHRONOUS — briefly poll esim/query so the common
-//      case returns a ready eSIM. If the profile is not allocated yet the row
-//      stays 'pending' and esimaccess-webhook (or client polling of
-//      get-esim-profile) completes it.
+//      transaction_id as the idempotency key
+//   4. Check the reseller wallet BEFORE touching ours; refuse if we can't fill
+//   5. POST /esim/order (idempotent on transaction_id); deterministic
+//      rejections refund immediately, transport failures stay 'pending' —
+//      simjuno-webhook (transactionId+esimId) or reconcile-esims resolves them
+//   6. Briefly poll GET /esim/{id} so the common case returns a ready eSIM
 // ============================================================
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import {
   applyEsimMarkup,
-  callEsimAccess,
-  EsimAccessError,
-  ERR_ALLOCATING,
-  ERR_PROVIDER_NO_FUNDS,
-  findProfilesByTransactionId,
+  getEsim,
+  getPackage,
   placeOrderIdempotent,
   queryBalance,
-  queryProfiles,
-  shapePackage,
-  toScaledPrice,
-} from "../_shared/esimaccess.ts";
+  type EsimProfile,
+  SimJunoError,
+} from "../_shared/simjuno.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type",
 };
-
-/** Which catalog list a package came from, so we can re-price it. */
-function listCodeFor(scope: string, locationCode: string): string {
-  if (scope === "regional") return "!RG";
-  if (scope === "global") return "!GL";
-  return locationCode;
-}
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -79,14 +67,14 @@ Deno.serve(async (req) => {
     );
 
     const body = await req.json().catch(() => ({}));
-    const packageCode = String(body?.package_code ?? "").trim();
+    const slug = String(body?.slug ?? "").trim();
     const scope = String(body?.catalog_scope ?? "country").trim();
-    const locationCode = String(body?.location_code ?? "").trim().toUpperCase();
+    const destinationSlug = String(body?.destination_slug ?? "").trim();
     const clientRaw = body?.raw_price;
 
-    if (!packageCode) return errorResponse("package_code is required", 400);
-    if (scope === "country" && !locationCode) {
-      return errorResponse("location_code is required", 400);
+    if (!slug) return errorResponse("slug is required", 400);
+    if (!["country", "region", "global"].includes(scope)) {
+      return errorResponse("catalog_scope must be country, region or global", 400);
     }
 
     const { data: profile } = await supabase
@@ -98,30 +86,17 @@ Deno.serve(async (req) => {
     if (profile.is_banned) return errorResponse("Account suspended", 403);
 
     // ── Re-fetch the package and price it server-side ────────
-    const obj = await callEsimAccess<
-      { packageList?: Record<string, unknown>[] }
-    >("package/list", {
-      locationCode: listCodeFor(scope, locationCode),
-      type: "BASE",
-    });
-    const pkg = (obj.packageList ?? [])
-      .map(shapePackage)
-      .find((p) => p.code === packageCode);
-    if (!pkg) return errorResponse("Plan is no longer available", 404);
-    if (pkg.raw_price <= 0) return errorResponse("Invalid plan price", 502);
-
-    // Day passes are billed per day: the catalog quotes one day and the order
-    // carries periodNum. `amount` below is verified upstream, so a wrong
-    // multiplier fails the order and refunds rather than mischarging.
-    let periodNum: number | null = null;
-    if (pkg.is_day_pass) {
-      const requested = Number(body?.period_num ?? pkg.duration_days ?? 1);
-      if (!Number.isInteger(requested) || requested < 1 || requested > 365) {
-        return errorResponse("period_num must be a whole number of days (1-365)", 400);
+    let pkg: Awaited<ReturnType<typeof getPackage>>;
+    try {
+      pkg = await getPackage(slug);
+    } catch (err) {
+      if (err instanceof SimJunoError && !err.retryable) {
+        // Unknown slug etc. — a definite "no".
+        return errorResponse("Plan is no longer available", 404);
       }
-      periodNum = requested;
+      throw err;
     }
-    const days = periodNum ?? 1;
+    if (!pkg) return errorResponse("Plan is no longer available", 404);
 
     if (clientRaw !== undefined && clientRaw !== null) {
       const sent = parseFloat(String(clientRaw));
@@ -130,7 +105,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    const cost = applyEsimMarkup(pkg.raw_price * days);
+    const cost = applyEsimMarkup(pkg.raw_price);
     if (isNaN(cost) || cost <= 0) {
       return errorResponse("Invalid computed price", 500);
     }
@@ -148,17 +123,17 @@ Deno.serve(async (req) => {
     try {
       providerBalance = await queryBalance();
     } catch (err) {
-      console.error("balance/query failed before order:", err);
+      console.error("reseller/balance failed before order:", err);
       return errorResponse(
         "eSIMs are temporarily unavailable. Please try again shortly.",
         503,
       );
     }
-    if (providerBalance < pkg.raw_price * days) {
+    if (providerBalance < pkg.raw_price) {
       // Operator problem, not the customer's — and no charge was made.
       console.error(
         `ALERT esim provider balance too low: have $${providerBalance}, ` +
-          `need $${(pkg.raw_price * days).toFixed(2)}`,
+          `need $${pkg.raw_price.toFixed(2)}`,
       );
       await supabase
         .from("esim_provider_status")
@@ -169,7 +144,7 @@ Deno.serve(async (req) => {
           checked_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         })
-        .eq("provider", "esimaccess");
+        .eq("provider", "simjuno");
       return errorResponse(
         "eSIMs are temporarily unavailable. No charge was made.",
         503,
@@ -177,16 +152,16 @@ Deno.serve(async (req) => {
     }
 
     const locationName = String(body?.location_name ?? "").trim() ||
-      pkg.description || locationCode;
-    // For regional/global packages the ISO code is meaningless — record the
-    // catalog bucket so the row can still be re-priced and displayed.
-    const storedLocation = scope === "country"
-      ? locationCode
-      : listCodeFor(scope, locationCode);
+      pkg.description || destinationSlug || slug;
+    // Single-country packages carry their ISO in `location`; regional/global
+    // ones cover many countries, so record the destination slug instead.
+    const storedLocation = scope === "country" && pkg.location_codes.length === 1
+      ? pkg.location_codes[0]
+      : destinationSlug;
 
-    // Our own idempotency key. The provider treats a repeated transactionId as
-    // the same order, and the webhook echoes it back so late events can find
-    // the row even before an orderNo is stored.
+    // Our own idempotency key. SimJuno treats a repeated transaction_id with
+    // the same orderList as the same order, and its webhooks echo it back so
+    // late events can find the row even before an esim id is stored.
     const transactionId = crypto.randomUUID();
 
     // ── Deduct + create (pending) ────────────────────────────
@@ -197,11 +172,11 @@ Deno.serve(async (req) => {
         p_cost: cost,
         p_country: storedLocation,
         p_country_name: locationName,
-        p_plan_id: packageCode,
-        p_data_gb: pkg.data_gb * days,
-        p_duration_days: pkg.is_day_pass ? days : pkg.duration_days,
+        p_plan_id: slug,
+        p_data_gb: pkg.data_gb,
+        p_duration_days: pkg.duration_days,
         p_provider_txn_id: transactionId,
-        p_total_bytes: pkg.total_bytes * days,
+        p_total_bytes: pkg.total_bytes,
       },
     );
     if (deductError) {
@@ -229,144 +204,110 @@ Deno.serve(async (req) => {
       }
     };
 
-    // ── Place the order ──────────────────────────────────────
-    // Retries reuse `transactionId`, which eSIM Access treats as the same
-    // request — so a timeout can never buy two eSIMs.
-    let orderNo: string;
-    try {
-      const placed = await placeOrderIdempotent({
-        transactionId,
-        amountScaled: toScaledPrice(pkg.raw_price * days),
-        packageCode: pkg.code,
-        priceScaled: toScaledPrice(pkg.raw_price),
-        periodNum,
-      });
-      orderNo = placed.orderNo;
-    } catch (err) {
-      const provider = err instanceof EsimAccessError ? err : null;
-      console.error("esim/order failed:", provider?.code, String(err));
+    /** Persist whatever an allocated profile told us. */
+    const applyProfile = async (found: EsimProfile) => {
+      await supabase
+        .from("esims")
+        .update({
+          provider_tran_no: found.esim_id,
+          iccid: found.iccid,
+          smdp_status: found.smdp_status,
+          status: found.status === "pending" ? "active" : found.status,
+          expires_at: found.expires_at,
+          total_bytes: found.total_bytes || null,
+          used_bytes: found.used_bytes ?? 0,
+          usage_updated_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", esimId);
+    };
 
-      // CRITICAL: a transport failure is not proof the order didn't land. It
-      // may have succeeded and only the response was lost. Refunding blind
-      // would hand out an eSIM we paid for and refund the customer too, so
-      // confirm the order really is absent first.
-      if (!provider?.code) {
-        try {
-          const [recovered] = await findProfilesByTransactionId(transactionId);
-          if (recovered) {
-            console.error(
-              `recovered orphaned eSIM order ${recovered.order_no} for`,
-              esimId,
-            );
-            await supabase
-              .from("esims")
-              .update({
-                provider_order_no: recovered.order_no,
-                provider_tran_no: recovered.esim_tran_no,
-                iccid: recovered.iccid,
-                smdp_status: recovered.smdp_status,
-                status: recovered.status === "pending"
-                  ? "active"
-                  : recovered.status,
-                expires_at: recovered.expires_at,
-                total_bytes: recovered.total_bytes || null,
-                used_bytes: recovered.used_bytes ?? 0,
-                usage_updated_at: new Date().toISOString(),
-                updated_at: new Date().toISOString(),
-              })
-              .eq("id", esimId);
-            return jsonResponse({
-              success: true,
-              esim_id: esimId,
-              order_no: recovered.order_no,
-              status: "active",
-              cost,
-            });
-          }
-        } catch (lookupErr) {
-          // Couldn't prove either way — leave the row 'pending' and let
-          // reconcile-esims decide. Refunding on a guess is the worse error.
-          console.error("ALERT order recovery lookup failed for", esimId, lookupErr);
+    // ── Place the order ──────────────────────────────────────
+    // Retries reuse `transactionId`, which SimJuno treats as the same request —
+    // so a timeout can never buy two eSIMs.
+    let esimProviderId: string;
+    try {
+      const placed = await placeOrderIdempotent(transactionId, slug);
+      esimProviderId = placed.esimId;
+    } catch (err) {
+      const provider = err instanceof SimJunoError ? err : null;
+      console.error("esim/order failed:", provider?.httpStatus, String(err));
+
+      if (provider && !provider.retryable) {
+        // Deterministic rejection (unknown slug, empty reseller wallet, …).
+        // The order definitely did not land, so refund immediately.
+        await refund(`eSIM order rejected by supplier (${provider.httpStatus})`);
+
+        if (provider.httpStatus === 402 || /balance/i.test(provider.message)) {
           await supabase
-            .from("esims")
+            .from("esim_provider_status")
             .update({
-              last_error: "order call failed; recovery lookup failed",
+              available: false,
+              note: "order rejected: insufficient provider balance",
               updated_at: new Date().toISOString(),
             })
-            .eq("id", esimId);
+            .eq("provider", "simjuno");
           return errorResponse(
-            "We couldn't confirm your eSIM order. It's being checked automatically — you'll be refunded within minutes if it didn't go through.",
+            "eSIMs are temporarily unavailable. Your balance was refunded.",
             503,
           );
         }
-      }
-
-      await refund(`eSIM order failed (${provider?.code ?? "network"})`);
-
-      // Our provider wallet being empty is an operator problem, not the user's.
-      if (provider?.code === ERR_PROVIDER_NO_FUNDS) {
-        await supabase
-          .from("esim_provider_status")
-          .update({
-            available: false,
-            note: "order rejected: insufficient provider balance",
-            updated_at: new Date().toISOString(),
-          })
-          .eq("provider", "esimaccess");
         return errorResponse(
-          "eSIMs are temporarily unavailable. Your balance was refunded.",
+          "Could not complete the eSIM purchase. Your balance was refunded.",
           503,
         );
       }
+
+      // Transport failure: NOT proof the order didn't land, and SimJuno offers
+      // no lookup-by-transaction API. Leave the row 'pending' — the webhook
+      // carries transactionId+esimId and reconcile-esims refunds within ~15
+      // minutes if nothing ever arrives. Refunding blind would hand out an
+      // eSIM we paid for AND refund the customer.
+      console.error("ALERT esim/order transport failure for", esimId, String(err));
+      await supabase
+        .from("esims")
+        .update({
+          last_error: "order call failed; awaiting webhook/reconcile",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", esimId);
       return errorResponse(
-        "Could not complete the eSIM purchase. Your balance was refunded.",
+        "We couldn't confirm your eSIM order. It's being checked automatically — you'll be refunded within minutes if it didn't go through.",
         503,
       );
     }
 
+    // The esim id IS the handle for every later query/cancel — store first.
     await supabase
       .from("esims")
-      .update({ provider_order_no: orderNo, updated_at: new Date().toISOString() })
+      .update({
+        provider_tran_no: esimProviderId,
+        last_error: null,
+        updated_at: new Date().toISOString(),
+      })
       .eq("id", esimId);
 
-    // ── Wait briefly for the SM-DP+ allocation ───────────────
-    // Allocation usually lands in a few seconds but can take up to ~30s. Poll
+    // ── Wait briefly for profile allocation ──────────────────
+    // Allocation usually lands within seconds but can take up to ~30s. Poll
     // just long enough to make the common case feel synchronous, then hand off
     // to the webhook / client polling rather than holding the request open.
     for (let attempt = 0; attempt < 3; attempt++) {
       await sleep(2500);
       try {
-        const [found] = await queryProfiles({ orderNo });
-        if (!found?.iccid) continue;
+        const found = await getEsim(esimProviderId);
+        if (!found?.activation_string && !found?.qr_code_url) continue;
 
-        await supabase
-          .from("esims")
-          .update({
-            provider_tran_no: found.esim_tran_no,
-            iccid: found.iccid,
-            smdp_status: found.smdp_status,
-            status: found.status === "pending" ? "active" : found.status,
-            expires_at: found.expires_at,
-            total_bytes: found.total_bytes || null,
-            used_bytes: found.used_bytes ?? 0,
-            usage_updated_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", esimId);
-
+        await applyProfile(found);
         return jsonResponse({
           success: true,
           esim_id: esimId,
-          order_no: orderNo,
+          provider_esim_id: esimProviderId,
           status: "active",
           cost,
         });
       } catch (err) {
-        // 200010 just means "still allocating" — keep waiting.
-        if (err instanceof EsimAccessError && err.code === ERR_ALLOCATING) {
-          continue;
-        }
-        console.error("esim/query while polling order:", err);
+        // Rate limits and hiccups while polling are fine — keep waiting.
+        console.error("getEsim while polling order:", err);
         break;
       }
     }
@@ -375,13 +316,13 @@ Deno.serve(async (req) => {
     return jsonResponse({
       success: true,
       esim_id: esimId,
-      order_no: orderNo,
+      provider_esim_id: esimProviderId,
       status: "pending",
       cost,
     });
   } catch (err) {
-    if (err instanceof EsimAccessError) {
-      console.error("order-esim provider error:", err.code, err.message);
+    if (err instanceof SimJunoError) {
+      console.error("order-esim provider error:", err.message);
       return errorResponse(
         "eSIM provider is unavailable right now. No charge was made.",
         err.httpStatus,

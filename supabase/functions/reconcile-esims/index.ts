@@ -5,15 +5,22 @@
 // a customer whose wallet was debited must end up with either an eSIM or their
 // money back, without anyone having to notice.
 //
-//   1. Refresh our eSIM Access balance into esim_provider_status. Below
+//   1. Refresh our SimJuno reseller balance into esim_provider_status. Below
 //      min_balance the storefront flips to "back soon", so we stop ACCEPTING
 //      orders we cannot fill instead of refunding them afterwards.
 //
 //   2. Sweep esims stuck at 'pending':
-//        • provisioned upstream  -> link the ICCID and activate
+//        • provisioned upstream  -> link the profile id and activate
 //        • genuinely absent, and older than REFUND_AFTER_MIN -> auto-refund
 //        • unresolvable after MAX_ATTEMPTS -> refund and dead-letter with
 //          last_error set, so an operator can query what gave up and why
+//
+//   Both providers still in the data are swept:
+//        simjuno    — current provider. A row whose order response was lost has
+//                     no upstream handle until a webhook fills provider_tran_no,
+//                     so until then all it can do is wait for its refund window.
+//        esimaccess — retired provider; sweeps only the pending rows that
+//                     predate the switch. Delete this leg once they drain out.
 //
 // Idempotent and safe to run repeatedly: refund_failed_esim only acts on a
 // row that is still 'pending' (under a row lock), and credit_balance is
@@ -28,9 +35,9 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import {
   findProfilesByTransactionId,
-  queryBalance,
   queryProfiles,
 } from "../_shared/esimaccess.ts";
+import { getEsim, queryBalance } from "../_shared/simjuno.ts";
 import { isReconcileAuthorized } from "../_shared/reconcile-auth.ts";
 
 const corsHeaders = {
@@ -52,8 +59,10 @@ interface PendingEsim {
   id: string;
   user_id: string;
   cost: number;
+  provider: string;
   provider_txn_id: string | null;
   provider_order_no: string | null;
+  provider_tran_no: string | null;
   created_at: string;
   reconcile_attempts: number;
 }
@@ -87,7 +96,7 @@ Deno.serve(async (req) => {
     const { data: status } = await supabase
       .from("esim_provider_status")
       .select("min_balance")
-      .eq("provider", "esimaccess")
+      .eq("provider", "simjuno")
       .maybeSingle();
     const minBalance = Number(status?.min_balance ?? 20);
 
@@ -114,9 +123,9 @@ Deno.serve(async (req) => {
           checked_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         })
-        .eq("provider", "esimaccess");
+        .eq("provider", "simjuno");
     } catch (err) {
-      console.error("ALERT balance/query failed during reconcile:", err);
+      console.error("ALERT reseller/balance failed during reconcile:", err);
       report.errors.push({ id: "balance", error: String(err) });
     }
 
@@ -127,9 +136,9 @@ Deno.serve(async (req) => {
     const { data: pending, error: fetchErr } = await supabase
       .from("esims")
       .select(
-        "id, user_id, cost, provider_txn_id, provider_order_no, created_at, reconcile_attempts",
+        "id, user_id, cost, provider, provider_txn_id, provider_order_no, provider_tran_no, created_at, reconcile_attempts",
       )
-      .eq("provider", "esimaccess")
+      .in("provider", ["simjuno", "esimaccess"])
       .eq("status", "pending")
       .lt("created_at", graceCutoff)
       .order("created_at", { ascending: true })
@@ -152,36 +161,67 @@ Deno.serve(async (req) => {
         .eq("id", row.id);
 
       try {
-        // Prefer the orderNo; fall back to scanning by our own transactionId,
-        // which is the only handle we have if the order call never returned.
-        let profile;
-        if (row.provider_order_no) {
-          [profile] = await queryProfiles({ orderNo: row.provider_order_no });
-        } else if (row.provider_txn_id) {
-          // Widen the lookback to cover the row's full age.
-          [profile] = await findProfilesByTransactionId(
-            row.provider_txn_id,
-            Math.min(Math.ceil(ageMin) + 10, 60 * 24),
-          );
+        let provisioned = false;
+
+        if (row.provider === "simjuno") {
+          // The stored esim id is the only reliable handle — SimJuno has no
+          // lookup-by-transaction API. Rows without one are waiting on a
+          // webhook (SMDP_EVENT carries transactionId+esimId) or their refund.
+          if (row.provider_tran_no) {
+            const found = await getEsim(row.provider_tran_no);
+            const ready = found?.activation_string || found?.qr_code_url;
+            if (found && ready && found.status !== "pending") {
+              await supabase
+                .from("esims")
+                .update({
+                  status: found.status,
+                  expires_at: found.expires_at,
+                  total_bytes: found.total_bytes || null,
+                  used_bytes: found.used_bytes ?? 0,
+                  usage_updated_at: new Date().toISOString(),
+                  last_error: null,
+                  updated_at: new Date().toISOString(),
+                })
+                .eq("id", row.id);
+              provisioned = true;
+            }
+          }
+        } else {
+          // Legacy eSIM Access rows: prefer the orderNo; fall back to scanning
+          // by our own transactionId, which is the only handle we have if the
+          // order call never returned.
+          let profile;
+          if (row.provider_order_no) {
+            [profile] = await queryProfiles({ orderNo: row.provider_order_no });
+          } else if (row.provider_txn_id) {
+            [profile] = await findProfilesByTransactionId(
+              row.provider_txn_id,
+              Math.min(Math.ceil(ageMin) + 10, 60 * 24),
+            );
+          }
+
+          if (profile?.iccid) {
+            await supabase
+              .from("esims")
+              .update({
+                provider_order_no: profile.order_no || row.provider_order_no,
+                provider_tran_no: profile.esim_tran_no,
+                iccid: profile.iccid,
+                smdp_status: profile.smdp_status,
+                status: profile.status === "pending" ? "active" : profile.status,
+                expires_at: profile.expires_at,
+                total_bytes: profile.total_bytes || null,
+                used_bytes: profile.used_bytes ?? 0,
+                usage_updated_at: new Date().toISOString(),
+                last_error: null,
+                updated_at: new Date().toISOString(),
+              })
+              .eq("id", row.id);
+            provisioned = true;
+          }
         }
 
-        if (profile?.iccid) {
-          await supabase
-            .from("esims")
-            .update({
-              provider_order_no: profile.order_no || row.provider_order_no,
-              provider_tran_no: profile.esim_tran_no,
-              iccid: profile.iccid,
-              smdp_status: profile.smdp_status,
-              status: profile.status === "pending" ? "active" : profile.status,
-              expires_at: profile.expires_at,
-              total_bytes: profile.total_bytes || null,
-              used_bytes: profile.used_bytes ?? 0,
-              usage_updated_at: new Date().toISOString(),
-              last_error: null,
-              updated_at: new Date().toISOString(),
-            })
-            .eq("id", row.id);
+        if (provisioned) {
           report.activated.push(row.id);
           continue;
         }

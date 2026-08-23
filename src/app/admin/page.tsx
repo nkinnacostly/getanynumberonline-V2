@@ -2,15 +2,19 @@
 
 import { useEffect, useState } from "react";
 import { AdminCard, StatusBadge } from "@/components/admin/AdminTable";
+import SimJunoCard from "@/components/admin/SimJunoCard";
 import { useToast } from "@/components/dashboard/Toast";
 import {
+  type AdminSimJunoStatus,
   type AdminStats,
   type AdminTransaction,
   dateTime,
   getSmspoolBalance,
+  getSimJunoStatus,
   getStats,
   listTransactions,
   money,
+  refreshSimJunoBalance,
 } from "@/lib/admin-api";
 
 /** Below this our SMSPool float is low enough to stop us fulfilling orders. */
@@ -21,6 +25,8 @@ export default function AdminOverviewPage() {
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [float, setFloat] = useState<number | null>(null);
   const [floatError, setFloatError] = useState(false);
+  const [simjuno, setSimjuno] = useState<AdminSimJunoStatus | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
   const [recent, setRecent] = useState<AdminTransaction[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -32,9 +38,10 @@ export default function AdminOverviewPage() {
 
     (async () => {
       // Settled, not all: a SMSPool outage must not blank the whole dashboard.
-      const [statsRes, floatRes, txRes] = await Promise.allSettled([
+      const [statsRes, floatRes, simjunoRes, txRes] = await Promise.allSettled([
         getStats(),
         getSmspoolBalance(),
+        getSimJunoStatus(),
         listTransactions({ limit: 10 }),
       ]);
       if (cancelled) return;
@@ -44,6 +51,8 @@ export default function AdminOverviewPage() {
 
       if (floatRes.status === "fulfilled") setFloat(floatRes.value.balance);
       else setFloatError(true);
+
+      if (simjunoRes.status === "fulfilled") setSimjuno(simjunoRes.value);
 
       if (txRes.status === "fulfilled") setRecent(txRes.value.rows ?? []);
 
@@ -56,6 +65,23 @@ export default function AdminOverviewPage() {
   }, [toast]);
 
   const lowFloat = float !== null && float < LOW_FLOAT_USD;
+  const lowSimjuno =
+    !!simjuno && (!simjuno.available || simjuno.balance < simjuno.min_balance);
+
+  /** One live provider check; persists so the storefront gate reacts too. */
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      setSimjuno(await refreshSimJunoBalance());
+    } catch (e) {
+      toast(
+        e instanceof Error ? e.message : "Could not read SimJuno balance",
+        "error",
+      );
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   return (
     <div>
@@ -78,6 +104,33 @@ export default function AdminOverviewPage() {
             <span className="font-mono">{money(float)}</span> remaining. Below{" "}
             <span className="font-mono">{money(LOW_FLOAT_USD)}</span> new orders
             will start failing — top up the SMSPool account.
+          </p>
+        </div>
+      )}
+
+      {lowSimjuno && (
+        <div
+          className="rounded-lg p-4 mb-4"
+          style={{
+            backgroundColor: "color-mix(in srgb, var(--danger) 10%, transparent)",
+            border: "1px solid rgba(255,68,68,0.32)",
+          }}
+        >
+          <p className="text-[13px] font-semibold" style={{ color: "var(--danger)" }}>
+            SimJuno float is low
+          </p>
+          <p className="text-[12px] mt-1" style={{ color: "var(--muted)" }}>
+            <span className="font-mono">{money(simjuno?.balance)}</span> remaining,
+            floor <span className="font-mono">{money(simjuno?.min_balance ?? 0)}</span>.
+            eSIM purchases are paused — top up at{" "}
+            <a
+              href="https://simjuno.com/dashboard/wallet"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: "var(--accent)" }}
+            >
+              simjuno.com/dashboard/wallet ↗
+            </a>
           </p>
         </div>
       )}
@@ -107,6 +160,16 @@ export default function AdminOverviewPage() {
           sub={floatError ? "unavailable" : undefined}
         />
       </div>
+
+      {/* eSIM supplier */}
+      <section className="mb-10">
+        <SimJunoCard
+          status={simjuno}
+          loading={loading}
+          refreshing={refreshing}
+          onRefresh={handleRefresh}
+        />
+      </section>
 
       {/* Recent activity */}
       <h2 className="text-sm font-semibold mb-4" style={{ color: "var(--muted)" }}>

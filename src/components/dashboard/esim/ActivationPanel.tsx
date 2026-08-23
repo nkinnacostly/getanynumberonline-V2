@@ -62,16 +62,67 @@ export default function ActivationPanel({ profile }: { profile: EsimProfile }) {
               }}
             />
           </div>
-          {/* Upstream refreshes usage every 2-3h — say so rather than look broken. */}
+          {/* Upstream refreshes usage every few hours — say so rather than look broken. */}
           <p className="text-[10px] mt-1" style={{ color: "var(--muted)" }}>
             Usage updates every few hours.
           </p>
         </div>
       )}
 
+      {/* Step-by-step activation */}
+      <div
+        className="rounded-[6px] p-3"
+        style={{ border: "1px solid var(--line-strong)", backgroundColor: "var(--surface)" }}
+      >
+        <p
+          className="text-[11px] uppercase mb-2"
+          style={{ color: "var(--muted)", letterSpacing: "0.08em" }}
+        >
+          How to activate
+        </p>
+        <ol className="space-y-1.5">
+          {(profile.activation_string
+            ? [
+                <>Tap <b>Install on iPhone</b> below — or scan the QR with another device.</>,
+                <>No iPhone? On Android go to <b>Settings → Network → SIMs → Add eSIM</b> and paste the activation string.</>,
+                <>
+                  When asked, allow the line to activate and set it as your{" "}
+                  <b>default data line</b>.
+                </>,
+                <>
+                  Turn <b>Data Roaming ON</b> for this line — data won&apos;t flow without it.
+                  Calls/SMS stay on your primary SIM.
+                </>,
+                <>
+                  Wait for a signal, then load a page. The clock starts on first
+                  connection{profile.expires_at ? " — see expiry below" : ""}.
+                </>,
+              ]
+            : [
+                <>Scan the QR below with another device&apos;s camera.</>,
+                <>Follow the prompts to add the plan, then set it as your default data line.</>,
+                <>Turn Data Roaming ON for this line and wait for a signal.</>,
+              ]
+          ).map((step, i) => (
+            <li key={i} className="flex gap-2 text-[12px] leading-relaxed">
+              <span
+                className="font-mono font-bold shrink-0"
+                style={{ color: "var(--accent)" }}
+              >
+                {i + 1}.
+              </span>
+              <span style={{ color: "var(--foreground)" }}>{step}</span>
+            </li>
+          ))}
+        </ol>
+      </div>
+
       {profile.expires_at && (
         <p className="font-mono text-[11px]" style={{ color: "var(--muted)" }}>
           Expires {new Date(profile.expires_at).toLocaleDateString()}
+          {profile.unused_valid_days
+            ? ` · installable unused for ${Math.round(profile.unused_valid_days)} days`
+            : ""}
         </p>
       )}
 
@@ -126,19 +177,11 @@ export default function ActivationPanel({ profile }: { profile: EsimProfile }) {
         isCopied={isCopied}
       />
 
-      <div className="grid grid-cols-2 gap-2">
-        {profile.iccid && <MiniField label="ICCID" value={profile.iccid} />}
-        {profile.apn && <MiniField label="APN" value={profile.apn} />}
-        {profile.pin && <MiniField label="PIN" value={profile.pin} />}
-        {profile.puk && <MiniField label="PUK" value={profile.puk} />}
-      </div>
+      {profile.iccid && <MiniField label="ICCID" value={profile.iccid} />}
 
       <p className="text-[11px] leading-relaxed" style={{ color: "var(--muted)" }}>
-        On Android or older iPhones, add a data-only eSIM manually using the
-        SM-DP+ address and activation code above.
-        {profile.active_type === 2
-          ? " This plan starts counting from your first network connection."
-          : " This plan starts counting once the profile is installed."}
+        Data-only eSIM — no phone number, calls or SMS. Your WhatsApp/Telegram
+        stay tied to your physical SIM.
       </p>
     </div>
   );

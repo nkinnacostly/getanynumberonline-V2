@@ -15,6 +15,7 @@
 //
 // Actions: get_stats, list_users, get_user, list_orders, list_rentals,
 //          list_transactions, adjust_balance, set_ban, smspool_balance,
+//          simjuno_status, simjuno_refresh,
 //          list_flagged, clear_flag, get_settings, update_setting
 //
 // The three list_* actions take an optional user_id, which is what the user
@@ -22,6 +23,7 @@
 // ============================================================
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { queryBalance as querySimJunoBalance } from "../_shared/simjuno.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -378,6 +380,78 @@ async function smspoolBalance() {
   return { balance: Number.isFinite(balance) ? balance : 0 };
 }
 
+interface SimJunoStatus {
+  balance: number;
+  available: boolean;
+  min_balance: number;
+  note: string | null;
+  checked_at: string | null;
+}
+
+/**
+ * Cached eSIM supplier state — whatever the reconcile cron (or the last
+ * refresh) saw. No provider call, so opening the panel never burns rate limit.
+ */
+async function simJunoStatus(supabase: Supabase): Promise<SimJunoStatus> {
+  const { data, error } = await supabase
+    .from("esim_provider_status")
+    .select("balance, available, min_balance, note, checked_at")
+    .eq("provider", "simjuno")
+    .maybeSingle();
+  if (error) throw error;
+
+  return {
+    balance: Number(data?.balance ?? 0),
+    // A missing row must not show the supplier as down.
+    available: data?.available ?? true,
+    min_balance: Number(data?.min_balance ?? 20),
+    note: (data?.note as string | null) ?? null,
+    checked_at: (data?.checked_at as string | null) ?? null,
+  };
+}
+
+/**
+ * Live re-check of the reseller wallet. Persists exactly what reconcile-esims
+ * would write, so the storefront's back-soon gate reacts immediately instead
+ * of waiting for the next cron tick.
+ */
+async function simJunoRefresh(supabase: Supabase): Promise<SimJunoStatus | { error: string; status: number }> {
+  let balance: number;
+  try {
+    balance = await querySimJunoBalance();
+  } catch (err) {
+    console.error("simjuno refresh failed:", err);
+    return { error: "Could not read SimJuno balance", status: 502 };
+  }
+
+  const { data } = await supabase
+    .from("esim_provider_status")
+    .select("min_balance")
+    .eq("provider", "simjuno")
+    .maybeSingle();
+  const minBalance = Number(data?.min_balance ?? 20);
+  const available = balance >= minBalance;
+  const now = new Date().toISOString();
+  const note = available ? null : "balance below minimum";
+
+  const { error } = await supabase
+    .from("esim_provider_status")
+    .update({
+      balance,
+      available,
+      note,
+      checked_at: now,
+      updated_at: now,
+    })
+    .eq("provider", "simjuno");
+  if (error) {
+    console.error("simjuno refresh persist failed:", error);
+    return { error: "Read the balance but could not save it", status: 500 };
+  }
+
+  return { balance, available, min_balance: minBalance, note, checked_at: now };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -468,6 +542,13 @@ Deno.serve(async (req) => {
       }
       case "smspool_balance": {
         const result = await smspoolBalance();
+        if ("error" in result) return errorResponse(result.error!, result.status!);
+        return jsonResponse({ success: true, ...result });
+      }
+      case "simjuno_status":
+        return jsonResponse({ success: true, ...(await simJunoStatus(supabase)) });
+      case "simjuno_refresh": {
+        const result = await simJunoRefresh(supabase);
         if ("error" in result) return errorResponse(result.error!, result.status!);
         return jsonResponse({ success: true, ...result });
       }

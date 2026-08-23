@@ -49,3 +49,6 @@ CLAUDE.md
 # no markdown files in git — local docs only
 *.md
 !node_modules/**/*.md
+
+# supabase cli local state
+/supabase/.temp

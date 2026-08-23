@@ -1,27 +1,30 @@
 import { callEdgeFunction } from "@/lib/api";
 
-// eSIM Access (esimaccess.com) — replaces the discontinued SMSPool eSIM API.
+// SimJuno (simjuno.com) — replaced eSIM Access for all new orders.
 //
 // Prices returned by the catalog edge function are ALREADY marked up (the edge
 // is the single source of truth), so the client just displays them — there is
 // no client-side markup to drift out of sync with what gets charged.
 //
 // The provider quotes data in bytes and prices as integers scaled x10,000;
-// both are normalised to GB / dollars before they reach here.
+// both are normalised to GB / dollars by the edge before they reach here.
+// Destinations arrive pre-grouped (country / region / global), each addressed
+// by its slug.
 
-export type CatalogScope = "country" | "regional" | "global";
+export type CatalogScope = "country" | "region" | "global";
+
+export interface EsimDestination {
+  /** Destination slug ('mexico', 'europe', 'global139') — the order key. */
+  code: string;
+  name: string;
+  kind: CatalogScope;
+  from_price: number;
+}
 
 export interface EsimCoverage {
   name: string;
   logo: string | null;
   operators: { operatorName: string; networkType: string }[];
-}
-
-export interface EsimDestination {
-  code: string;
-  name: string;
-  kind: "country" | "region";
-  sub_locations: { code: string; name: string }[];
 }
 
 export interface EsimPackage {
@@ -36,11 +39,9 @@ export interface EsimPackage {
   duration_days: number | null;
   duration_unit: string;
   unused_valid_days: number | null;
-  /** The package's own location: Alpha-2 for a country plan, or a region code. */
   location_code: string;
   location_codes: string[];
   speed: string;
-  data_type: number;
   is_day_pass: boolean;
   active_type: number;
   supports_topup: boolean;
@@ -49,19 +50,11 @@ export interface EsimPackage {
   coverage: EsimCoverage[];
 }
 
-/** Regional packages grouped by coverage area (the API returns them flat). */
-export interface EsimRegionGroup {
-  key: string;
-  label: string;
-  location_codes: string[];
-  from_price: number;
-  packages: EsimPackage[];
-}
-
 export interface EsimProfile {
-  esim_tran_no: string;
-  order_no: string;
+  esim_id: string;
   transaction_id: string;
+  name: string;
+  slug: string;
   iccid: string | null;
   activation_string: string | null;
   smdp_address: string | null;
@@ -75,17 +68,13 @@ export interface EsimProfile {
   expires_at: string | null;
   total_bytes: number;
   used_bytes: number;
-  duration_days: number | null;
-  duration_unit: string;
-  pin: string | null;
-  puk: string | null;
-  apn: string | null;
-  packages: { name: string; code: string; slug: string; location: string }[];
+  unused_valid_days: number | null;
 }
 
 export async function fetchEsimDestinations(): Promise<{
   countries: EsimDestination[];
   regions: EsimDestination[];
+  global: EsimDestination[];
   /** False when our supplier account can't currently fulfil orders. */
   available: boolean;
   unavailableNote: string | null;
@@ -96,42 +85,31 @@ export async function fetchEsimDestinations(): Promise<{
   return {
     countries: (data.countries ?? []) as EsimDestination[],
     regions: (data.regions ?? []) as EsimDestination[],
+    global: (data.global ?? []) as EsimDestination[],
     available: data.available !== false,
     unavailableNote: (data.unavailable_note ?? null) as string | null,
   };
 }
 
+/** Packages for any destination slug — country, region or global. */
 export async function fetchEsimPackages(
-  locationCode: string,
+  destinationSlug: string,
 ): Promise<EsimPackage[]> {
   const data = await callEdgeFunction("get-esim-catalog", {
-    location_code: locationCode,
+    location_code: destinationSlug,
   });
-  return (data.packages ?? []) as EsimPackage[];
-}
-
-export async function fetchRegionalGroups(): Promise<EsimRegionGroup[]> {
-  const data = await callEdgeFunction("get-esim-catalog", {
-    scope: "regional",
-  });
-  return (data.groups ?? []) as EsimRegionGroup[];
-}
-
-export async function fetchGlobalPackages(): Promise<EsimPackage[]> {
-  const data = await callEdgeFunction("get-esim-catalog", { scope: "global" });
   return (data.packages ?? []) as EsimPackage[];
 }
 
 export async function purchaseEsim(input: {
-  package_code: string;
+  slug: string;
   catalog_scope: CatalogScope;
-  location_code: string;
+  destination_slug: string;
   location_name: string;
   raw_price: number;
-  period_num?: number;
 }): Promise<{
   esim_id: string;
-  order_no: string;
+  provider_esim_id: string;
   status: "active" | "pending";
   cost: number;
 }> {
@@ -156,27 +134,9 @@ export function formatBytes(bytes: number | null | undefined): string {
   return `${Math.round(mb)} MB`;
 }
 
-/**
- * Day-pass plans (dataType 2-4) bill a daily allowance rather than a pot of
- * data, so both price and volume scale with the number of days chosen.
- *
- * MUST mirror applyEsimMarkup in supabase/functions/_shared/esimaccess.ts —
- * display has to equal what order-esim actually charges.
- */
-export function packagePrice(pkg: EsimPackage, days: number): number {
-  if (!pkg.is_day_pass) return pkg.price;
-  const raw = pkg.raw_price * days;
-  const markup = raw < 1 ? 0.5 : raw <= 5 ? 0.4 : 0.3;
-  return Math.ceil(raw * (1 + markup) * 100) / 100;
-}
-
 /** One-line summary of what a package gives you. */
-export function packageSummary(pkg: EsimPackage, days: number): string {
+export function packageSummary(pkg: EsimPackage): string {
   const volume = formatBytes(pkg.total_bytes);
-  if (pkg.is_day_pass) {
-    const kind = pkg.data_type === 4 ? "Unlimited" : volume;
-    return `${kind}/day · ${days} day${days === 1 ? "" : "s"}`;
-  }
   const duration = pkg.duration_days
     ? ` · ${pkg.duration_days} ${pkg.duration_unit.toLowerCase()}s`
     : "";

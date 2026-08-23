@@ -12,12 +12,8 @@ import {
   type CatalogScope,
   type EsimDestination,
   type EsimPackage,
-  type EsimRegionGroup,
   fetchEsimDestinations,
   fetchEsimPackages,
-  fetchGlobalPackages,
-  fetchRegionalGroups,
-  packagePrice,
   purchaseEsim,
 } from "@/lib/esim-api";
 
@@ -36,16 +32,13 @@ export default function EsimPage() {
   const [loadingList, setLoadingList] = useState(true);
 
   const [scope, setScope] = useState<CatalogScope>("country");
-  const [countries, setCountries] = useState<EsimDestination[]>([]);
-  const [country, setCountry] = useState<EsimDestination | null>(null);
-  const [groups, setGroups] = useState<EsimRegionGroup[]>([]);
-  const [group, setGroup] = useState<EsimRegionGroup | null>(null);
+  const [destinations, setDestinations] = useState<EsimDestination[]>([]);
+  const [destination, setDestination] = useState<EsimDestination | null>(null);
   const [loadingDest, setLoadingDest] = useState(true);
 
   const [packages, setPackages] = useState<EsimPackage[]>([]);
   const [loadingPackages, setLoadingPackages] = useState(false);
   const [pkg, setPkg] = useState<EsimPackage | null>(null);
-  const [days, setDays] = useState(7);
   const [buying, setBuying] = useState(false);
   // Supplier-side availability. False stops the buy flow up front instead of
   // taking money for an order we already know we can't fill.
@@ -79,43 +72,35 @@ export default function EsimPage() {
     loadEsims().finally(() => setLoadingList(false));
   }, [loadBalance, loadEsims]);
 
-  // Destinations for the active coverage type. Regional groups and global
-  // plans are fetched lazily — most people never leave the country tab.
+  // Destinations for the active coverage type. SimJuno pre-groups its catalog
+  // into countries / regions / global bundles, all addressed by slug, so all
+  // three scopes fetch packages the same way once a destination is picked.
   useEffect(() => {
     let cancelled = false;
     setPkg(null);
     setPackages([]);
+    setDestination(null);
 
     const load = async () => {
       setLoadingDest(true);
       try {
-        if (scope === "country") {
-          if (countries.length === 0) {
-            const res = await fetchEsimDestinations();
-            if (!cancelled) {
-              setCountries(res.countries);
-              setAvailable(res.available);
-            }
+        if (destinations.length === 0) {
+          const res = await fetchEsimDestinations();
+          if (!cancelled) {
+            setAvailable(res.available);
+            setDestinations([
+              ...res.countries.map((d) => ({ ...d, kind: "country" as const })),
+              ...res.regions.map((d) => ({ ...d, kind: "region" as const })),
+              ...res.global.map((d) => ({ ...d, kind: "global" as const })),
+            ]);
           }
-        } else if (scope === "regional") {
-          if (groups.length === 0) {
-            const list = await fetchRegionalGroups();
-            if (!cancelled) setGroups(list);
-          }
-        } else {
-          setLoadingPackages(true);
-          const list = await fetchGlobalPackages();
-          if (!cancelled) setPackages(list);
         }
       } catch (e) {
         if (!cancelled) {
           toast(e instanceof Error ? e.message : "Could not load eSIM catalog", "error");
         }
       } finally {
-        if (!cancelled) {
-          setLoadingDest(false);
-          setLoadingPackages(false);
-        }
+        if (!cancelled) setLoadingDest(false);
       }
     };
 
@@ -123,53 +108,40 @@ export default function EsimPage() {
     return () => {
       cancelled = true;
     };
-    // countries/groups are caches, not inputs — re-running on them would loop.
+    // destinations is a cache, not an input — re-running on it would loop.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scope, toast]);
 
-  // Packages for the chosen country.
+  // Packages for the chosen destination.
   useEffect(() => {
-    if (scope !== "country" || !country) return;
+    if (!destination) return;
     let cancelled = false;
     setLoadingPackages(true);
     setPkg(null);
-    fetchEsimPackages(country.code)
+    fetchEsimPackages(destination.code)
       .then((list) => !cancelled && setPackages(list))
       .catch((e: Error) => !cancelled && toast(e.message, "error"))
       .finally(() => !cancelled && setLoadingPackages(false));
     return () => {
       cancelled = true;
     };
-  }, [scope, country, toast]);
+  }, [destination, toast]);
 
-  // Regional packages travel with their group — no extra fetch.
-  useEffect(() => {
-    if (scope !== "regional") return;
-    setPkg(null);
-    setPackages(group?.packages ?? []);
-  }, [scope, group]);
-
-  const price = pkg ? packagePrice(pkg, days) : 0;
+  const price = pkg?.price ?? 0;
   const insufficient = !!pkg && price > balance;
-  const showPackages =
-    scope === "global" || (scope === "country" && !!country) ||
-    (scope === "regional" && !!group);
+  const activeDestination =
+    destination && destination.kind === scope ? destination : null;
 
   const handleBuy = async () => {
-    if (!pkg) return;
+    if (!pkg || !destination) return;
     setBuying(true);
     try {
       const result = await purchaseEsim({
-        package_code: pkg.code,
-        catalog_scope: scope,
-        location_code: scope === "country" ? (country?.code ?? "") : "",
-        location_name: scope === "country"
-          ? (country?.name ?? "")
-          : scope === "regional"
-            ? (group?.label ?? "Regional")
-            : "Global",
+        slug: pkg.slug,
+        catalog_scope: destination.kind,
+        destination_slug: destination.code,
+        location_name: destination.name,
         raw_price: pkg.raw_price,
-        ...(pkg.is_day_pass ? { period_num: days } : {}),
       });
       toast(
         result.status === "active"
@@ -179,8 +151,7 @@ export default function EsimPage() {
       );
       refreshSidebar();
       setPkg(null);
-      setCountry(null);
-      setGroup(null);
+      setDestination(null);
       await Promise.all([loadBalance(), loadEsims()]);
     } catch (e) {
       toast(e instanceof Error ? e.message : "Purchase failed", "error");
@@ -265,16 +236,13 @@ export default function EsimPage() {
             <DestinationPicker
               scope={scope}
               onScopeChange={setScope}
-              countries={countries}
-              country={country}
-              onCountryChange={setCountry}
-              groups={groups}
-              group={group}
-              onGroupChange={setGroup}
+              destinations={destinations.filter((d) => d.kind === scope)}
+              destination={activeDestination}
+              onDestinationChange={setDestination}
               loading={loadingDest}
             />
 
-            {showPackages && (
+            {activeDestination && (
               <div>
                 <label
                   className="block text-[12px] mb-1.5"
@@ -287,13 +255,7 @@ export default function EsimPage() {
                   loading={loadingPackages}
                   selected={pkg}
                   onSelect={setPkg}
-                  days={days}
-                  onDaysChange={setDays}
-                  emptyLabel={
-                    scope === "country"
-                      ? `No plans available for ${country?.name ?? "this country"}.`
-                      : "No plans available right now."
-                  }
+                  emptyLabel={`No plans available for ${activeDestination.name}.`}
                 />
               </div>
             )}

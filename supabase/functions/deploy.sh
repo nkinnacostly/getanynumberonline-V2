@@ -34,6 +34,7 @@ FUNCTIONS=(
   reconcile-orders
   reconcile-topups
   rent-number
+  simjuno-webhook
   sync-smspool-catalog
   wallet-topup
 )

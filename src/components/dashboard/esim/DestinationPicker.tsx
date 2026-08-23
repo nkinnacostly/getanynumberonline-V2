@@ -1,45 +1,35 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type {
-  CatalogScope,
-  EsimDestination,
-  EsimRegionGroup,
-} from "@/lib/esim-api";
+import type { CatalogScope, EsimDestination } from "@/lib/esim-api";
 
 const SCOPES: { value: CatalogScope; label: string; hint: string }[] = [
   { value: "country", label: "Country", hint: "One destination" },
-  { value: "regional", label: "Regional", hint: "Multi-country" },
+  { value: "region", label: "Regional", hint: "Multi-country" },
   { value: "global", label: "Global", hint: "Worldwide" },
 ];
 
 /**
  * Step 1 of the eSIM buy flow: pick where the data should work.
  *
- * eSIM Access sells three kinds of coverage from the same catalog, so the
- * segmented control below swaps the picker rather than the page: a searchable
- * country list, a list of regional bundles, or nothing at all for global
- * (which goes straight to packages).
+ * SimJuno pre-groups its catalog into countries, regional bundles and global
+ * bundles — all addressed by the same slug — so every scope renders a picker
+ * over one list: searchable cards for countries, tappable bundle cards for
+ * regions/global. Picking any of them loads plans below.
  */
 export default function DestinationPicker({
   scope,
   onScopeChange,
-  countries,
-  country,
-  onCountryChange,
-  groups,
-  group,
-  onGroupChange,
+  destinations,
+  destination,
+  onDestinationChange,
   loading,
 }: {
   scope: CatalogScope;
   onScopeChange: (s: CatalogScope) => void;
-  countries: EsimDestination[];
-  country: EsimDestination | null;
-  onCountryChange: (c: EsimDestination | null) => void;
-  groups: EsimRegionGroup[];
-  group: EsimRegionGroup | null;
-  onGroupChange: (g: EsimRegionGroup | null) => void;
+  destinations: EsimDestination[];
+  destination: EsimDestination | null;
+  onDestinationChange: (d: EsimDestination | null) => void;
   loading: boolean;
 }) {
   const [search, setSearch] = useState("");
@@ -57,10 +47,10 @@ export default function DestinationPicker({
   }, []);
 
   const filtered = search
-    ? countries.filter((c) =>
+    ? destinations.filter((c) =>
         c.name.toLowerCase().includes(search.toLowerCase()),
       )
-    : countries;
+    : destinations;
 
   return (
     <div>
@@ -109,11 +99,11 @@ export default function DestinationPicker({
         <div ref={dropRef} className="relative">
           <input
             type="text"
-            value={country ? country.name : search}
+            value={destination ? destination.name : search}
             onChange={(e) => {
               setSearch(e.target.value);
               setShowDrop(true);
-              onCountryChange(null);
+              onDestinationChange(null);
             }}
             onFocus={() => setShowDrop(true)}
             placeholder="Search a country…"
@@ -137,7 +127,7 @@ export default function DestinationPicker({
                   key={c.code}
                   type="button"
                   onClick={() => {
-                    onCountryChange(c);
+                    onDestinationChange(c);
                     setSearch("");
                     setShowDrop(false);
                   }}
@@ -149,7 +139,7 @@ export default function DestinationPicker({
                     className="font-mono text-[11px] shrink-0"
                     style={{ color: "var(--muted)" }}
                   >
-                    {c.code}
+                    from ${c.from_price.toFixed(2)}
                   </span>
                 </button>
               ))}
@@ -166,16 +156,16 @@ export default function DestinationPicker({
         </div>
       )}
 
-      {/* Regional bundles */}
-      {scope === "regional" && !loading && (
+      {/* Regional + global bundles */}
+      {(scope === "region" || scope === "global") && !loading && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          {groups.map((g) => {
-            const active = group?.key === g.key;
+          {destinations.map((d) => {
+            const active = destination?.code === d.code;
             return (
               <button
-                key={g.key}
+                key={d.code}
                 type="button"
-                onClick={() => onGroupChange(active ? null : g)}
+                onClick={() => onDestinationChange(active ? null : d)}
                 className="text-left rounded-[6px] p-3 transition-colors"
                 style={{
                   backgroundColor: "var(--field)",
@@ -187,36 +177,24 @@ export default function DestinationPicker({
                     className="text-[13px] font-semibold min-w-0 truncate"
                     style={{ color: "var(--foreground)" }}
                   >
-                    {g.label}
+                    {d.name}
                   </span>
                   <span
                     className="font-mono text-[12px] font-bold shrink-0"
                     style={{ color: "var(--accent)" }}
                   >
-                    ${g.from_price.toFixed(2)}
+                    ${d.from_price.toFixed(2)}
                   </span>
-                </div>
-                <div
-                  className="font-mono text-[11px] mt-1"
-                  style={{ color: "var(--muted)" }}
-                >
-                  {g.location_codes.length} countries · {g.packages.length} plans
                 </div>
               </button>
             );
           })}
-          {groups.length === 0 && (
+          {destinations.length === 0 && (
             <p className="text-[13px] py-2" style={{ color: "var(--muted)" }}>
-              No regional bundles available right now.
+              No bundles available right now.
             </p>
           )}
         </div>
-      )}
-
-      {scope === "global" && !loading && (
-        <p className="text-[13px]" style={{ color: "var(--muted)" }}>
-          Worldwide coverage — pick a plan below.
-        </p>
       )}
     </div>
   );
