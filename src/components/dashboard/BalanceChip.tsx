@@ -8,10 +8,10 @@ export default function BalanceChip({ balance }: BalanceChipProps) {
   return (
     <div
       className="px-3 py-2 rounded-lg"
-      style={{ backgroundColor: "#141414", border: "1px solid #1A1A1A" }}
+      style={{ backgroundColor: "var(--field)", border: "1px solid var(--line)" }}
     >
-      <div className="text-[11px] text-[#555555] mb-0.5">Balance</div>
-      <div className="font-mono text-[#00FF94] font-medium text-sm">
+      <div className="text-[11px] text-muted mb-0.5">Balance</div>
+      <div className="font-mono text-accent font-medium text-sm">
         ${balance.toFixed(2)}
       </div>
     </div>

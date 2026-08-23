@@ -64,14 +64,14 @@ export default function DestinationPicker({
 
   return (
     <div>
-      <label className="block text-[12px] mb-1.5" style={{ color: "#888888" }}>
+      <label className="block text-[12px] mb-1.5" style={{ color: "var(--muted)" }}>
         Step 1 — Where do you need data?
       </label>
 
       {/* Coverage type */}
       <div
         className="flex rounded-[6px] p-1 mb-3"
-        style={{ backgroundColor: "#141414", border: "1px solid #222222" }}
+        style={{ backgroundColor: "var(--field)", border: "1px solid var(--line-strong)" }}
       >
         {SCOPES.map((s) => {
           const active = scope === s.value;
@@ -82,8 +82,8 @@ export default function DestinationPicker({
               onClick={() => onScopeChange(s.value)}
               className="flex-1 h-[38px] rounded-[4px] text-[13px] font-medium transition-colors"
               style={{
-                backgroundColor: active ? "#00FF94" : "transparent",
-                color: active ? "#080808" : "#888888",
+                backgroundColor: active ? "var(--accent)" : "transparent",
+                color: active ? "var(--background)" : "var(--muted)",
               }}
             >
               {s.label}
@@ -96,9 +96,9 @@ export default function DestinationPicker({
         <div className="flex items-center gap-2 py-2">
           <span
             className="auth-spinner"
-            style={{ borderColor: "#00FF94", borderTopColor: "transparent" }}
+            style={{ borderColor: "var(--accent)", borderTopColor: "transparent" }}
           />
-          <span className="text-[12px]" style={{ color: "#555555" }}>
+          <span className="text-[12px]" style={{ color: "var(--muted)" }}>
             Loading destinations…
           </span>
         </div>
@@ -119,17 +119,17 @@ export default function DestinationPicker({
             placeholder="Search a country…"
             className="w-full h-[44px] px-3 text-[14px] rounded-[6px] outline-none"
             style={{
-              backgroundColor: "#141414",
-              border: "1px solid #222222",
-              color: "#F5F5F5",
+              backgroundColor: "var(--field)",
+              border: "1px solid var(--line-strong)",
+              color: "var(--foreground)",
             }}
           />
           {showDrop && (
             <div
               className="absolute z-20 w-full mt-1 rounded-[6px] max-h-[240px] overflow-y-auto"
               style={{
-                backgroundColor: "#0F0F0F",
-                border: "1px solid #1A1A1A",
+                backgroundColor: "var(--surface)",
+                border: "1px solid var(--line)",
               }}
             >
               {filtered.slice(0, 80).map((c) => (
@@ -141,13 +141,13 @@ export default function DestinationPicker({
                     setSearch("");
                     setShowDrop(false);
                   }}
-                  className="w-full px-3 py-2 text-left text-[13px] hover:bg-[#1A1A1A] transition-colors flex justify-between gap-2"
-                  style={{ color: "#F5F5F5" }}
+                  className="w-full px-3 py-2 text-left text-[13px] hover:bg-line transition-colors flex justify-between gap-2"
+                  style={{ color: "var(--foreground)" }}
                 >
                   <span className="min-w-0 truncate">{c.name}</span>
                   <span
                     className="font-mono text-[11px] shrink-0"
-                    style={{ color: "#555555" }}
+                    style={{ color: "var(--muted)" }}
                   >
                     {c.code}
                   </span>
@@ -156,7 +156,7 @@ export default function DestinationPicker({
               {filtered.length === 0 && (
                 <div
                   className="px-3 py-3 text-[13px]"
-                  style={{ color: "#555555" }}
+                  style={{ color: "var(--muted)" }}
                 >
                   No countries found
                 </div>
@@ -178,27 +178,27 @@ export default function DestinationPicker({
                 onClick={() => onGroupChange(active ? null : g)}
                 className="text-left rounded-[6px] p-3 transition-colors"
                 style={{
-                  backgroundColor: "#141414",
-                  border: `1px solid ${active ? "#00FF94" : "#222222"}`,
+                  backgroundColor: "var(--field)",
+                  border: `1px solid ${active ? "var(--accent)" : "var(--line-strong)"}`,
                 }}
               >
                 <div className="flex items-baseline justify-between gap-2">
                   <span
                     className="text-[13px] font-semibold min-w-0 truncate"
-                    style={{ color: "#F5F5F5" }}
+                    style={{ color: "var(--foreground)" }}
                   >
                     {g.label}
                   </span>
                   <span
                     className="font-mono text-[12px] font-bold shrink-0"
-                    style={{ color: "#00FF94" }}
+                    style={{ color: "var(--accent)" }}
                   >
                     ${g.from_price.toFixed(2)}
                   </span>
                 </div>
                 <div
                   className="font-mono text-[11px] mt-1"
-                  style={{ color: "#555555" }}
+                  style={{ color: "var(--muted)" }}
                 >
                   {g.location_codes.length} countries · {g.packages.length} plans
                 </div>
@@ -206,7 +206,7 @@ export default function DestinationPicker({
             );
           })}
           {groups.length === 0 && (
-            <p className="text-[13px] py-2" style={{ color: "#555555" }}>
+            <p className="text-[13px] py-2" style={{ color: "var(--muted)" }}>
               No regional bundles available right now.
             </p>
           )}
@@ -214,7 +214,7 @@ export default function DestinationPicker({
       )}
 
       {scope === "global" && !loading && (
-        <p className="text-[13px]" style={{ color: "#555555" }}>
+        <p className="text-[13px]" style={{ color: "var(--muted)" }}>
           Worldwide coverage — pick a plan below.
         </p>
       )}

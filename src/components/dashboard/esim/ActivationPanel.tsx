@@ -43,34 +43,34 @@ export default function ActivationPanel({ profile }: { profile: EsimProfile }) {
       {profile.total_bytes > 0 && (
         <div>
           <div className="flex justify-between items-baseline mb-1.5">
-            <span className="font-mono text-[12px]" style={{ color: "#F5F5F5" }}>
+            <span className="font-mono text-[12px]" style={{ color: "var(--foreground)" }}>
               {formatBytes(remaining)} left
             </span>
-            <span className="font-mono text-[11px]" style={{ color: "#555555" }}>
+            <span className="font-mono text-[11px]" style={{ color: "var(--muted)" }}>
               {formatBytes(profile.used_bytes)} / {formatBytes(profile.total_bytes)}
             </span>
           </div>
           <div
             className="h-[6px] rounded-full overflow-hidden"
-            style={{ backgroundColor: "#1A1A1A" }}
+            style={{ backgroundColor: "var(--line)" }}
           >
             <div
               className="h-full rounded-full"
               style={{
                 width: `${usedPct}%`,
-                backgroundColor: usedPct > 90 ? "#FF4444" : "#00FF94",
+                backgroundColor: usedPct > 90 ? "var(--danger)" : "var(--accent)",
               }}
             />
           </div>
           {/* Upstream refreshes usage every 2-3h — say so rather than look broken. */}
-          <p className="text-[10px] mt-1" style={{ color: "#555555" }}>
+          <p className="text-[10px] mt-1" style={{ color: "var(--muted)" }}>
             Usage updates every few hours.
           </p>
         </div>
       )}
 
       {profile.expires_at && (
-        <p className="font-mono text-[11px]" style={{ color: "#888888" }}>
+        <p className="font-mono text-[11px]" style={{ color: "var(--muted)" }}>
           Expires {new Date(profile.expires_at).toLocaleDateString()}
         </p>
       )}
@@ -79,7 +79,7 @@ export default function ActivationPanel({ profile }: { profile: EsimProfile }) {
         <a
           href={iosLink}
           className="block w-full text-center h-[44px] leading-[44px] rounded-[6px] text-[14px] font-bold"
-          style={{ backgroundColor: "#00FF94", color: "#080808" }}
+          style={{ backgroundColor: "var(--accent)", color: "var(--accent-ink)" }}
         >
           Install on iPhone (iOS 17.4+)
         </a>
@@ -87,6 +87,8 @@ export default function ActivationPanel({ profile }: { profile: EsimProfile }) {
 
       {profile.qr_code_url && (
         <div className="flex flex-col items-center gap-2">
+          {/* Deliberately white in both themes — QR codes need a light
+              background for camera scanners to read them reliably. */}
           <div className="rounded-[6px] p-2" style={{ backgroundColor: "#FFFFFF" }}>
             <Image
               src={profile.qr_code_url}
@@ -96,7 +98,7 @@ export default function ActivationPanel({ profile }: { profile: EsimProfile }) {
               unoptimized
             />
           </div>
-          <p className="text-[11px] text-center" style={{ color: "#555555" }}>
+          <p className="text-[11px] text-center" style={{ color: "var(--muted)" }}>
             Scan from another device: Settings → Cellular → Add eSIM
           </p>
         </div>
@@ -131,7 +133,7 @@ export default function ActivationPanel({ profile }: { profile: EsimProfile }) {
         {profile.puk && <MiniField label="PUK" value={profile.puk} />}
       </div>
 
-      <p className="text-[11px] leading-relaxed" style={{ color: "#555555" }}>
+      <p className="text-[11px] leading-relaxed" style={{ color: "var(--muted)" }}>
         On Android or older iPhones, add a data-only eSIM manually using the
         SM-DP+ address and activation code above.
         {profile.active_type === 2
@@ -160,7 +162,7 @@ function Field({
     <div>
       <p
         className="text-[11px] uppercase mb-1"
-        style={{ color: "#555555", letterSpacing: "0.08em" }}
+        style={{ color: "var(--muted)", letterSpacing: "0.08em" }}
       >
         {label}
       </p>
@@ -168,13 +170,13 @@ function Field({
         onClick={() => doCopy(value, k)}
         className="w-full text-left rounded-[6px] px-3 py-2 font-mono text-[12px] break-all transition-colors"
         style={{
-          backgroundColor: "#0F0F0F",
-          border: "1px solid #1A1A1A",
-          color: "#F5F5F5",
+          backgroundColor: "var(--surface)",
+          border: "1px solid var(--line)",
+          color: "var(--foreground)",
         }}
       >
         {value}
-        <span className="ml-2 text-[10px]" style={{ color: "#00FF94" }}>
+        <span className="ml-2 text-[10px]" style={{ color: "var(--accent)" }}>
           {isCopied(k) ? "✓ copied" : "tap to copy"}
         </span>
       </button>
@@ -186,14 +188,14 @@ function MiniField({ label, value }: { label: string; value: string }) {
   return (
     <div
       className="rounded-[6px] px-3 py-2 min-w-0"
-      style={{ backgroundColor: "#0F0F0F", border: "1px solid #1A1A1A" }}
+      style={{ backgroundColor: "var(--surface)", border: "1px solid var(--line)" }}
     >
-      <p className="text-[10px] uppercase" style={{ color: "#555555" }}>
+      <p className="text-[10px] uppercase" style={{ color: "var(--muted)" }}>
         {label}
       </p>
       <p
         className="font-mono text-[13px] break-all"
-        style={{ color: "#F5F5F5" }}
+        style={{ color: "var(--foreground)" }}
       >
         {value}
       </p>

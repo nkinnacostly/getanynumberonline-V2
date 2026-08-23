@@ -9,8 +9,10 @@ disagrees with `CLAUDE.md`, it loses. Keep this file thin.
 
 - Next.js **16** App Router + React 19 + TS strict + Tailwind v4; Supabase is the
   entire backend (Auth, Postgres, Deno Edge Functions). Deploy target: Vercel.
-- Next 16 quirk: middleware lives in **`proxy.ts`**, exporting `proxy()` — there
-  is no `middleware.ts`. Dynamic route `params`/`searchParams` are Promises.
+- Next 16 quirk: middleware lives in **`src/proxy.ts`**, exporting `proxy()`
+  (there is no `middleware.ts`; at the repo root it is silently ignored when a
+  `src/` dir exists — that bug shipped once and logged-out users could render
+  dashboard shells). Dynamic route `params`/`searchParams` are Promises.
 - Package manager is **npm**. A legacy `pnpm-lock.yaml` is also tracked — ignore
   it; update `package-lock.json`.
 - There is also an `/admin/*` panel (absent from CLAUDE.md's folder map). It is

@@ -1,37 +1,39 @@
 import Link from "next/link";
 import Logo from "./Logo";
+import ThemeToggle from "@/components/site/ThemeToggle";
 
 /**
- * Public marketing nav. Extracted from the homepage so /pricing, the
- * programmatic pages and /compare all share one header instead of each
- * growing a copy.
+ * Public marketing nav shared by every marketing page. All colours are
+ * theme tokens, so it adapts automatically when the user switches between
+ * light and dark.
  */
 export default function SiteNav() {
   return (
-    <nav className="sticky top-0 z-50 backdrop-blur-md bg-[#080808]/80 border-b border-[#1A1A1A]">
+    <nav className="sticky top-0 z-50 backdrop-blur-md bg-background/85 border-b border-line">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between">
         {/* Mark only — the accessible name carries "GetAnyNumberOnline" for
             screen readers and search, so the wordmark does not have to. */}
         <Link href="/" aria-label="GetAnyNumberOnline home">
-          <Logo id="nav" className="h-5 w-auto text-[#00FF94]" />
+          <Logo id="nav" className="h-5 w-auto text-accent" />
         </Link>
 
-        <div className="flex items-center gap-4 sm:gap-6">
+        <div className="flex items-center gap-3 sm:gap-6">
           <Link
             href="/pricing"
-            className="text-sm text-[#555555] hover:text-[#F5F5F5] transition-colors"
+            className="text-sm text-muted hover:text-foreground transition-colors"
           >
             Pricing
           </Link>
           <Link
             href="/auth"
-            className="text-sm text-[#555555] hover:text-[#F5F5F5] transition-colors hidden sm:inline"
+            className="text-sm text-muted hover:text-foreground transition-colors hidden sm:inline"
           >
             Sign in
           </Link>
+          <ThemeToggle />
           <Link
             href="/auth"
-            className="text-sm font-medium text-[#00FF94] border border-[#00FF94]/30 hover:border-[#00FF94] rounded-md px-4 py-1.5 transition-colors"
+            className="text-sm font-medium bg-pine text-paper hover:bg-pine-deep rounded-full px-5 py-2 transition-colors"
           >
             Get started&nbsp;&rarr;
           </Link>

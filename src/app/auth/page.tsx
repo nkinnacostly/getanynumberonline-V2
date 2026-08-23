@@ -7,12 +7,12 @@ import { createClient } from "@/lib/supabase/client";
 import AuthCard from "@/components/auth/AuthCard";
 
 const INPUT_CLS =
-  "w-full h-[44px] px-3 pr-11 text-[14px] text-[#F5F5F5] placeholder-[#444444] rounded-[6px] outline-none transition-colors" as const;
+  "w-full h-[44px] px-3 pr-11 text-[14px] text-foreground placeholder-muted rounded-[6px] outline-none transition-colors" as const;
 const INPUT_STYLE = {
-  backgroundColor: "#141414",
-  border: "1px solid #222222",
+  backgroundColor: "var(--field)",
+  border: "1px solid var(--line-strong)",
 } as const;
-const FOCUS_BORDER = "#00FF94";
+const FOCUS_BORDER = "var(--accent)";
 
 function validateEmail(v: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
@@ -238,7 +238,7 @@ export default function AuthPage() {
     e.target.style.borderColor = FOCUS_BORDER;
   };
   const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
-    e.target.style.borderColor = "#222222";
+    e.target.style.borderColor = "var(--line-strong)";
   };
 
   if (signUpSuccess) {
@@ -252,21 +252,21 @@ export default function AuthPage() {
             fill="none"
             className="mb-4"
           >
-            <circle cx="24" cy="24" r="24" fill="#00FF94" fillOpacity="0.1" />
+            <circle cx="24" cy="24" r="24" fill="var(--accent)" fillOpacity="0.1" />
             <path
               d="M16 24l6 6 10-12"
-              stroke="#00FF94"
+              stroke="var(--accent)"
               strokeWidth="2.5"
               strokeLinecap="round"
               strokeLinejoin="round"
             />
           </svg>
-          <h2 className="font-sans text-lg font-bold text-[#F5F5F5] mb-2">
+          <h2 className="font-sans text-lg font-bold text-foreground mb-2">
             Check your email
           </h2>
-          <p className="text-[13px] text-[#555555] mb-6">
+          <p className="text-[13px] text-muted mb-6">
             We sent a confirmation link to{" "}
-            <span className="text-[#F5F5F5]">{email}</span>. Click it to
+            <span className="text-foreground">{email}</span>. Click it to
             activate your account.
           </p>
           <button
@@ -275,7 +275,7 @@ export default function AuthPage() {
               setSignUpSuccess(false);
               switchTab("signin");
             }}
-            className="text-[13px] text-[#00FF94] hover:opacity-80 transition-opacity"
+            className="text-[13px] text-accent hover:opacity-80 transition-opacity"
           >
             &larr; Back to sign in
           </button>
@@ -286,14 +286,14 @@ export default function AuthPage() {
 
   return (
     <AuthCard>
-      <h2 className="font-sans text-xl font-bold text-[#F5F5F5] mb-6">
+      <h2 className="font-sans text-xl font-bold text-foreground mb-6">
         {tab === "signin" ? "Welcome back" : "Create account"}
       </h2>
 
       <div
         className="flex mb-6 gap-1 rounded-[6px]"
         style={{
-          backgroundColor: "#141414",
+          backgroundColor: "var(--field)",
           padding: 4,
         }}
       >
@@ -302,8 +302,8 @@ export default function AuthPage() {
           onClick={() => switchTab("signin")}
           className="flex-1 min-h-[44px] text-[13px] rounded-[6px] transition-colors flex items-center justify-center"
           style={{
-            backgroundColor: tab === "signin" ? "#00FF94" : "transparent",
-            color: tab === "signin" ? "#080808" : "#555555",
+            backgroundColor: tab === "signin" ? "var(--accent)" : "transparent",
+            color: tab === "signin" ? "var(--accent-ink)" : "var(--muted)",
             fontWeight: tab === "signin" ? 700 : 400,
           }}
         >
@@ -314,8 +314,8 @@ export default function AuthPage() {
           onClick={() => switchTab("signup")}
           className="flex-1 min-h-[44px] text-[13px] rounded-[6px] transition-colors flex items-center justify-center"
           style={{
-            backgroundColor: tab === "signup" ? "#00FF94" : "transparent",
-            color: tab === "signup" ? "#080808" : "#555555",
+            backgroundColor: tab === "signup" ? "var(--accent)" : "transparent",
+            color: tab === "signup" ? "var(--accent-ink)" : "var(--muted)",
             fontWeight: tab === "signup" ? 700 : 400,
           }}
         >
@@ -327,9 +327,9 @@ export default function AuthPage() {
         <div
           className="mb-4 px-3 py-3 rounded-[6px] text-[13px]"
           style={{
-            backgroundColor: "#1A0000",
-            border: "1px solid #FF4444",
-            color: "#FF4444",
+            backgroundColor: "color-mix(in srgb, var(--danger) 10%, transparent)",
+            border: "1px solid var(--danger)",
+            color: "var(--danger)",
           }}
           role="alert"
         >
@@ -342,9 +342,9 @@ export default function AuthPage() {
         <div
           className="mb-4 px-3 py-3 rounded-[6px] text-[13px]"
           style={{
-            backgroundColor: "#001A0F",
-            border: "1px solid #00FF94",
-            color: "#00FF94",
+            backgroundColor: "color-mix(in srgb, var(--accent) 10%, transparent)",
+            border: "1px solid var(--accent)",
+            color: "var(--accent)",
           }}
           role="status"
         >
@@ -356,9 +356,9 @@ export default function AuthPage() {
         <div
           className="mb-4 px-3 py-3 rounded-[6px] text-[13px]"
           style={{
-            backgroundColor: "#1A1500",
-            border: "1px solid #F5A623",
-            color: "#F5A623",
+            backgroundColor: "color-mix(in srgb, var(--warning) 12%, transparent)",
+            border: "1px solid var(--warning)",
+            color: "var(--warning)",
           }}
         >
           <p className="mb-3">
@@ -369,13 +369,13 @@ export default function AuthPage() {
             onClick={handleResendConfirmation}
             disabled={resendLoading}
             className="w-full py-2 rounded-[6px] text-[12px] font-bold disabled:opacity-50 flex items-center justify-center gap-2"
-            style={{ backgroundColor: "#F5A623", color: "#080808" }}
+            style={{ backgroundColor: "var(--warning)", color: "var(--accent-ink)" }}
           >
             {resendLoading && <span className="auth-spinner" />}
             Resend confirmation email
           </button>
           {resendSent && (
-            <p className="mt-3 text-[12px] text-[#00FF94] text-center font-mono">
+            <p className="mt-3 text-[12px] text-accent text-center font-mono">
               Confirmation email sent!
             </p>
           )}
@@ -386,9 +386,9 @@ export default function AuthPage() {
         <div
           className="mb-4 px-3 py-3 rounded-[6px] text-[13px]"
           style={{
-            backgroundColor: "#1A1500",
-            border: "1px solid #F5A623",
-            color: "#F5A623",
+            backgroundColor: "color-mix(in srgb, var(--warning) 12%, transparent)",
+            border: "1px solid var(--warning)",
+            color: "var(--warning)",
           }}
         >
           Too many sign in attempts. Please wait a few minutes before trying
@@ -400,9 +400,9 @@ export default function AuthPage() {
         <div
           className="mb-4 px-3 py-3 rounded-[6px] text-[13px]"
           style={{
-            backgroundColor: "#1A0000",
-            border: "1px solid #FF4444",
-            color: "#FF4444",
+            backgroundColor: "color-mix(in srgb, var(--danger) 10%, transparent)",
+            border: "1px solid var(--danger)",
+            color: "var(--danger)",
           }}
         >
           {generalError}
@@ -414,7 +414,7 @@ export default function AuthPage() {
           <label
             htmlFor="email"
             className="block text-[12px] mb-1.5"
-            style={{ color: "#888888" }}
+            style={{ color: "var(--muted)" }}
           >
             Email
           </label>
@@ -437,7 +437,7 @@ export default function AuthPage() {
             style={INPUT_STYLE}
           />
           {fieldErrors.email && (
-            <p className="mt-1 text-[12px]" style={{ color: "#FF4444" }}>
+            <p className="mt-1 text-[12px]" style={{ color: "var(--danger)" }}>
               {fieldErrors.email}
             </p>
           )}
@@ -447,7 +447,7 @@ export default function AuthPage() {
           <label
             htmlFor="password"
             className="block text-[12px] mb-1.5"
-            style={{ color: "#888888" }}
+            style={{ color: "var(--muted)" }}
           >
             Password
           </label>
@@ -474,14 +474,14 @@ export default function AuthPage() {
               type="button"
               tabIndex={-1}
               onClick={() => setShowPassword((v) => !v)}
-              className="absolute right-0 top-0 h-[44px] w-11 flex items-center justify-center rounded-r-[6px] text-[#555555] hover:text-[#F5F5F5] transition-colors"
+              className="absolute right-0 top-0 h-[44px] w-11 flex items-center justify-center rounded-r-[6px] text-muted hover:text-foreground transition-colors"
               aria-label={showPassword ? "Hide password" : "Show password"}
             >
               <EyeIcon open={showPassword} />
             </button>
           </div>
           {fieldErrors.password && (
-            <p className="mt-1 text-[12px]" style={{ color: "#FF4444" }}>
+            <p className="mt-1 text-[12px]" style={{ color: "var(--danger)" }}>
               {fieldErrors.password}
             </p>
           )}
@@ -489,7 +489,7 @@ export default function AuthPage() {
             <div className="mt-1.5 text-right">
               <Link
                 href="/auth/reset-password"
-                className="text-[12px] text-[#555555] hover:text-[#888888] transition-colors"
+                className="text-[12px] text-muted hover:text-muted transition-colors"
               >
                 Forgot password?
               </Link>
@@ -502,7 +502,7 @@ export default function AuthPage() {
             <label
               htmlFor="confirm"
               className="block text-[12px] mb-1.5"
-              style={{ color: "#888888" }}
+              style={{ color: "var(--muted)" }}
             >
               Confirm Password
             </label>
@@ -527,7 +527,7 @@ export default function AuthPage() {
                 type="button"
                 tabIndex={-1}
                 onClick={() => setShowConfirmPassword((v) => !v)}
-                className="absolute right-0 top-0 h-[44px] w-11 flex items-center justify-center rounded-r-[6px] text-[#555555] hover:text-[#F5F5F5] transition-colors"
+                className="absolute right-0 top-0 h-[44px] w-11 flex items-center justify-center rounded-r-[6px] text-muted hover:text-foreground transition-colors"
                 aria-label={
                   showConfirmPassword
                     ? "Hide confirm password"
@@ -538,7 +538,7 @@ export default function AuthPage() {
               </button>
             </div>
             {fieldErrors.confirm && (
-              <p className="mt-1 text-[12px]" style={{ color: "#FF4444" }}>
+              <p className="mt-1 text-[12px]" style={{ color: "var(--danger)" }}>
                 {fieldErrors.confirm}
               </p>
             )}
@@ -549,7 +549,7 @@ export default function AuthPage() {
           type="submit"
           disabled={loading}
           className="w-full h-[44px] rounded-[6px] text-[14px] font-bold transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-          style={{ backgroundColor: "#00FF94", color: "#080808" }}
+          style={{ backgroundColor: "var(--accent)", color: "var(--accent-ink)" }}
           onMouseEnter={(e) => {
             if (!loading) e.currentTarget.style.opacity = "0.9";
           }}

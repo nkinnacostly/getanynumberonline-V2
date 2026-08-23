@@ -1,9 +1,9 @@
 import { ArrowUpRight } from "./icons";
 
 /**
- * Proof band under the hero — three oversized mono numerals in bordered
- * cards, echoing the "$20B / 80% / 10x" stat trio of modern bento layouts.
- * The middle card is inverted (light) to break the grid, like the reference.
+ * Proof band under the hero — three oversized mono numerals. The middle
+ * card is the deep-pine showcase: it is the sanctioned surface that the
+ * electric-green accent sits on (mint on pine, never mint on light).
  */
 
 const STATS = [
@@ -16,7 +16,7 @@ const STATS = [
     value: "94%",
     label: "average success rate",
     note: "Codes typically land within seconds of requesting the number.",
-    inverted: true,
+    pine: true,
   },
   {
     value: "<3s",
@@ -36,35 +36,39 @@ export default function StatsBand() {
           <div
             key={s.label}
             className={`rounded-lg p-8 flex flex-col min-h-[220px] ${
-              s.inverted
-                ? "bg-[#F5F5F5] text-[#080808]"
-                : "bg-[#0F0F0F] border border-[#1A1A1A]"
+              s.pine
+                ? "bg-pine"
+                : "bg-surface border border-line"
             }`}
           >
             <span
-              className={`self-end p-2 rounded-md border ${
-                s.inverted
-                  ? "border-[#080808]/15 text-[#080808]"
-                  : "border-[#1A1A1A] text-[#555555]"
+              className={`self-end p-2 rounded-full border ${
+                s.pine
+                  ? "border-paper/20 text-mint"
+                  : "border-line text-muted"
               }`}
               aria-hidden="true"
             >
               <ArrowUpRight className="w-4 h-4" />
             </span>
 
-            <span className="font-mono text-5xl mt-auto">
+            <span
+              className={`font-mono text-5xl mt-auto ${
+                s.pine ? "text-mint" : "text-foreground"
+              }`}
+            >
               {s.value}
             </span>
             <span
               className={`text-sm font-semibold mt-1 ${
-                s.inverted ? "text-[#080808]" : "text-[#F5F5F5]"
+                s.pine ? "text-paper" : "text-foreground"
               }`}
             >
               {s.label}
             </span>
             <span
               className={`text-[13px] leading-relaxed mt-2 ${
-                s.inverted ? "text-[#080808]/60" : "text-[#555555]"
+                s.pine ? "text-paper/60" : "text-muted"
               }`}
             >
               {s.note}

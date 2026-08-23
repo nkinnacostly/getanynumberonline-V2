@@ -20,8 +20,8 @@ export default function AdminRentalsPage() {
   return (
     <div>
       <div className="flex items-baseline justify-between gap-4 mb-6">
-        <h1 className="text-2xl font-bold" style={{ color: "#F5F5F5" }}>Rentals</h1>
-        <span className="font-mono text-xs" style={{ color: "#555555" }}>{total} total</span>
+        <h1 className="text-2xl font-bold" style={{ color: "var(--foreground)" }}>Rentals</h1>
+        <span className="font-mono text-xs" style={{ color: "var(--muted)" }}>{total} total</span>
       </div>
 
       <FilterTabs options={STATUSES} value={filter} onChange={changeFilter} label="Filter by status" />

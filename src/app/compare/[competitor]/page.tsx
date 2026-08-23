@@ -48,26 +48,26 @@ function ComparisonTable({ rival }: { rival: Competitor }) {
           Feature comparison between {SITE_NAME} and {rival.name}
         </caption>
         <thead>
-          <tr className="border-b border-[#1A1A1A]">
-            <th scope="col" className="text-left py-3 pr-4 font-mono text-xs uppercase tracking-wider text-[#555555] w-40">
+          <tr className="border-b border-line">
+            <th scope="col" className="text-left py-3 pr-4 font-mono text-xs uppercase tracking-wider text-muted w-40">
               Feature
             </th>
-            <th scope="col" className="text-left py-3 pr-4 font-sans font-bold text-[#00FF94]">
+            <th scope="col" className="text-left py-3 pr-4 font-sans font-bold text-accent">
               {SITE_NAME}
             </th>
-            <th scope="col" className="text-left py-3 font-sans font-bold text-[#F5F5F5]">
+            <th scope="col" className="text-left py-3 font-sans font-bold text-foreground">
               {rival.name}
             </th>
           </tr>
         </thead>
         <tbody>
           {rival.rows.map((row) => (
-            <tr key={row.feature} className="border-b border-[#1A1A1A]/60 align-top">
-              <th scope="row" className="text-left py-4 pr-4 font-mono text-xs text-[#555555] font-normal">
+            <tr key={row.feature} className="border-b border-line/60 align-top">
+              <th scope="row" className="text-left py-4 pr-4 font-mono text-xs text-muted font-normal">
                 {row.feature}
               </th>
-              <td className="py-4 pr-4 text-[#F5F5F5] leading-relaxed">{row.us}</td>
-              <td className="py-4 text-[#555555] leading-relaxed">{row.them}</td>
+              <td className="py-4 pr-4 text-foreground leading-relaxed">{row.us}</td>
+              <td className="py-4 text-muted leading-relaxed">{row.them}</td>
             </tr>
           ))}
         </tbody>
@@ -88,7 +88,7 @@ export default async function ComparePage({
   const others = COMPETITORS.filter((c) => c.slug !== rival.slug);
 
   return (
-    <div className="min-h-screen bg-[#080808] text-[#F5F5F5]">
+    <div className="min-h-screen bg-background text-foreground">
       <SiteNav />
 
       <JsonLd
@@ -101,17 +101,17 @@ export default async function ComparePage({
 
       <main>
         <section className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-14 pb-10">
-          <nav aria-label="Breadcrumb" className="mb-6 font-mono text-xs text-[#555555]">
-            <Link href="/" className="hover:text-[#00FF94]">Home</Link>
+          <nav aria-label="Breadcrumb" className="mb-6 font-mono text-xs text-muted">
+            <Link href="/" className="hover:text-accent">Home</Link>
             <span className="mx-2">/</span>
-            <span className="text-[#F5F5F5]">vs {rival.name}</span>
+            <span className="text-foreground">vs {rival.name}</span>
           </nav>
 
           <h1 className="font-sans text-4xl sm:text-5xl font-bold tracking-tight mb-5 leading-[1.1]">
             {SITE_NAME} vs {rival.name}
           </h1>
 
-          <p className="text-[#555555] text-base sm:text-lg leading-relaxed max-w-2xl">
+          <p className="text-muted text-base sm:text-lg leading-relaxed max-w-2xl">
             {rival.summary} Both services solve the same problem, so this page
             sets out the differences plainly — including where {rival.name} is
             the better pick.
@@ -121,7 +121,7 @@ export default async function ComparePage({
         <section className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pb-14">
           <h2 className="font-sans text-2xl font-bold mb-6">Side by side</h2>
           <ComparisonTable rival={rival} />
-          <p className="text-xs text-[#555555] mt-6 leading-relaxed">
+          <p className="text-xs text-muted mt-6 leading-relaxed">
             Details in the {SITE_NAME} column reflect how our service works
             today. Details in the {rival.name} column are drawn from their
             public documentation and are summarised in general terms — check
@@ -132,30 +132,30 @@ export default async function ComparePage({
 
         <section className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pb-14">
           <div className="grid gap-4 md:grid-cols-2">
-            <div className="bg-[#0F0F0F] border border-[#1A1A1A] rounded-lg p-6">
+            <div className="bg-surface border border-line rounded-lg p-6">
               <h2 className="font-sans text-lg font-bold mb-3">
                 When {rival.name} is the better choice
               </h2>
-              <p className="text-sm text-[#555555] leading-relaxed">{rival.chooseThem}</p>
+              <p className="text-sm text-muted leading-relaxed">{rival.chooseThem}</p>
             </div>
-            <div className="bg-[#0F0F0F] border border-[#00FF94]/20 rounded-lg p-6">
+            <div className="bg-surface border border-accent/20 rounded-lg p-6">
               <h2 className="font-sans text-lg font-bold mb-3">
                 When {SITE_NAME} is the better choice
               </h2>
-              <p className="text-sm text-[#555555] leading-relaxed">{rival.chooseUs}</p>
+              <p className="text-sm text-muted leading-relaxed">{rival.chooseUs}</p>
             </div>
           </div>
 
           <div className="mt-8 flex flex-wrap items-center gap-4">
             <Link
               href="/auth"
-              className="inline-flex items-center gap-2 px-6 py-3 bg-[#00FF94] text-[#080808] font-semibold rounded-md hover:bg-[#00FF94]/90 transition-colors text-sm"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-accent text-accent-ink font-semibold rounded-md hover:bg-accent/90 transition-colors text-sm"
             >
               Try {SITE_NAME}&nbsp;&rarr;
             </Link>
             <Link
               href="/pricing"
-              className="inline-flex items-center gap-2 px-6 py-3 border border-[#333333] text-[#F5F5F5] rounded-md hover:border-[#555555] transition-colors text-sm"
+              className="inline-flex items-center gap-2 px-6 py-3 border border-line-strong text-foreground rounded-md hover:border-muted transition-colors text-sm"
             >
               See our pricing
             </Link>
@@ -169,7 +169,7 @@ export default async function ComparePage({
               <Link
                 key={c.slug}
                 href={`/compare/${c.slug}`}
-                className="font-mono text-xs px-3 py-2 rounded-md border border-[#1A1A1A] bg-[#0F0F0F] text-[#555555] hover:text-[#00FF94] hover:border-[#00FF94]/40 transition-colors"
+                className="font-mono text-xs px-3 py-2 rounded-md border border-line bg-surface text-muted hover:text-accent hover:border-accent/40 transition-colors"
               >
                 vs {c.name}
               </Link>

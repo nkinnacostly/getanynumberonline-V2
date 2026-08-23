@@ -76,14 +76,14 @@ const STATUS_TABS: Record<HistoryTab, { id: string; label: string }[]> = {
 
 function statusBadge(status: string) {
   const map: Record<string, { bg: string; color: string; border: string }> = {
-    pending: { bg: "#1A1500", color: "#F5A623", border: "rgba(245,166,35,0.32)" },
-    active: { bg: "#0A1F0A", color: "#00FF94", border: "rgba(0,255,148,0.32)" },
-    completed: { bg: "#0A1F0A", color: "#00FF94", border: "rgba(0,255,148,0.32)" },
-    cancelled: { bg: "#1A0000", color: "#FF4444", border: "rgba(255,68,68,0.32)" },
-    failed: { bg: "#1A0000", color: "#FF4444", border: "rgba(255,68,68,0.32)" },
-    expired: { bg: "#141414", color: "#555555", border: "#242424" },
-    archived: { bg: "#141414", color: "#555555", border: "#242424" },
-    refunded: { bg: "#1A1500", color: "#F5A623", border: "rgba(245,166,35,0.32)" },
+    pending: { bg: "color-mix(in srgb, var(--warning) 12%, transparent)", color: "var(--warning)", border: "color-mix(in srgb, var(--warning) 32%, transparent)" },
+    active: { bg: "color-mix(in srgb, var(--accent) 10%, transparent)", color: "var(--accent)", border: "color-mix(in srgb, var(--accent) 32%, transparent)" },
+    completed: { bg: "color-mix(in srgb, var(--accent) 10%, transparent)", color: "var(--accent)", border: "color-mix(in srgb, var(--accent) 32%, transparent)" },
+    cancelled: { bg: "color-mix(in srgb, var(--danger) 10%, transparent)", color: "var(--danger)", border: "color-mix(in srgb, var(--danger) 32%, transparent)" },
+    failed: { bg: "color-mix(in srgb, var(--danger) 10%, transparent)", color: "var(--danger)", border: "color-mix(in srgb, var(--danger) 32%, transparent)" },
+    expired: { bg: "var(--field)", color: "var(--muted)", border: "var(--line-strong)" },
+    archived: { bg: "var(--field)", color: "var(--muted)", border: "var(--line-strong)" },
+    refunded: { bg: "color-mix(in srgb, var(--warning) 12%, transparent)", color: "var(--warning)", border: "color-mix(in srgb, var(--warning) 32%, transparent)" },
   };
   const s = map[status] || map.expired;
   return (
@@ -174,9 +174,9 @@ export default function HistoryClient({
       onClick={onClick}
       className="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
       style={{
-        backgroundColor: active ? "#141414" : "transparent",
-        color: active ? "#00FF94" : "#888888",
-        border: `1px solid ${active ? "#00FF94" : "#1A1A1A"}`,
+        backgroundColor: active ? "var(--field)" : "transparent",
+        color: active ? "var(--accent)" : "var(--muted)",
+        border: `1px solid ${active ? "var(--accent)" : "var(--line)"}`,
       }}
     >
       {label}
@@ -190,7 +190,7 @@ export default function HistoryClient({
     <div>
       {/* Header + tabs */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
-        <h1 className="text-2xl font-bold" style={{ color: "#F5F5F5" }}>
+        <h1 className="text-2xl font-bold" style={{ color: "var(--foreground)" }}>
           History
         </h1>
         <div className="flex gap-2">
@@ -209,7 +209,7 @@ export default function HistoryClient({
 
       {rows.length === 0 ? (
         <div className="text-center py-16">
-          <p className="text-sm mb-2" style={{ color: "#555555" }}>
+          <p className="text-sm mb-2" style={{ color: "var(--muted)" }}>
             {status === "all" ? `No ${tab} yet.` : `No ${status} ${tab}.`}
           </p>
           <Link
@@ -221,7 +221,7 @@ export default function HistoryClient({
                   : "/dashboard/esim"
             }
             className="text-sm font-medium hover:underline"
-            style={{ color: "#00FF94" }}
+            style={{ color: "var(--accent)" }}
           >
             {tab === "orders"
               ? "Get a number →"
@@ -233,13 +233,13 @@ export default function HistoryClient({
       ) : (
         <div
           className="rounded-xl overflow-hidden"
-          style={{ border: "1px solid #1A1A1A" }}
+          style={{ border: "1px solid var(--line)" }}
         >
           {tab === "orders"
             ? orders.map((o, i) => (
                 <div
                   key={o.id}
-                  style={{ borderTop: i === 0 ? "none" : "1px solid #1A1A1A" }}
+                  style={{ borderTop: i === 0 ? "none" : "1px solid var(--line)" }}
                 >
                   <button
                     onClick={() => toggleRow(o)}
@@ -248,57 +248,57 @@ export default function HistoryClient({
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         {statusBadge(o.status)}
-                        <span className="text-[13px]" style={{ color: "#F5F5F5" }}>
+                        <span className="text-[13px]" style={{ color: "var(--foreground)" }}>
                           {o.service_name || "—"}
                         </span>
                       </div>
                       <div
                         className="font-mono text-[11px] mt-1 truncate"
-                        style={{ color: "#555555" }}
+                        style={{ color: "var(--muted)" }}
                       >
                         {formatDate(o.created_at)} · {o.country_name || "—"}
                         {o.phone_number ? ` · ${o.phone_number}` : ""}
                       </div>
                     </div>
                     <div className="text-right shrink-0">
-                      <div className="font-mono text-sm" style={{ color: "#00FF94" }}>
+                      <div className="font-mono text-sm" style={{ color: "var(--accent)" }}>
                         ${o.cost.toFixed(2)}
                       </div>
-                      <div className="text-[10px] mt-1" style={{ color: "#555555" }}>
+                      <div className="text-[10px] mt-1" style={{ color: "var(--muted)" }}>
                         {expandedId === o.id ? "▲ hide" : "▼ code"}
                       </div>
                     </div>
                   </button>
 
                   {expandedId === o.id && (
-                    <div className="px-4 pb-4 pt-1" style={{ backgroundColor: "#0A0A0A" }}>
+                    <div className="px-4 pb-4 pt-1" style={{ backgroundColor: "var(--field)" }}>
                       {messages[o.id] === undefined ? (
                         <div className="flex items-center gap-2 py-2">
                           <span
                             className="auth-spinner"
-                            style={{ borderColor: "#00FF94", borderTopColor: "transparent" }}
+                            style={{ borderColor: "var(--accent)", borderTopColor: "transparent" }}
                           />
-                          <span className="text-xs" style={{ color: "#555555" }}>
+                          <span className="text-xs" style={{ color: "var(--muted)" }}>
                             Loading…
                           </span>
                         </div>
                       ) : messages[o.id] === null ? (
-                        <p className="text-xs py-2" style={{ color: "#555555" }}>
+                        <p className="text-xs py-2" style={{ color: "var(--muted)" }}>
                           No SMS received for this order
                         </p>
                       ) : (
                         <div
                           className="rounded-lg p-3"
-                          style={{ backgroundColor: "#0F0F0F", border: "1px solid #1A1A1A" }}
+                          style={{ backgroundColor: "var(--surface)", border: "1px solid var(--line)" }}
                         >
-                          <p className="text-xs mb-1" style={{ color: "#555555" }}>
+                          <p className="text-xs mb-1" style={{ color: "var(--muted)" }}>
                             Received code
                           </p>
-                          <p className="font-mono text-2xl font-bold" style={{ color: "#00FF94" }}>
+                          <p className="font-mono text-2xl font-bold" style={{ color: "var(--accent)" }}>
                             {messages[o.id]!.sms_code}
                           </p>
                           {messages[o.id]!.full_text && (
-                            <p className="text-xs mt-2" style={{ color: "#555555" }}>
+                            <p className="text-xs mt-2" style={{ color: "var(--muted)" }}>
                               {messages[o.id]!.full_text}
                             </p>
                           )}
@@ -313,24 +313,24 @@ export default function HistoryClient({
                 <div
                   key={r.id}
                   className="px-4 py-3.5 flex items-center justify-between gap-3"
-                  style={{ borderTop: i === 0 ? "none" : "1px solid #1A1A1A" }}
+                  style={{ borderTop: i === 0 ? "none" : "1px solid var(--line)" }}
                 >
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       {statusBadge(r.status)}
-                      <span className="text-[13px]" style={{ color: "#F5F5F5" }}>
+                      <span className="text-[13px]" style={{ color: "var(--foreground)" }}>
                         {r.service_name}
                       </span>
                     </div>
                     <div
                       className="font-mono text-[11px] mt-1 truncate"
-                      style={{ color: "#555555" }}
+                      style={{ color: "var(--muted)" }}
                     >
                       {formatDate(r.created_at)} · {r.country_name}
                       {r.phone_number ? ` · ${r.phone_number}` : ""} · {r.days}d
                     </div>
                   </div>
-                  <div className="font-mono text-sm shrink-0" style={{ color: "#00FF94" }}>
+                  <div className="font-mono text-sm shrink-0" style={{ color: "var(--accent)" }}>
                     ${r.cost.toFixed(2)}
                   </div>
                 </div>
@@ -339,18 +339,18 @@ export default function HistoryClient({
                 <div
                   key={e.id}
                   className="px-4 py-3.5 flex items-center justify-between gap-3"
-                  style={{ borderTop: i === 0 ? "none" : "1px solid #1A1A1A" }}
+                  style={{ borderTop: i === 0 ? "none" : "1px solid var(--line)" }}
                 >
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       {statusBadge(e.status)}
-                      <span className="text-[13px]" style={{ color: "#F5F5F5" }}>
+                      <span className="text-[13px]" style={{ color: "var(--foreground)" }}>
                         {e.country_name || e.country || "eSIM"}
                       </span>
                     </div>
                     <div
                       className="font-mono text-[11px] mt-1 truncate"
-                      style={{ color: "#555555" }}
+                      style={{ color: "var(--muted)" }}
                     >
                       {formatDate(e.created_at)} ·{" "}
                       {e.total_bytes
@@ -360,7 +360,7 @@ export default function HistoryClient({
                       {e.iccid ? ` · ${e.iccid}` : ""}
                     </div>
                   </div>
-                  <div className="font-mono text-sm shrink-0" style={{ color: "#00FF94" }}>
+                  <div className="font-mono text-sm shrink-0" style={{ color: "var(--accent)" }}>
                     ${e.cost.toFixed(2)}
                   </div>
                 </div>

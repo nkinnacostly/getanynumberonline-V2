@@ -21,10 +21,10 @@ export default function ServiceTicker() {
   const items = [...services, ...services];
 
   return (
-    <div className="w-full overflow-hidden border-t border-b border-[#1A1A1A] py-4">
+    <div className="w-full overflow-hidden border-t border-b border-line py-4">
       <div className="ticker-track flex w-max whitespace-nowrap">
         {items.map((name, i) => (
-          <span key={i} className="font-mono text-[13px] text-[#555555] mx-4">
+          <span key={i} className="font-mono text-[13px] text-muted mx-4">
             {name}
             <span className="ml-4">&mdash;</span>
           </span>

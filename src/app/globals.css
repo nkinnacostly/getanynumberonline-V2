@@ -1,12 +1,76 @@
 @import "tailwindcss";
 
+/*
+ * Theme tokens. Every UI colour resolves through these variables, so the
+ * whole site flips between light and dark by toggling the `dark` class on
+ * <html> (see the pre-paint script in src/app/layout.tsx and ThemeToggle).
+ *
+ * FLIPPING tokens change value per theme; FIXED brand tokens (pine/mint/
+ * paper/sage/terracotta) stay constant — mint is only ever placed on pine,
+ * never directly on a flipping surface (use `accent` there).
+ */
+:root {
+  --background: #f5f3ed;
+  --foreground: #161a17;
+  --surface: #ffffff;
+  --field: #faf8f2;
+  --line: #e7e4d9;
+  --line-strong: #cfc9b8;
+  --muted: #5f665e;
+  --accent: #0f8a57;
+  --accent-ink: #ffffff;
+  --warning: #b45309;
+  --danger: #d64533;
+
+  /* Fixed brand surfaces */
+  --pine: #0c2e22;
+  --pine-deep: #123e2e;
+  --pine-line: #1e4a38;
+  --mint: #00ff94;
+  --mint-ink: #08130d;
+  --paper: #f5f3ed;
+  --sage: #8fb4a3;
+  --terracotta: #c2551e;
+
+  color-scheme: light;
+}
+
+.dark {
+  --background: #080808;
+  --foreground: #f5f5f5;
+  --surface: #0f0f0f;
+  --field: #141414;
+  --line: #1a1a1a;
+  --line-strong: #333333;
+  --muted: #555555;
+  --accent: #00ff94;
+  --accent-ink: #06130c;
+  --warning: #f5a623;
+  --danger: #ff4444;
+
+  color-scheme: dark;
+}
+
 @theme inline {
-  --color-background: #080808;
-  --color-foreground: #F5F5F5;
-  --color-surface: #0F0F0F;
-  --color-border: #1A1A1A;
-  --color-accent: #00FF94;
-  --color-muted: #555555;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-field: var(--field);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  --color-pine: var(--pine);
+  --color-pine-deep: var(--pine-deep);
+  --color-pine-line: var(--pine-line);
+  --color-mint: var(--mint);
+  --color-mint-ink: var(--mint-ink);
+  --color-paper: var(--paper);
+  --color-sage: var(--sage);
+  --color-terracotta: var(--terracotta);
   --font-sans: var(--font-syne);
   --font-mono: var(--font-dm-mono);
 }
@@ -27,6 +91,19 @@ button:disabled {
   cursor: not-allowed;
 }
 
+/* ---- Theme toggle: CSS decides which glyph is visible, so the button can
+   render identically on server and client with zero hydration risk ---- */
+
+.theme-sun {
+  display: none;
+}
+html:not(.dark) .theme-sun {
+  display: block;
+}
+html:not(.dark) .theme-moon {
+  display: none;
+}
+
 /* ---- Landing page animations ---- */
 
 @keyframes ticker-scroll {
@@ -43,7 +120,8 @@ button:disabled {
 }
 
 @keyframes status-pulse {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 1;
   }
   50% {
@@ -55,31 +133,36 @@ button:disabled {
   animation: status-pulse 1.5s ease-in-out infinite;
 }
 
-/* Hero collage: rotating seal + equalizer bars */
+/* Hero portrait: floating bubbles + morphing blob */
 
-@keyframes spin-slow {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.badge-spin {
-  animation: spin-slow 18s linear infinite;
-}
-
-@keyframes eq-bounce {
-  0%, 100% {
-    transform: scaleY(0.35);
+@keyframes float-y {
+  0%,
+  100% {
+    transform: translateY(0);
   }
   50% {
-    transform: scaleY(1);
+    transform: translateY(-8px);
   }
 }
 
-.eq-bar {
-  transform-origin: bottom;
-  animation: eq-bounce 1.4s ease-in-out infinite;
+.floaty {
+  animation: float-y 5s ease-in-out infinite;
 }
+
+/* @keyframes blob-morph {
+  0%,
+  100% {
+    border-radius: 53% 47% 46% 54% / 45% 51% 49% 55%;
+  }
+  50% {
+    border-radius: 48% 52% 55% 45% / 52% 44% 56% 48%;
+  }
+} */
+
+/* .blob-shape {
+  border-radius: 100%;
+  animation: blob-morph 14s ease-in-out infinite;
+} */
 
 /* ---- Auth spinner ---- */
 
@@ -93,7 +176,7 @@ button:disabled {
   display: inline-block;
   width: 16px;
   height: 16px;
-  border: 2px solid #080808;
+  border: 2px solid var(--accent-ink);
   border-top-color: transparent;
   border-radius: 50%;
   animation: auth-spin 0.6s linear infinite;
@@ -105,6 +188,8 @@ button:disabled {
   .status-dot,
   .badge-spin,
   .eq-bar,
+  .floaty,
+  .blob-shape,
   .confetti-piece,
   .auth-spinner {
     animation: none;
@@ -143,8 +228,13 @@ button:disabled {
 /* ---- Dashboard additions ---- */
 
 @keyframes cursor-blink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0; }
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
 }
 
 .cursor-blink {
@@ -152,6 +242,12 @@ button:disabled {
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }

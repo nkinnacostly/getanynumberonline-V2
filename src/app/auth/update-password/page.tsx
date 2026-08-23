@@ -6,10 +6,10 @@ import { createClient } from "@/lib/supabase/client";
 import AuthCard from "@/components/auth/AuthCard";
 
 const INPUT_CLS =
-  "w-full h-[44px] px-3 text-[14px] text-[#F5F5F5] placeholder-[#444444] rounded-[6px] outline-none transition-colors";
+  "w-full h-[44px] px-3 text-[14px] text-foreground placeholder-muted rounded-[6px] outline-none transition-colors";
 const INPUT_STYLE = {
-  backgroundColor: "#141414",
-  border: "1px solid #222222",
+  backgroundColor: "var(--field)",
+  border: "1px solid var(--line-strong)",
 };
 
 export default function UpdatePasswordPage() {
@@ -51,10 +51,10 @@ export default function UpdatePasswordPage() {
   }, [router]);
 
   const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
-    e.target.style.borderColor = "#00FF94";
+    e.target.style.borderColor = "var(--accent)";
   };
   const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
-    e.target.style.borderColor = "#222222";
+    e.target.style.borderColor = "var(--line-strong)";
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -100,19 +100,19 @@ export default function UpdatePasswordPage() {
             fill="none"
             className="mb-4"
           >
-            <circle cx="24" cy="24" r="24" fill="#00FF94" fillOpacity="0.1" />
+            <circle cx="24" cy="24" r="24" fill="var(--accent)" fillOpacity="0.1" />
             <path
               d="M16 24l6 6 10-12"
-              stroke="#00FF94"
+              stroke="var(--accent)"
               strokeWidth="2.5"
               strokeLinecap="round"
               strokeLinejoin="round"
             />
           </svg>
-          <h2 className="font-sans text-lg font-bold text-[#F5F5F5] mb-2">
+          <h2 className="font-sans text-lg font-bold text-foreground mb-2">
             Password updated
           </h2>
-          <p className="text-[13px] text-[#555555]">
+          <p className="text-[13px] text-muted">
             Redirecting to dashboard...
           </p>
         </div>
@@ -122,10 +122,10 @@ export default function UpdatePasswordPage() {
 
   return (
     <AuthCard>
-      <h2 className="font-sans text-xl font-bold text-[#F5F5F5] mb-2">
+      <h2 className="font-sans text-xl font-bold text-foreground mb-2">
         Set new password
       </h2>
-      <p className="text-[13px] text-[#555555] mb-6">
+      <p className="text-[13px] text-muted mb-6">
         Choose a strong password for your account.
       </p>
 
@@ -134,13 +134,13 @@ export default function UpdatePasswordPage() {
           <span
             className="auth-spinner"
             style={{
-              borderColor: "#00FF94",
+              borderColor: "var(--accent)",
               borderTopColor: "transparent",
               width: 24,
               height: 24,
             }}
           />
-          <span className="text-[13px] text-[#555555]">Verifying link…</span>
+          <span className="text-[13px] text-muted">Verifying link…</span>
         </div>
       )}
 
@@ -148,9 +148,9 @@ export default function UpdatePasswordPage() {
         <div
           className="mb-4 px-3 py-3 rounded-[6px] text-[13px]"
           style={{
-            backgroundColor: "#1A0000",
-            border: "1px solid #FF4444",
-            color: "#FF4444",
+            backgroundColor: "color-mix(in srgb, var(--danger) 10%, transparent)",
+            border: "1px solid var(--danger)",
+            color: "var(--danger)",
           }}
         >
           {error}
@@ -165,7 +165,7 @@ export default function UpdatePasswordPage() {
           <label
             htmlFor="password"
             className="block text-[12px] mb-1.5"
-            style={{ color: "#888888" }}
+            style={{ color: "var(--muted)" }}
           >
             New password
           </label>
@@ -184,7 +184,7 @@ export default function UpdatePasswordPage() {
             style={INPUT_STYLE}
           />
           {fieldErrors.password && (
-            <p className="mt-1 text-[12px]" style={{ color: "#FF4444" }}>
+            <p className="mt-1 text-[12px]" style={{ color: "var(--danger)" }}>
               {fieldErrors.password}
             </p>
           )}
@@ -194,7 +194,7 @@ export default function UpdatePasswordPage() {
           <label
             htmlFor="confirm"
             className="block text-[12px] mb-1.5"
-            style={{ color: "#888888" }}
+            style={{ color: "var(--muted)" }}
           >
             Confirm new password
           </label>
@@ -213,7 +213,7 @@ export default function UpdatePasswordPage() {
             style={INPUT_STYLE}
           />
           {fieldErrors.confirm && (
-            <p className="mt-1 text-[12px]" style={{ color: "#FF4444" }}>
+            <p className="mt-1 text-[12px]" style={{ color: "var(--danger)" }}>
               {fieldErrors.confirm}
             </p>
           )}
@@ -223,7 +223,7 @@ export default function UpdatePasswordPage() {
           type="submit"
           disabled={loading}
           className="w-full h-[44px] rounded-[6px] text-[14px] font-bold transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-          style={{ backgroundColor: "#00FF94", color: "#080808" }}
+          style={{ backgroundColor: "var(--accent)", color: "var(--accent-ink)" }}
           onMouseEnter={(e) => {
             if (!loading) e.currentTarget.style.opacity = "0.9";
           }}

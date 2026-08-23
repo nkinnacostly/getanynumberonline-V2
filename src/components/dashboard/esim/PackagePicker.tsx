@@ -38,7 +38,7 @@ export default function PackagePicker({
       <div className="flex justify-center py-6">
         <span
           className="auth-spinner"
-          style={{ borderColor: "#00FF94", borderTopColor: "transparent" }}
+          style={{ borderColor: "var(--accent)", borderTopColor: "transparent" }}
         />
       </div>
     );
@@ -46,7 +46,7 @@ export default function PackagePicker({
 
   if (packages.length === 0) {
     return (
-      <p className="text-[13px] py-2" style={{ color: "#555555" }}>
+      <p className="text-[13px] py-2" style={{ color: "var(--muted)" }}>
         {emptyLabel}
       </p>
     );
@@ -62,8 +62,8 @@ export default function PackagePicker({
             key={p.code}
             className="rounded-[6px] transition-colors"
             style={{
-              backgroundColor: "#141414",
-              border: `1px solid ${active ? "#00FF94" : "#222222"}`,
+              backgroundColor: "var(--field)",
+              border: `1px solid ${active ? "var(--accent)" : "var(--line-strong)"}`,
             }}
           >
             <button
@@ -74,19 +74,19 @@ export default function PackagePicker({
               <div className="flex items-baseline justify-between gap-2">
                 <span
                   className="font-mono text-[15px] font-bold"
-                  style={{ color: "#F5F5F5" }}
+                  style={{ color: "var(--foreground)" }}
                 >
                   {p.data_type === 4 ? "Unlimited" : `${p.data_gb} GB`}
                 </span>
                 <span
                   className="font-mono text-[14px] font-bold shrink-0"
-                  style={{ color: "#00FF94" }}
+                  style={{ color: "var(--accent)" }}
                 >
                   ${price.toFixed(2)}
                   {p.is_day_pass && !active && (
                     <span
                       className="text-[10px] font-normal"
-                      style={{ color: "#555555" }}
+                      style={{ color: "var(--muted)" }}
                     >
                       {" "}
                       /day
@@ -96,7 +96,7 @@ export default function PackagePicker({
               </div>
               <div
                 className="font-mono text-[11px] mt-1"
-                style={{ color: "#555555" }}
+                style={{ color: "var(--muted)" }}
               >
                 {packageSummary(p, active ? days : 1)}
                 {p.speed ? ` · ${p.speed}` : ""}
@@ -104,7 +104,7 @@ export default function PackagePicker({
               {p.fup_policy && (
                 <div
                   className="font-mono text-[10px] mt-1"
-                  style={{ color: "#F5A623" }}
+                  style={{ color: "var(--warning)" }}
                 >
                   Then {p.fup_policy}
                 </div>
@@ -115,9 +115,9 @@ export default function PackagePicker({
             {active && p.is_day_pass && (
               <div
                 className="px-3 pb-3 pt-1"
-                style={{ borderTop: "1px solid #1F1F1F" }}
+                style={{ borderTop: "1px solid var(--line)" }}
               >
-                <p className="text-[11px] mb-2 mt-2" style={{ color: "#888888" }}>
+                <p className="text-[11px] mb-2 mt-2" style={{ color: "var(--muted)" }}>
                   How many days?
                 </p>
                 <div className="flex flex-wrap gap-1.5">
@@ -128,9 +128,9 @@ export default function PackagePicker({
                       onClick={() => onDaysChange(d)}
                       className="h-[32px] min-w-[44px] px-2 rounded-[4px] font-mono text-[12px] transition-colors"
                       style={{
-                        backgroundColor: days === d ? "#00FF94" : "#0F0F0F",
-                        color: days === d ? "#080808" : "#F5F5F5",
-                        border: `1px solid ${days === d ? "#00FF94" : "#222222"}`,
+                        backgroundColor: days === d ? "var(--accent)" : "var(--surface)",
+                        color: days === d ? "var(--background)" : "var(--foreground)",
+                        border: `1px solid ${days === d ? "var(--accent)" : "var(--line-strong)"}`,
                       }}
                     >
                       {d}d

@@ -163,7 +163,7 @@ export default async function ServicePage({
   const otherServices = SERVICES.filter((s) => s.slug !== service.slug).slice(0, 8);
 
   return (
-    <div className="min-h-screen bg-[#080808] text-[#F5F5F5]">
+    <div className="min-h-screen bg-background text-foreground">
       <SiteNav />
 
       <JsonLd
@@ -190,32 +190,32 @@ export default async function ServicePage({
 
       <main>
         <section className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pt-14 pb-10">
-          <nav aria-label="Breadcrumb" className="mb-6 font-mono text-xs text-[#555555]">
-            <Link href="/" className="hover:text-[#00FF94]">Home</Link>
+          <nav aria-label="Breadcrumb" className="mb-6 font-mono text-xs text-muted">
+            <Link href="/" className="hover:text-accent">Home</Link>
             <span className="mx-2">/</span>
-            <Link href="/pricing" className="hover:text-[#00FF94]">Receive SMS</Link>
+            <Link href="/pricing" className="hover:text-accent">Receive SMS</Link>
             <span className="mx-2">/</span>
-            <span className="text-[#F5F5F5]">{service.name}</span>
+            <span className="text-foreground">{service.name}</span>
           </nav>
 
           <h1 className="font-sans text-4xl sm:text-5xl font-bold tracking-tight mb-5 leading-[1.1]">
             Receive {service.name} SMS Verification Code Online
           </h1>
 
-          <p className="text-[#555555] text-base sm:text-lg leading-relaxed max-w-2xl">
+          <p className="text-muted text-base sm:text-lg leading-relaxed max-w-2xl">
             {introCopy(service, lowPrice, available.length, successRate)}
           </p>
 
           <div className="mt-8 flex flex-wrap items-center gap-4">
             <Link
               href="/auth"
-              className="inline-flex items-center gap-2 px-6 py-3 bg-[#00FF94] text-[#080808] font-semibold rounded-md hover:bg-[#00FF94]/90 transition-colors text-sm"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-accent text-accent-ink font-semibold rounded-md hover:bg-accent/90 transition-colors text-sm"
             >
               Get a {service.name} number&nbsp;&rarr;
             </Link>
             {lowPrice && (
-              <span className="font-mono text-sm text-[#555555]">
-                from <span className="text-[#00FF94]">{lowPrice}</span> per SMS
+              <span className="font-mono text-sm text-muted">
+                from <span className="text-accent">{lowPrice}</span> per SMS
               </span>
             )}
           </div>
@@ -226,7 +226,7 @@ export default async function ServicePage({
           <h2 className="font-sans text-2xl font-bold mb-1">
             {service.name} number prices by country
           </h2>
-          <p className="text-sm text-[#555555] mb-6">
+          <p className="text-sm text-muted mb-6">
             Live rates, refreshed hourly. You always see the exact price before
             you confirm.
           </p>
@@ -267,13 +267,13 @@ export default async function ServicePage({
             ].map((step) => (
               <li
                 key={step.n}
-                className="bg-[#0F0F0F] border border-[#1A1A1A] rounded-lg p-6"
+                className="bg-surface border border-line rounded-lg p-6"
               >
-                <span className="font-mono text-[#00FF94] text-xs mb-3 block">
+                <span className="font-mono text-accent text-xs mb-3 block">
                   {step.n}
                 </span>
                 <h3 className="font-sans text-base font-bold mb-2">{step.t}</h3>
-                <p className="text-sm text-[#555555] leading-relaxed">{step.d}</p>
+                <p className="text-sm text-muted leading-relaxed">{step.d}</p>
               </li>
             ))}
           </ol>
@@ -291,7 +291,7 @@ export default async function ServicePage({
               <Link
                 key={s.slug}
                 href={`/receive-sms/${s.slug}`}
-                className="font-mono text-xs px-3 py-2 rounded-md border border-[#1A1A1A] bg-[#0F0F0F] text-[#555555] hover:text-[#00FF94] hover:border-[#00FF94]/40 transition-colors"
+                className="font-mono text-xs px-3 py-2 rounded-md border border-line bg-surface text-muted hover:text-accent hover:border-accent/40 transition-colors"
               >
                 {s.name}
               </Link>

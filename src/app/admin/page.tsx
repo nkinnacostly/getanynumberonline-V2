@@ -59,7 +59,7 @@ export default function AdminOverviewPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-6" style={{ color: "#F5F5F5" }}>
+      <h1 className="text-2xl font-bold mb-6" style={{ color: "var(--foreground)" }}>
         Overview
       </h1>
 
@@ -67,14 +67,14 @@ export default function AdminOverviewPage() {
         <div
           className="rounded-lg p-4 mb-6"
           style={{
-            backgroundColor: "#1A0000",
+            backgroundColor: "color-mix(in srgb, var(--danger) 10%, transparent)",
             border: "1px solid rgba(255,68,68,0.32)",
           }}
         >
-          <p className="text-[13px] font-semibold" style={{ color: "#FF4444" }}>
+          <p className="text-[13px] font-semibold" style={{ color: "var(--danger)" }}>
             SMSPool float is low
           </p>
-          <p className="text-[12px] mt-1" style={{ color: "#888888" }}>
+          <p className="text-[12px] mt-1" style={{ color: "var(--muted)" }}>
             <span className="font-mono">{money(float)}</span> remaining. Below{" "}
             <span className="font-mono">{money(LOW_FLOAT_USD)}</span> new orders
             will start failing — top up the SMSPool account.
@@ -93,7 +93,7 @@ export default function AdminOverviewPage() {
           loading={loading}
           // Amber only when there is something to review; a permanent warning
           // colour on a zero is noise people learn to skip past.
-          tone={stats?.flagged_users ? "#F5A623" : undefined}
+          tone={stats?.flagged_users ? "var(--warning)" : undefined}
           sub={stats?.flagged_users ? "awaiting review" : undefined}
         />
         <Metric label="Orders today" value={stats ? String(stats.orders_today) : null} loading={loading}
@@ -103,22 +103,22 @@ export default function AdminOverviewPage() {
           label="SMSPool float"
           value={floatError ? "—" : float !== null ? money(float) : null}
           loading={loading}
-          tone={floatError ? "#555555" : lowFloat ? "#FF4444" : "#00FF94"}
+          tone={floatError ? "var(--muted)" : lowFloat ? "var(--danger)" : "var(--accent)"}
           sub={floatError ? "unavailable" : undefined}
         />
       </div>
 
       {/* Recent activity */}
-      <h2 className="text-sm font-semibold mb-4" style={{ color: "#555555" }}>
+      <h2 className="text-sm font-semibold mb-4" style={{ color: "var(--muted)" }}>
         Recent activity
       </h2>
       <AdminCard>
         {loading ? (
           <div className="flex justify-center py-12">
-            <span className="auth-spinner" style={{ borderColor: "#00FF94", borderTopColor: "transparent" }} />
+            <span className="auth-spinner" style={{ borderColor: "var(--accent)", borderTopColor: "transparent" }} />
           </div>
         ) : recent.length === 0 ? (
-          <p className="py-12 text-center text-sm" style={{ color: "#555555" }}>
+          <p className="py-12 text-center text-sm" style={{ color: "var(--muted)" }}>
             No transactions yet
           </p>
         ) : (
@@ -129,13 +129,13 @@ export default function AdminOverviewPage() {
                 <li
                   key={tx.id}
                   className="flex items-center justify-between gap-3 px-4 py-3"
-                  style={{ borderBottom: "1px solid #1A1A1A" }}
+                  style={{ borderBottom: "1px solid var(--line)" }}
                 >
                   <div className="min-w-0 flex-1">
-                    <p className="font-mono text-[12px] truncate" style={{ color: "#F5F5F5" }}>
+                    <p className="font-mono text-[12px] truncate" style={{ color: "var(--foreground)" }}>
                       {tx.email ?? "—"}
                     </p>
-                    <p className="font-mono text-[11px] mt-0.5" style={{ color: "#555555" }}>
+                    <p className="font-mono text-[11px] mt-0.5" style={{ color: "var(--muted)" }}>
                       {dateTime(tx.created_at)}
                       {tx.note ? ` · ${tx.note}` : ""}
                     </p>
@@ -145,7 +145,7 @@ export default function AdminOverviewPage() {
                   </div>
                   <span
                     className="font-mono text-[13px] shrink-0 w-24 text-right"
-                    style={{ color: credit ? "#00FF94" : "#FF4444" }}
+                    style={{ color: credit ? "var(--accent)" : "var(--danger)" }}
                   >
                     {credit ? "+" : "−"}
                     {money(tx.amount)}
@@ -178,19 +178,19 @@ function Metric({
   return (
     <div
       className="rounded-lg p-4"
-      style={{ backgroundColor: "#0F0F0F", border: "1px solid #1A1A1A" }}
+      style={{ backgroundColor: "var(--surface)", border: "1px solid var(--line)" }}
     >
-      <p className="text-[11px] uppercase tracking-wider mb-2" style={{ color: "#555555" }}>
+      <p className="text-[11px] uppercase tracking-wider mb-2" style={{ color: "var(--muted)" }}>
         {label}
       </p>
       <p
         className="font-mono text-2xl font-medium"
-        style={{ color: tone ?? (accent ? "#00FF94" : "#F5F5F5") }}
+        style={{ color: tone ?? (accent ? "var(--accent)" : "var(--foreground)") }}
       >
         {loading && value === null ? "…" : (value ?? "—")}
       </p>
       {sub && (
-        <p className="font-mono text-[11px] mt-1" style={{ color: "#555555" }}>
+        <p className="font-mono text-[11px] mt-1" style={{ color: "var(--muted)" }}>
           {sub}
         </p>
       )}

@@ -97,10 +97,10 @@ export default function WalletClient({
 
   const badge = (type: string) => {
     if (type === "topup")
-      return { bg: "#0A1F0A", color: "#00FF94", border: "rgba(0,255,148,0.32)" };
+      return { bg: "color-mix(in srgb, var(--accent) 10%, transparent)", color: "var(--accent)", border: "color-mix(in srgb, var(--accent) 32%, transparent)" };
     if (type === "deduction")
-      return { bg: "#1A0000", color: "#FF4444", border: "rgba(255,68,68,0.32)" };
-    return { bg: "#1A1500", color: "#F5A623", border: "rgba(245,166,35,0.32)" };
+      return { bg: "color-mix(in srgb, var(--danger) 10%, transparent)", color: "var(--danger)", border: "color-mix(in srgb, var(--danger) 32%, transparent)" };
+    return { bg: "color-mix(in srgb, var(--warning) 12%, transparent)", color: "var(--warning)", border: "color-mix(in srgb, var(--warning) 32%, transparent)" };
   };
 
   // Server-side filter + pagination via the URL (survives the flaky client
@@ -122,7 +122,7 @@ export default function WalletClient({
 
   return (
     <div className="max-w-3xl">
-      <h1 className="text-2xl font-bold mb-6" style={{ color: "#F5F5F5" }}>
+      <h1 className="text-2xl font-bold mb-6" style={{ color: "var(--foreground)" }}>
         Wallet
       </h1>
 
@@ -130,9 +130,9 @@ export default function WalletClient({
         <div
           className="mb-4 rounded-lg px-4 py-3 text-sm"
           style={{
-            backgroundColor: "#0A1F0A",
-            border: "1px solid #00FF94",
-            color: "#00FF94",
+            backgroundColor: "color-mix(in srgb, var(--accent) 10%, transparent)",
+            border: "1px solid var(--accent)",
+            color: "var(--accent)",
           }}
         >
           Payment received! Your balance has been updated.
@@ -142,19 +142,19 @@ export default function WalletClient({
       {/* Balance + Top-up */}
       <div
         className="rounded-xl p-6 mb-8"
-        style={{ backgroundColor: "#0F0F0F", border: "1px solid #1A1A1A" }}
+        style={{ backgroundColor: "var(--surface)", border: "1px solid var(--line)" }}
       >
-        <p className="text-sm mb-1" style={{ color: "#555555" }}>
+        <p className="text-sm mb-1" style={{ color: "var(--muted)" }}>
           Your balance
         </p>
         <p
           className="font-mono text-5xl font-bold mb-8"
-          style={{ color: "#00FF94" }}
+          style={{ color: "var(--accent)" }}
         >
           ${balance.toFixed(2)}
         </p>
 
-        <h2 className="text-lg font-semibold mb-4" style={{ color: "#F5F5F5" }}>
+        <h2 className="text-lg font-semibold mb-4" style={{ color: "var(--foreground)" }}>
           Add funds
         </h2>
 
@@ -165,9 +165,9 @@ export default function WalletClient({
               onClick={() => handleQuick(val)}
               className="flex-1 py-2 rounded-lg text-sm font-mono font-medium transition-colors"
               style={{
-                backgroundColor: selectedQuick === val ? "#080808" : "#1A1A1A",
-                color: selectedQuick === val ? "#00FF94" : "#F5F5F5",
-                border: `1px solid ${selectedQuick === val ? "#00FF94" : "#1A1A1A"}`,
+                backgroundColor: selectedQuick === val ? "var(--accent)" : "var(--field)",
+                color: selectedQuick === val ? "var(--accent-ink)" : "var(--foreground)",
+                border: `1px solid ${selectedQuick === val ? "var(--accent)" : "var(--line)"}`,
               }}
             >
               ${val}
@@ -175,7 +175,7 @@ export default function WalletClient({
           ))}
         </div>
 
-        <label className="block text-xs mb-1.5" style={{ color: "#555555" }}>
+        <label className="block text-xs mb-1.5" style={{ color: "var(--muted)" }}>
           Or enter amount (min ${TOPUP_MIN})
         </label>
         <input
@@ -187,12 +187,12 @@ export default function WalletClient({
           placeholder="0.00"
           className="w-full px-4 py-3 rounded-lg font-mono text-sm mb-4 outline-none transition-colors"
           style={{
-            backgroundColor: "#080808",
-            border: "1px solid #1A1A1A",
-            color: "#F5F5F5",
+            backgroundColor: "var(--background)",
+            border: "1px solid var(--line)",
+            color: "var(--foreground)",
           }}
-          onFocus={(e) => (e.target.style.borderColor = "#00FF94")}
-          onBlur={(e) => (e.target.style.borderColor = "#1A1A1A")}
+          onFocus={(e) => (e.target.style.borderColor = "var(--accent)")}
+          onBlur={(e) => (e.target.style.borderColor = "var(--line)")}
         />
 
         <TopupButton
@@ -203,14 +203,14 @@ export default function WalletClient({
           onFunded={handleFunded}
           disabled={!validAmount}
           className="w-full py-3 rounded-lg font-semibold text-sm transition-colors disabled:opacity-40"
-          style={{ backgroundColor: "#00FF94", color: "#080808" }}
+          style={{ backgroundColor: "var(--accent)", color: "var(--accent-ink)" }}
         />
       </div>
 
       {/* Transaction history — responsive card rows (no sideways scroll) */}
       <div>
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-          <h2 className="text-lg font-semibold" style={{ color: "#F5F5F5" }}>
+          <h2 className="text-lg font-semibold" style={{ color: "var(--foreground)" }}>
             Transaction history
           </h2>
           <div className="flex gap-2 flex-wrap">
@@ -222,9 +222,9 @@ export default function WalletClient({
                   onClick={() => goFilter(f.id)}
                   className="px-3 py-1.5 rounded-lg text-xs font-medium transition-colors"
                   style={{
-                    backgroundColor: active ? "#141414" : "transparent",
-                    color: active ? "#00FF94" : "#888888",
-                    border: `1px solid ${active ? "#00FF94" : "#1A1A1A"}`,
+                    backgroundColor: active ? "var(--field)" : "transparent",
+                    color: active ? "var(--accent)" : "var(--muted)",
+                    border: `1px solid ${active ? "var(--accent)" : "var(--line)"}`,
                   }}
                 >
                   {f.label}
@@ -235,7 +235,7 @@ export default function WalletClient({
         </div>
 
         {transactions.length === 0 ? (
-          <p className="text-sm py-8 text-center" style={{ color: "#555555" }}>
+          <p className="text-sm py-8 text-center" style={{ color: "var(--muted)" }}>
             {filter === "all"
               ? "No transactions yet"
               : `No ${filterLabel} yet`}
@@ -243,7 +243,7 @@ export default function WalletClient({
         ) : (
           <div
             className="rounded-xl overflow-hidden"
-            style={{ border: "1px solid #1A1A1A" }}
+            style={{ border: "1px solid var(--line)" }}
           >
             {transactions.map((tx, i) => {
               const b = badge(tx.type);
@@ -259,8 +259,8 @@ export default function WalletClient({
                   key={tx.id}
                   className="flex items-center justify-between gap-3 px-4 py-3.5"
                   style={{
-                    borderTop: i === 0 ? "none" : "1px solid #1A1A1A",
-                    backgroundColor: "#0F0F0F",
+                    borderTop: i === 0 ? "none" : "1px solid var(--line)",
+                    backgroundColor: "var(--surface)",
                   }}
                 >
                   <div className="min-w-0">
@@ -277,14 +277,14 @@ export default function WalletClient({
                       </span>
                       <span
                         className="text-[13px] truncate"
-                        style={{ color: "#F5F5F5" }}
+                        style={{ color: "var(--foreground)" }}
                       >
                         {tx.note || label}
                       </span>
                     </div>
                     <div
                       className="font-mono text-[11px] mt-1"
-                      style={{ color: "#555555" }}
+                      style={{ color: "var(--muted)" }}
                     >
                       {formatDate(tx.created_at)}
                     </div>
@@ -292,13 +292,13 @@ export default function WalletClient({
                   <div className="text-right shrink-0">
                     <div
                       className="font-mono text-sm"
-                      style={{ color: positive ? "#00FF94" : "#FF4444" }}
+                      style={{ color: positive ? "var(--accent)" : "var(--danger)" }}
                     >
                       {positive ? "+" : "-"}${Math.abs(tx.amount).toFixed(2)}
                     </div>
                     <div
                       className="font-mono text-[11px] mt-1"
-                      style={{ color: "#555555" }}
+                      style={{ color: "var(--muted)" }}
                     >
                       bal ${tx.balance_after.toFixed(2)}
                     </div>

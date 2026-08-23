@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import Logo from "@/components/site/Logo";
+import ThemeToggle from "@/components/site/ThemeToggle";
 import { FLAGS_CHANGED_EVENT, getStats } from "@/lib/admin-api";
 
 /**
@@ -104,7 +105,7 @@ function FlagBadge({ count, compact }: { count: number; compact?: boolean }) {
       }`}
       style={{
         backgroundColor: "rgba(245,166,35,0.16)",
-        color: "#F5A623",
+        color: "var(--warning)",
         border: "1px solid rgba(245,166,35,0.4)",
       }}
     >
@@ -160,20 +161,20 @@ export default function AdminSidebar({ email }: { email: string }) {
         className="hidden md:flex fixed top-0 left-0 h-screen flex-col justify-between py-6 px-4 z-40"
         style={{
           width: 220,
-          backgroundColor: "#0F0F0F",
-          borderRight: "1px solid #1A1A1A",
+          backgroundColor: "var(--surface)",
+          borderRight: "1px solid var(--line)",
         }}
       >
         <div>
           <div className="mb-10 px-2">
             <Link href="/admin" aria-label="Admin overview">
-              <Logo id="admin" className="h-[18px] w-auto text-[#00FF94]" />
+              <Logo id="admin" className="h-[18px] w-auto text-accent" />
             </Link>
             <span
               className="inline-block mt-2 px-2 py-0.5 rounded font-mono text-[10px] font-medium tracking-wider"
               style={{
                 backgroundColor: "rgba(245,166,35,0.12)",
-                color: "#F5A623",
+                color: "var(--warning)",
                 border: "1px solid rgba(245,166,35,0.32)",
               }}
             >
@@ -190,9 +191,9 @@ export default function AdminSidebar({ email }: { email: string }) {
                   href={item.href}
                   className="flex items-center gap-3 px-3 py-2.5 rounded-md text-[13px] font-medium transition-colors"
                   style={{
-                    color: active ? "#00FF94" : "#555555",
-                    backgroundColor: active ? "rgba(0,255,148,0.05)" : "transparent",
-                    borderLeft: active ? "2px solid #00FF94" : "2px solid transparent",
+                    color: active ? "var(--accent)" : "var(--muted)",
+                    backgroundColor: active ? "color-mix(in srgb, var(--accent) 6%, transparent)" : "transparent",
+                    borderLeft: active ? "2px solid var(--accent)" : "2px solid transparent",
                   }}
                 >
                   {item.icon}
@@ -205,26 +206,29 @@ export default function AdminSidebar({ email }: { email: string }) {
         </div>
 
         <div className="flex flex-col gap-3 px-2">
-          <div className="text-[11px] text-[#555555] truncate">{email}</div>
+          <div className="text-[11px] text-muted truncate">{email}</div>
+          <div className="flex items-center justify-between">
+            <ThemeToggle />
+            <button
+              onClick={handleSignOut}
+              className="text-[12px] text-muted hover:text-danger transition-colors"
+            >
+              Sign out
+            </button>
+          </div>
           <Link
             href="/dashboard"
-            className="text-[12px] text-[#555555] hover:text-[#00FF94] transition-colors"
+            className="text-[12px] text-muted hover:text-accent transition-colors"
           >
             &larr; Back to app
           </Link>
-          <button
-            onClick={handleSignOut}
-            className="text-[12px] text-[#555555] hover:text-[#FF4444] transition-colors text-left"
-          >
-            Sign out
-          </button>
         </div>
       </aside>
 
       {/* Mobile bottom tabs */}
       <nav
         className="md:hidden fixed bottom-0 left-0 right-0 z-40 flex items-center justify-around py-2"
-        style={{ backgroundColor: "#0F0F0F", borderTop: "1px solid #1A1A1A" }}
+        style={{ backgroundColor: "var(--surface)", borderTop: "1px solid var(--line)" }}
       >
         {navItems.map((item) => {
           const active = isActive(item.href);
@@ -238,7 +242,7 @@ export default function AdminSidebar({ email }: { email: string }) {
                   : item.label
               }
               className="relative flex items-center justify-center min-w-[44px] min-h-[44px] rounded-md transition-colors"
-              style={{ color: active ? "#00FF94" : "#555555" }}
+              style={{ color: active ? "var(--accent)" : "var(--muted)" }}
             >
               {item.icon}
               {item.badge && <FlagBadge count={flagged} compact />}
@@ -253,7 +257,7 @@ export default function AdminSidebar({ email }: { email: string }) {
         className="md:hidden sticky top-0 z-30 px-4 py-1.5 font-mono text-[10px] tracking-wider text-center"
         style={{
           backgroundColor: "rgba(245,166,35,0.12)",
-          color: "#F5A623",
+          color: "var(--warning)",
           borderBottom: "1px solid rgba(245,166,35,0.32)",
         }}
       >

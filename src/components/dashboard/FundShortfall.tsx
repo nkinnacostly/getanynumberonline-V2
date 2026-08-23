@@ -35,17 +35,17 @@ export default function FundShortfall({
     <div
       className="rounded-[6px] p-3"
       style={{
-        backgroundColor: "#141414",
+        backgroundColor: "var(--field)",
         border: "1px solid rgba(245,166,35,0.35)",
       }}
     >
-      <p className="text-[13px] mb-3" style={{ color: "#cdd2cf" }}>
+      <p className="text-[13px] mb-3" style={{ color: "var(--muted)" }}>
         This {itemLabel} costs{" "}
-        <span className="font-mono" style={{ color: "#F5F5F5" }}>
+        <span className="font-mono" style={{ color: "var(--foreground)" }}>
           ${price.toFixed(2)}
         </span>
         . You have{" "}
-        <span className="font-mono" style={{ color: "#F5A623" }}>
+        <span className="font-mono" style={{ color: "var(--warning)" }}>
           ${balance.toFixed(2)}
         </span>
         .
@@ -56,13 +56,13 @@ export default function FundShortfall({
           onClick={() => topup.open(fundAmount, { onFunded })}
           disabled={disabled}
           className="flex-1 h-[44px] rounded-[6px] text-[14px] font-bold flex items-center justify-center gap-2 disabled:opacity-40"
-          style={{ backgroundColor: "#00FF94", color: "#080808" }}
+          style={{ backgroundColor: "var(--accent)", color: "var(--accent-ink)" }}
         >
           {topup.opening ? (
             <>
               <span
                 className="auth-spinner"
-                style={{ borderColor: "#080808", borderTopColor: "transparent" }}
+                style={{ borderColor: "var(--accent-ink)", borderTopColor: "transparent" }}
               />
               Opening…
             </>
@@ -75,8 +75,8 @@ export default function FundShortfall({
           className="h-[44px] px-4 rounded-[6px] text-[14px] font-medium"
           style={{
             backgroundColor: "transparent",
-            border: "1px solid #333333",
-            color: "#F5F5F5",
+            border: "1px solid var(--line-strong)",
+            color: "var(--foreground)",
           }}
         >
           Wallet
@@ -84,12 +84,12 @@ export default function FundShortfall({
       </div>
 
       {!topup.available && (
-        <p className="text-[11px] mt-2" style={{ color: "#FF4444" }}>
+        <p className="text-[11px] mt-2" style={{ color: "var(--danger)" }}>
           Payments are temporarily unavailable.
         </p>
       )}
       {topup.scriptError && (
-        <p className="text-[11px] mt-2" style={{ color: "#FF4444" }}>
+        <p className="text-[11px] mt-2" style={{ color: "var(--danger)" }}>
           Couldn&apos;t load the payment window. Disable shields and retry.
         </p>
       )}

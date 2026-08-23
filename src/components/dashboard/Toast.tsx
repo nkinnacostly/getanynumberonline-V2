@@ -49,9 +49,9 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             key={t.id}
             className="pointer-events-auto px-4 py-3 rounded-lg text-[13px] font-medium max-w-xs animate-[fadeIn_0.2s_ease-out]"
             style={{
-              backgroundColor: t.type === "success" ? "#0A1F0A" : "#1A0000",
-              border: `1px solid ${t.type === "success" ? "#00FF94" : "#FF4444"}`,
-              color: t.type === "success" ? "#00FF94" : "#FF4444",
+              backgroundColor: t.type === "success" ? "color-mix(in srgb, var(--accent) 10%, transparent)" : "color-mix(in srgb, var(--danger) 10%, transparent)",
+              border: `1px solid ${t.type === "success" ? "var(--accent)" : "var(--danger)"}`,
+              color: t.type === "success" ? "var(--accent)" : "var(--danger)",
             }}
           >
             {t.message}

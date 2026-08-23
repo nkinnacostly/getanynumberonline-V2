@@ -30,19 +30,19 @@ function badgeTone(status: string) {
     case "active":
     case "completed":
     case "success":
-      return { bg: "#0A1F0A", fg: "#00FF94", border: "rgba(0,255,148,0.32)" };
+      return { bg: "color-mix(in srgb, var(--accent) 10%, transparent)", fg: "var(--accent)", border: "color-mix(in srgb, var(--accent) 32%, transparent)" };
     case "pending":
     case "refunded":
     case "refund":
     case "suspended":
-      return { bg: "#1A1500", fg: "#F5A623", border: "rgba(245,166,35,0.32)" };
+      return { bg: "color-mix(in srgb, var(--warning) 12%, transparent)", fg: "var(--warning)", border: "color-mix(in srgb, var(--warning) 32%, transparent)" };
     case "cancelled":
     case "failed":
     case "banned":
-      return { bg: "#1A0000", fg: "#FF4444", border: "rgba(255,68,68,0.32)" };
+      return { bg: "color-mix(in srgb, var(--danger) 10%, transparent)", fg: "var(--danger)", border: "color-mix(in srgb, var(--danger) 32%, transparent)" };
     default:
       // expired and anything unrecognised
-      return { bg: "#141414", fg: "#555555", border: "#242424" };
+      return { bg: "var(--field)", fg: "var(--muted)", border: "var(--line-strong)" };
   }
 }
 
@@ -50,7 +50,7 @@ export function AdminCard({ children }: { children: ReactNode }) {
   return (
     <div
       className="rounded-lg overflow-hidden"
-      style={{ backgroundColor: "#0F0F0F", border: "1px solid #1A1A1A" }}
+      style={{ backgroundColor: "var(--surface)", border: "1px solid var(--line)" }}
     >
       {children}
     </div>
@@ -77,7 +77,7 @@ export function TableShell({
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse">
           <thead>
-            <tr style={{ borderBottom: "1px solid #1A1A1A" }}>{head}</tr>
+            <tr style={{ borderBottom: "1px solid var(--line)" }}>{head}</tr>
           </thead>
           <tbody>
             {loading ? (
@@ -86,7 +86,7 @@ export function TableShell({
                   <div className="flex justify-center">
                     <span
                       className="auth-spinner"
-                      style={{ borderColor: "#00FF94", borderTopColor: "transparent" }}
+                      style={{ borderColor: "var(--accent)", borderTopColor: "transparent" }}
                     />
                   </div>
                 </td>
@@ -96,7 +96,7 @@ export function TableShell({
                 <td
                   colSpan={colSpan}
                   className="py-12 text-center text-sm"
-                  style={{ color: "#555555" }}
+                  style={{ color: "var(--muted)" }}
                 >
                   {emptyLabel}
                 </td>
@@ -127,7 +127,7 @@ export function Th({
       className={`${hideClass(hide)} px-4 py-3 text-[10px] font-mono font-medium uppercase tracking-wider whitespace-nowrap ${
         align === "right" ? "text-right" : "text-left"
       }`}
-      style={{ color: "#555555" }}
+      style={{ color: "var(--muted)" }}
     >
       {children}
     </th>
@@ -139,7 +139,7 @@ export function Td({
   hide,
   align = "left",
   mono,
-  color = "#F5F5F5",
+  color = "var(--foreground)",
 }: {
   children: ReactNode;
   hide?: "sm" | "md" | "lg";
@@ -160,7 +160,7 @@ export function Td({
 }
 
 export function Tr({ children }: { children: ReactNode }) {
-  return <tr style={{ borderBottom: "1px solid #1A1A1A" }}>{children}</tr>;
+  return <tr style={{ borderBottom: "1px solid var(--line)" }}>{children}</tr>;
 }
 
 function hideClass(hide?: "sm" | "md" | "lg") {

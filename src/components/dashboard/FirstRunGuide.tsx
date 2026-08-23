@@ -30,12 +30,12 @@ export default function FirstRunGuide({ onFunded }: { onFunded: () => void }) {
   return (
     <div
       className="rounded-xl p-6 mb-6"
-      style={{ backgroundColor: "#0F0F0F", border: "1px solid #1A1A1A" }}
+      style={{ backgroundColor: "var(--surface)", border: "1px solid var(--line)" }}
     >
-      <h2 className="text-lg font-bold mb-1" style={{ color: "#F5F5F5" }}>
+      <h2 className="text-lg font-bold mb-1" style={{ color: "var(--foreground)" }}>
         Welcome to GetAnyNumberOnline
       </h2>
-      <p className="text-sm mb-5" style={{ color: "#888888" }}>
+      <p className="text-sm mb-5" style={{ color: "var(--muted)" }}>
         Get a temporary number and receive SMS codes in three steps.
       </p>
 
@@ -44,12 +44,12 @@ export default function FirstRunGuide({ onFunded }: { onFunded: () => void }) {
           <div
             key={s.n}
             className="rounded-lg p-4"
-            style={{ backgroundColor: "#141414", border: "1px solid #1A1A1A" }}
+            style={{ backgroundColor: "var(--field)", border: "1px solid var(--line)" }}
           >
             <span
               className="font-mono text-sm font-bold mb-3 inline-flex items-center justify-center w-7 h-7 rounded-full"
               style={{
-                color: "#00FF94",
+                color: "var(--accent)",
                 border: "1px solid rgba(0,255,148,0.32)",
                 backgroundColor: "rgba(0,255,148,0.08)",
               }}
@@ -58,13 +58,13 @@ export default function FirstRunGuide({ onFunded }: { onFunded: () => void }) {
             </span>
             <p
               className="text-[13px] font-semibold mb-1"
-              style={{ color: "#F5F5F5" }}
+              style={{ color: "var(--foreground)" }}
             >
               {s.title}
             </p>
             <p
               className="text-xs leading-relaxed"
-              style={{ color: "#888888" }}
+              style={{ color: "var(--muted)" }}
             >
               {s.body}
             </p>
@@ -77,9 +77,9 @@ export default function FirstRunGuide({ onFunded }: { onFunded: () => void }) {
         label="Add funds to get started →"
         onFunded={onFunded}
         className="w-full sm:w-auto sm:px-6 py-3 rounded-lg font-semibold text-sm transition-colors disabled:opacity-40 flex items-center justify-center"
-        style={{ backgroundColor: "#00FF94", color: "#080808" }}
+        style={{ backgroundColor: "var(--accent)", color: "var(--accent-ink)" }}
       />
-      <p className="text-xs mt-3" style={{ color: "#555555" }}>
+      <p className="text-xs mt-3" style={{ color: "var(--muted)" }}>
         Or scroll down to browse available numbers first.
       </p>
     </div>

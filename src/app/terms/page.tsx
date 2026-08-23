@@ -11,20 +11,20 @@ export const metadata: Metadata = {
 
 export default function TermsPage() {
   return (
-    <div className="min-h-screen" style={{ backgroundColor: "#080808" }}>
+    <div className="min-h-screen" style={{ backgroundColor: "var(--background)" }}>
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         <Link
           href="/"
           aria-label="GetAnyNumberOnline home"
-          className="text-[#555555] hover:text-[#F5F5F5] transition-colors mb-8 inline-block"
+          className="text-muted hover:text-foreground transition-colors mb-8 inline-block"
         >
           <Logo id="terms" className="h-4 w-auto" />
         </Link>
 
-        <h1 className="text-3xl font-bold mb-2" style={{ color: "#F5F5F5" }}>
+        <h1 className="text-3xl font-bold mb-2" style={{ color: "var(--foreground)" }}>
           Terms of Service
         </h1>
-        <p className="text-sm mb-10" style={{ color: "#555555" }}>
+        <p className="text-sm mb-10" style={{ color: "var(--muted)" }}>
           Last updated: April 2026
         </p>
 
@@ -32,11 +32,11 @@ export default function TermsPage() {
           <section>
             <h2
               className="text-xl font-semibold mb-3"
-              style={{ color: "#F5F5F5" }}
+              style={{ color: "var(--foreground)" }}
             >
               1. Service Description
             </h2>
-            <p className="text-sm leading-relaxed" style={{ color: "#A0A0A0" }}>
+            <p className="text-sm leading-relaxed" style={{ color: "var(--muted)" }}>
               GetAnyNumberOnline (&quot;the Service&quot;) provides temporary
               phone numbers for SMS verification purposes. Users may purchase
               access to virtual phone numbers to receive one-time verification
@@ -50,19 +50,19 @@ export default function TermsPage() {
           <section>
             <h2
               className="text-xl font-semibold mb-3"
-              style={{ color: "#F5F5F5" }}
+              style={{ color: "var(--foreground)" }}
             >
               2. Acceptable Use
             </h2>
             <p
               className="text-sm leading-relaxed mb-3"
-              style={{ color: "#A0A0A0" }}
+              style={{ color: "var(--muted)" }}
             >
               You agree not to use the Service for:
             </p>
             <ul
               className="list-disc list-inside text-sm space-y-1.5"
-              style={{ color: "#A0A0A0" }}
+              style={{ color: "var(--muted)" }}
             >
               <li>Spam, phishing, or unsolicited messaging</li>
               <li>Fraud, identity theft, or impersonation</li>
@@ -72,7 +72,7 @@ export default function TermsPage() {
             </ul>
             <p
               className="text-sm leading-relaxed mt-3"
-              style={{ color: "#A0A0A0" }}
+              style={{ color: "var(--muted)" }}
             >
               We reserve the right to suspend or terminate access without notice
               if we detect violations of these terms.
@@ -82,11 +82,11 @@ export default function TermsPage() {
           <section>
             <h2
               className="text-xl font-semibold mb-3"
-              style={{ color: "#F5F5F5" }}
+              style={{ color: "var(--foreground)" }}
             >
               3. Payment Terms
             </h2>
-            <p className="text-sm leading-relaxed" style={{ color: "#A0A0A0" }}>
+            <p className="text-sm leading-relaxed" style={{ color: "var(--muted)" }}>
               All prices are displayed in USD before purchase. You are only
               charged when an SMS is successfully received on your ordered
               number. Failed orders (no number returned) are not charged.
@@ -99,17 +99,17 @@ export default function TermsPage() {
           <section>
             <h2
               className="text-xl font-semibold mb-3"
-              style={{ color: "#F5F5F5" }}
+              style={{ color: "var(--foreground)" }}
             >
               4. Refund Policy
             </h2>
-            <p className="text-sm leading-relaxed" style={{ color: "#A0A0A0" }}>
+            <p className="text-sm leading-relaxed" style={{ color: "var(--muted)" }}>
               You are eligible for a full refund if no SMS is received within
               the active window of your order. Refunds are automatically
               credited to your wallet balance. Wallet top-ups are non-refundable
               once processed, except in cases of duplicate charges or service
               errors. To request a refund, contact us at
-              <span className="font-mono text-[#00FF94]">
+              <span className="font-mono text-accent">
                 {" "}
                 support@getanynumberonline.com
               </span>
@@ -120,11 +120,11 @@ export default function TermsPage() {
           <section>
             <h2
               className="text-xl font-semibold mb-3"
-              style={{ color: "#F5F5F5" }}
+              style={{ color: "var(--foreground)" }}
             >
               5. Limitation of Liability
             </h2>
-            <p className="text-sm leading-relaxed" style={{ color: "#A0A0A0" }}>
+            <p className="text-sm leading-relaxed" style={{ color: "var(--muted)" }}>
               The Service is provided &quot;as is&quot; without warranties of
               any kind. We do not guarantee availability, accuracy, or success
               rate of any phone number or SMS delivery. GetAnyNumberOnline shall
@@ -138,11 +138,11 @@ export default function TermsPage() {
           <section>
             <h2
               className="text-xl font-semibold mb-3"
-              style={{ color: "#F5F5F5" }}
+              style={{ color: "var(--foreground)" }}
             >
               6. Governing Law
             </h2>
-            <p className="text-sm leading-relaxed" style={{ color: "#A0A0A0" }}>
+            <p className="text-sm leading-relaxed" style={{ color: "var(--muted)" }}>
               These Terms are governed by the laws of the jurisdiction in which
               GetAnyNumberOnline is registered, without regard to conflict of
               law principles. Any disputes shall be resolved in the courts of
@@ -151,12 +151,12 @@ export default function TermsPage() {
           </section>
         </div>
 
-        <div className="mt-12 pt-6 border-t" style={{ borderColor: "#1A1A1A" }}>
-          <p className="text-xs text-center" style={{ color: "#555555" }}>
+        <div className="mt-12 pt-6 border-t" style={{ borderColor: "var(--line)" }}>
+          <p className="text-xs text-center" style={{ color: "var(--muted)" }}>
             For questions about these terms, contact{" "}
             <a
               href="mailto:support@getanynumberonline.com"
-              className="text-[#00FF94] hover:underline"
+              className="text-accent hover:underline"
             >
               support@getanynumberonline.com
             </a>

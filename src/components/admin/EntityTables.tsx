@@ -67,10 +67,10 @@ export function OrdersTable({
     >
       {rows.map((o) => (
         <Tr key={o.id}>
-          <Td hide={dateHide} mono color="#555555">{dateTime(o.created_at)}</Td>
+          <Td hide={dateHide} mono color="var(--muted)">{dateTime(o.created_at)}</Td>
           {showUser && <UserCell email={o.email} />}
           <Td hide="sm">{o.service_name ?? "—"}</Td>
-          <Td hide="lg" color="#888888">{o.country_name ?? "—"}</Td>
+          <Td hide="lg" color="var(--muted)">{o.country_name ?? "—"}</Td>
           <Td hide="sm" mono>{o.smspool_number ?? "—"}</Td>
           <Td><StatusBadge status={o.status} /></Td>
           <Td mono align="right">{money(o.cost)}</Td>
@@ -110,13 +110,13 @@ export function RentalsTable({
     >
       {rows.map((r) => (
         <Tr key={r.id}>
-          <Td hide={dateHide} mono color="#555555">{dateTime(r.created_at)}</Td>
+          <Td hide={dateHide} mono color="var(--muted)">{dateTime(r.created_at)}</Td>
           {showUser && <UserCell email={r.email} />}
           <Td hide="sm">{r.service_name ?? "—"}</Td>
-          <Td hide="lg" color="#888888">{r.country_name ?? "—"}</Td>
+          <Td hide="lg" color="var(--muted)">{r.country_name ?? "—"}</Td>
           <Td hide="sm" mono>{r.phone_number ?? "—"}</Td>
           <Td hide="lg" mono align="right">{r.days ?? "—"}</Td>
-          <Td hide="md" mono color="#555555">{shortDate(r.expires_at)}</Td>
+          <Td hide="md" mono color="var(--muted)">{shortDate(r.expires_at)}</Td>
           <Td><StatusBadge status={r.status} /></Td>
           <Td mono align="right">{money(r.cost)}</Td>
         </Tr>
@@ -155,17 +155,17 @@ export function TransactionsTable({
         const credit = t.type === "topup" || t.type === "refund";
         return (
           <Tr key={t.id}>
-            <Td hide={dateHide} mono color="#555555">{dateTime(t.created_at)}</Td>
+            <Td hide={dateHide} mono color="var(--muted)">{dateTime(t.created_at)}</Td>
             {showUser && <UserCell email={t.email} />}
             <Td><StatusBadge status={t.type} /></Td>
-            <Td mono align="right" color={credit ? "#00FF94" : "#FF4444"}>
+            <Td mono align="right" color={credit ? "var(--accent)" : "var(--danger)"}>
               {credit ? "+" : "−"}
               {money(t.amount)}
             </Td>
-            <Td hide="sm" mono align="right" color="#888888">
+            <Td hide="sm" mono align="right" color="var(--muted)">
               {t.balance_after === null ? "—" : money(t.balance_after)}
             </Td>
-            <Td hide={showUser ? "lg" : "sm"} color="#555555">
+            <Td hide={showUser ? "lg" : "sm"} color="var(--muted)">
               <span className="block truncate max-w-[220px]">
                 {t.provider === "admin" ? `[admin] ${t.note ?? ""}` : (t.note ?? "—")}
               </span>

@@ -6,6 +6,7 @@ import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useUser } from "@/hooks/useUser";
 import Logo from "@/components/site/Logo";
+import ThemeToggle from "@/components/site/ThemeToggle";
 import BalanceChip from "./BalanceChip";
 
 interface SidebarProps {
@@ -169,8 +170,8 @@ export default function Sidebar({
         className="hidden md:flex fixed top-0 left-0 h-screen flex-col justify-between py-6 px-4 z-40"
         style={{
           width: 220,
-          backgroundColor: "#0F0F0F",
-          borderRight: "1px solid #1A1A1A",
+          backgroundColor: "var(--surface)",
+          borderRight: "1px solid var(--line)",
         }}
       >
         <div>
@@ -180,7 +181,7 @@ export default function Sidebar({
             aria-label="GetAnyNumberOnline home"
             className="block mb-10 px-2"
           >
-            <Logo id="dash" className="h-[18px] w-auto text-[#00FF94]" />
+            <Logo id="dash" className="h-[18px] w-auto text-accent" />
           </Link>
 
           {/* Nav */}
@@ -193,12 +194,12 @@ export default function Sidebar({
                   href={item.href}
                   className="flex items-center gap-3 px-3 py-2.5 rounded-md text-[13px] font-medium transition-colors"
                   style={{
-                    color: active ? "#00FF94" : "#555555",
+                    color: active ? "var(--accent)" : "var(--muted)",
                     backgroundColor: active
-                      ? "rgba(0,255,148,0.05)"
+                      ? "color-mix(in srgb, var(--accent) 6%, transparent)"
                       : "transparent",
                     borderLeft: active
-                      ? "2px solid #00FF94"
+                      ? "2px solid var(--accent)"
                       : "2px solid transparent",
                   }}
                 >
@@ -213,22 +214,25 @@ export default function Sidebar({
         {/* Bottom section */}
         <div className="flex flex-col gap-3 px-2">
           <BalanceChip balance={balance} />
-          <div className="text-[11px] text-[#555555] truncate">
+          <div className="text-[11px] text-muted truncate">
             {initialEmail}
           </div>
-          <button
-            onClick={handleSignOut}
-            className="text-[12px] text-[#555555] hover:text-[#FF4444] transition-colors text-left"
-          >
-            Sign out
-          </button>
+          <div className="flex items-center justify-between">
+            <ThemeToggle />
+            <button
+              onClick={handleSignOut}
+              className="text-[12px] text-muted hover:text-danger transition-colors"
+            >
+              Sign out
+            </button>
+          </div>
         </div>
       </aside>
 
       {/* Mobile bottom tab bar */}
       <nav
         className="md:hidden fixed bottom-0 left-0 right-0 z-40 flex items-center justify-around py-2"
-        style={{ backgroundColor: "#0F0F0F", borderTop: "1px solid #1A1A1A" }}
+        style={{ backgroundColor: "var(--surface)", borderTop: "1px solid var(--line)" }}
       >
         {navItems.map((item) => {
           const active = pathname === item.href;
@@ -237,7 +241,7 @@ export default function Sidebar({
               key={item.href}
               href={item.href}
               className="flex flex-col items-center gap-1 p-2"
-              style={{ color: active ? "#00FF94" : "#555555" }}
+              style={{ color: active ? "var(--accent)" : "var(--muted)" }}
             >
               {item.icon}
             </Link>

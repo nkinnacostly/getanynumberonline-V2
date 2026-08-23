@@ -29,9 +29,9 @@ export default function FilterTabs({
               aria-pressed={active}
               className="px-4 h-[38px] rounded-[6px] text-[13px] font-medium capitalize transition-colors"
               style={{
-                backgroundColor: active ? "#00FF94" : "#141414",
-                color: active ? "#080808" : "#888888",
-                border: `1px solid ${active ? "#00FF94" : "#222222"}`,
+                backgroundColor: active ? "var(--accent)" : "var(--field)",
+                color: active ? "var(--background)" : "var(--muted)",
+                border: `1px solid ${active ? "var(--accent)" : "var(--line-strong)"}`,
               }}
             >
               {opt.label}
@@ -47,7 +47,7 @@ export default function FilterTabs({
           value={value}
           onChange={(e) => onChange(e.target.value)}
           className="w-full h-[44px] px-3 text-[14px] rounded-[6px] outline-none capitalize"
-          style={{ backgroundColor: "#141414", border: "1px solid #222222", color: "#F5F5F5" }}
+          style={{ backgroundColor: "var(--field)", border: "1px solid var(--line-strong)", color: "var(--foreground)" }}
         >
           {options.map((opt) => (
             <option key={opt.value} value={opt.value}>

@@ -81,21 +81,21 @@ export default function AdminFlaggedPage() {
   return (
     <div>
       <div className="flex items-baseline justify-between gap-4 mb-2">
-        <h1 className="text-2xl font-bold" style={{ color: "#F5F5F5" }}>
+        <h1 className="text-2xl font-bold" style={{ color: "var(--foreground)" }}>
           Flagged users
         </h1>
-        <span className="font-mono text-xs" style={{ color: "#555555" }}>
+        <span className="font-mono text-xs" style={{ color: "var(--muted)" }}>
           {rows.length} awaiting review
         </span>
       </div>
-      <p className="text-[13px] mb-6" style={{ color: "#555555" }}>
+      <p className="text-[13px] mb-6" style={{ color: "var(--muted)" }}>
         Auto-flagged for review. Flagging never blocks ordering on its own —
         these accounts are still trading until you act.
       </p>
 
       {!loading && rows.length === 0 ? (
         <AdminCard>
-          <p className="py-16 text-center text-sm" style={{ color: "#555555" }}>
+          <p className="py-16 text-center text-sm" style={{ color: "var(--muted)" }}>
             Nothing flagged. Nice.
           </p>
         </AdminCard>
@@ -121,15 +121,15 @@ export default function AdminFlaggedPage() {
                 <span className="flex items-center gap-2">
                   <Link
                     href={`/admin/users/${user.id}`}
-                    className="truncate max-w-[150px] sm:max-w-[220px] underline underline-offset-2 decoration-[#333333] hover:decoration-[#00FF94] transition-colors"
-                    style={{ color: "#F5F5F5" }}
+                    className="truncate max-w-[150px] sm:max-w-[220px] underline underline-offset-2 decoration-line-strong hover:decoration-accent transition-colors"
+                    style={{ color: "var(--foreground)" }}
                   >
                     {user.email ?? user.id.slice(0, 8)}
                   </Link>
                   {user.is_banned && (
                     <span
                       className="shrink-0 px-1.5 py-0.5 rounded text-[9px] font-mono tracking-wider"
-                      style={{ color: "#FF4444", border: "1px solid rgba(255,68,68,0.32)" }}
+                      style={{ color: "var(--danger)", border: "1px solid rgba(255,68,68,0.32)" }}
                     >
                       BANNED
                     </span>
@@ -139,17 +139,17 @@ export default function AdminFlaggedPage() {
 
               {/* The reason is the whole point of the row, so it gets the
                   warning colour rather than a badge that says "flagged". */}
-              <Td color="#F5A623">
+              <Td color="var(--warning)">
                 <span className="block text-[12px] leading-snug max-w-[280px]">
                   {user.flag_reason ?? "Flagged for review"}
                 </span>
               </Td>
 
-              <Td mono align="right" color="#F5A623">
+              <Td mono align="right" color="var(--warning)">
                 {user.cancel_count}/{user.order_count}
               </Td>
               <Td hide="md" mono align="right">{money(user.balance)}</Td>
-              <Td hide="lg" mono color="#555555">{dateTime(user.flagged_at)}</Td>
+              <Td hide="lg" mono color="var(--muted)">{dateTime(user.flagged_at)}</Td>
 
               <Td align="right">
                 <span className="flex items-center justify-end gap-2 whitespace-nowrap">
@@ -157,7 +157,7 @@ export default function AdminFlaggedPage() {
                     onClick={() => handleClear(user)}
                     disabled={busy === user.id}
                     className="px-2 py-1.5 rounded-[4px] text-[11px] font-medium disabled:opacity-30"
-                    style={{ border: "1px solid #333333", color: "#F5F5F5" }}
+                    style={{ border: "1px solid var(--line-strong)", color: "var(--foreground)" }}
                   >
                     Clear flag
                   </button>
@@ -167,8 +167,8 @@ export default function AdminFlaggedPage() {
                     title={me?.id === user.id ? "You can't ban your own account" : undefined}
                     className="px-2 py-1.5 rounded-[4px] text-[11px] font-medium disabled:opacity-30"
                     style={{
-                      border: `1px solid ${user.is_banned ? "#00FF94" : "#FF4444"}`,
-                      color: user.is_banned ? "#00FF94" : "#FF4444",
+                      border: `1px solid ${user.is_banned ? "var(--accent)" : "var(--danger)"}`,
+                      color: user.is_banned ? "var(--accent)" : "var(--danger)",
                     }}
                   >
                     {user.is_banned ? "Unban" : "Ban"}

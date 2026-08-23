@@ -24,24 +24,24 @@ export default function Faq({
     >
       <h2
         id={headingId ?? "faq-heading"}
-        className="font-sans text-3xl sm:text-4xl font-bold text-[#F5F5F5] mb-8 text-center"
+        className="font-sans text-3xl sm:text-4xl font-bold text-foreground mb-8 text-center"
       >
         {heading}
       </h2>
 
-      <div className="divide-y divide-[#1A1A1A] border-t border-b border-[#1A1A1A]">
+      <div className="divide-y divide-line border-t border-b border-line">
         {items.map((item) => (
           <details key={item.question} className="group py-4">
-            <summary className="flex items-center justify-between gap-4 cursor-pointer list-none text-[#F5F5F5] text-[15px] font-medium min-h-[44px]">
+            <summary className="flex items-center justify-between gap-4 cursor-pointer list-none text-foreground text-[15px] font-medium min-h-[44px]">
               {item.question}
               <span
                 aria-hidden="true"
-                className="text-[#00FF94] shrink-0 transition-transform group-open:rotate-45"
+                className="text-accent shrink-0 transition-transform group-open:rotate-45"
               >
                 +
               </span>
             </summary>
-            <p className="mt-3 text-sm text-[#555555] leading-relaxed">
+            <p className="mt-3 text-sm text-muted leading-relaxed">
               {item.answer}
             </p>
           </details>

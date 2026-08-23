@@ -208,24 +208,24 @@ export default function RentalsPage() {
   };
 
   const INPUT_STYLE = {
-    backgroundColor: "#141414",
-    border: "1px solid #222222",
+    backgroundColor: "var(--field)",
+    border: "1px solid var(--line-strong)",
   };
   const DROP_STYLE = {
-    backgroundColor: "#0F0F0F",
-    border: "1px solid #1A1A1A",
+    backgroundColor: "var(--surface)",
+    border: "1px solid var(--line)",
   };
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-6" style={{ color: "#F5F5F5" }}>
+      <h1 className="text-2xl font-bold mb-6" style={{ color: "var(--foreground)" }}>
         Rentals
       </h1>
 
       <section className="mb-10">
         <h2
           className="font-sans text-sm font-semibold mb-4"
-          style={{ color: "#555555" }}
+          style={{ color: "var(--muted)" }}
         >
           Active rentals
         </h2>
@@ -236,7 +236,7 @@ export default function RentalsPage() {
               style={{
                 width: 24,
                 height: 24,
-                borderColor: "#00FF94",
+                borderColor: "var(--accent)",
                 borderTopColor: "transparent",
               }}
             />
@@ -244,9 +244,9 @@ export default function RentalsPage() {
         ) : rentals.length === 0 ? (
           <div
             className="rounded-xl p-8 text-center min-h-[120px] flex items-center justify-center"
-            style={{ backgroundColor: "#0F0F0F", border: "1px solid #1A1A1A" }}
+            style={{ backgroundColor: "var(--surface)", border: "1px solid var(--line)" }}
           >
-            <p className="text-[#555555] text-sm">No active rentals</p>
+            <p className="text-muted text-sm">No active rentals</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -265,16 +265,16 @@ export default function RentalsPage() {
       <section>
         <div
           className="rounded-lg p-6"
-          style={{ backgroundColor: "#0F0F0F", border: "1px solid #1A1A1A" }}
+          style={{ backgroundColor: "var(--surface)", border: "1px solid var(--line)" }}
         >
-          <h2 className="font-sans text-lg font-bold text-[#F5F5F5] mb-6">
+          <h2 className="font-sans text-lg font-bold text-foreground mb-6">
             Rent a number
           </h2>
 
           <p
             style={{
               fontSize: "13px",
-              color: "#555555",
+              color: "var(--muted)",
               marginBottom: "16px",
             }}
           >
@@ -283,7 +283,7 @@ export default function RentalsPage() {
 
           <div className="space-y-5">
             <div ref={dropRef}>
-              <label className="block text-[12px] text-[#888888] mb-1.5">
+              <label className="block text-[12px] text-muted mb-1.5">
                 Step 1 — Rental type
               </label>
               <div className="relative">
@@ -298,7 +298,7 @@ export default function RentalsPage() {
                   }}
                   onFocus={() => setShowDrop(true)}
                   placeholder="Search rental types..."
-                  className="w-full h-[44px] px-3 text-[14px] text-[#F5F5F5] placeholder-[#444444] rounded-[6px] outline-none"
+                  className="w-full h-[44px] px-3 text-[14px] text-foreground placeholder-muted rounded-[6px] outline-none"
                   style={INPUT_STYLE}
                 />
                 {showDrop && (
@@ -315,18 +315,18 @@ export default function RentalsPage() {
                           setSearch(c.tag || c.name);
                           setShowDrop(false);
                         }}
-                        className="w-full px-3 py-2 text-left text-[13px] text-[#F5F5F5] hover:bg-[#1A1A1A] transition-colors flex justify-between gap-2"
+                        className="w-full px-3 py-2 text-left text-[13px] text-foreground hover:bg-line transition-colors flex justify-between gap-2"
                       >
                         <span className="min-w-0">{c.tag || c.name}</span>
                         {c.region ? (
-                          <span className="text-[10px] text-[#555555] shrink-0 font-mono">
+                          <span className="text-[10px] text-muted shrink-0 font-mono">
                             {c.region}
                           </span>
                         ) : null}
                       </button>
                     ))}
                     {filtered.length === 0 && (
-                      <div className="px-3 py-3 text-[13px] text-[#555555]">
+                      <div className="px-3 py-3 text-[13px] text-muted">
                         No options found
                       </div>
                     )}
@@ -336,7 +336,7 @@ export default function RentalsPage() {
             </div>
 
             <div>
-              <label className="block text-[12px] text-[#888888] mb-1.5">
+              <label className="block text-[12px] text-muted mb-1.5">
                 Step 2 — Duration
               </label>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -355,11 +355,11 @@ export default function RentalsPage() {
                       }}
                       className="h-[44px] rounded-[6px] text-[13px] font-medium transition-colors disabled:cursor-not-allowed"
                       style={{
-                        backgroundColor: "#141414",
-                        color: available ? "#F5F5F5" : "#555555",
+                        backgroundColor: "var(--field)",
+                        color: available ? "var(--foreground)" : "var(--muted)",
                         border: active
-                          ? "1px solid #00FF94"
-                          : "1px solid #222222",
+                          ? "1px solid var(--accent)"
+                          : "1px solid var(--line-strong)",
                         opacity: !selected || available ? 1 : 0.45,
                       }}
                     >
@@ -374,24 +374,24 @@ export default function RentalsPage() {
               <div className="space-y-2">
                 <div
                   className="flex items-center justify-between py-3 px-3 rounded-[6px]"
-                  style={{ backgroundColor: "#141414" }}
+                  style={{ backgroundColor: "var(--field)" }}
                 >
-                  <span className="text-[13px] text-[#555555]">
+                  <span className="text-[13px] text-muted">
                     Estimated cost
                   </span>
                   {price !== null ? (
-                    <span className="font-mono text-[#00FF94] font-medium">
+                    <span className="font-mono text-accent font-medium">
                       ${price.toFixed(2)}
                     </span>
                   ) : (
-                    <span className="text-[13px] text-[#555555]">
+                    <span className="text-[13px] text-muted">
                       Not available for this duration
                     </span>
                   )}
                 </div>
-                <p className="text-[12px] text-[#555555] px-1">
+                <p className="text-[12px] text-muted px-1">
                   Expires on{" "}
-                  <span className="font-mono text-[#F5F5F5]">
+                  <span className="font-mono text-foreground">
                     {expiresPreview}
                   </span>
                 </p>
@@ -404,9 +404,9 @@ export default function RentalsPage() {
               disabled={rentLoading || !selected || price === null}
               className="w-full h-[44px] rounded-[6px] text-[14px] font-bold transition-opacity disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               style={{
-                backgroundColor: insufficient ? "transparent" : "#00FF94",
-                color: insufficient ? "#FF4444" : "#080808",
-                border: insufficient ? "1px solid #FF4444" : "none",
+                backgroundColor: insufficient ? "transparent" : "var(--accent)",
+                color: insufficient ? "var(--danger)" : "var(--background)",
+                border: insufficient ? "1px solid var(--danger)" : "none",
               }}
             >
               {rentLoading ? (

@@ -44,10 +44,10 @@ export default function AdminSettingsPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-2" style={{ color: "#F5F5F5" }}>
+      <h1 className="text-2xl font-bold mb-2" style={{ color: "var(--foreground)" }}>
         Fraud settings
       </h1>
-      <p className="text-[13px] mb-6" style={{ color: "#555555" }}>
+      <p className="text-[13px] mb-6" style={{ color: "var(--muted)" }}>
         Live values. A change applies to the next order or top-up — nothing is
         re-evaluated retroactively.
       </p>
@@ -57,13 +57,13 @@ export default function AdminSettingsPage() {
           <div className="flex justify-center py-16">
             <span
               className="auth-spinner"
-              style={{ borderColor: "#00FF94", borderTopColor: "transparent" }}
+              style={{ borderColor: "var(--accent)", borderTopColor: "transparent" }}
             />
           </div>
         </AdminCard>
       ) : rows.length === 0 ? (
         <AdminCard>
-          <p className="py-16 text-center text-sm" style={{ color: "#555555" }}>
+          <p className="py-16 text-center text-sm" style={{ color: "var(--muted)" }}>
             No settings found.
           </p>
         </AdminCard>
@@ -136,11 +136,11 @@ function SettingRow({
         <label
           htmlFor={`setting-${setting.key}`}
           className="block text-[14px] font-semibold"
-          style={{ color: "#F5F5F5" }}
+          style={{ color: "var(--foreground)" }}
         >
           {meta?.label ?? setting.key}
         </label>
-        <p className="text-[12px] mt-1 mb-3" style={{ color: "#555555" }}>
+        <p className="text-[12px] mt-1 mb-3" style={{ color: "var(--muted)" }}>
           {setting.description ?? meta?.hint ?? ""}
           {setting.description && meta?.hint ? ` ${meta.hint}` : ""}
         </p>
@@ -150,7 +150,7 @@ function SettingRow({
             {unit === "usd" && (
               <span
                 className="absolute left-3 top-1/2 -translate-y-1/2 font-mono text-[14px] pointer-events-none"
-                style={{ color: "#555555" }}
+                style={{ color: "var(--muted)" }}
               >
                 $
               </span>
@@ -165,15 +165,15 @@ function SettingRow({
                 unit === "percent" ? "pr-9" : "pr-3"
               } font-mono text-[14px] rounded-[6px] outline-none`}
               style={{
-                backgroundColor: "#141414",
-                border: "1px solid #222222",
-                color: "#F5F5F5",
+                backgroundColor: "var(--field)",
+                border: "1px solid var(--line-strong)",
+                color: "var(--foreground)",
               }}
             />
             {unit === "percent" && (
               <span
                 className="absolute right-3 top-1/2 -translate-y-1/2 font-mono text-[14px] pointer-events-none"
-                style={{ color: "#555555" }}
+                style={{ color: "var(--muted)" }}
               >
                 %
               </span>
@@ -184,21 +184,21 @@ function SettingRow({
             type="submit"
             disabled={!dirty || saving}
             className="h-[44px] px-5 rounded-[6px] text-[14px] font-bold disabled:opacity-30 shrink-0"
-            style={{ backgroundColor: "#00FF94", color: "#080808" }}
+            style={{ backgroundColor: "var(--accent)", color: "var(--accent-ink)" }}
           >
             {saving ? "Saving…" : "Save"}
           </button>
 
           <span
             className="font-mono text-[11px] sm:ml-auto"
-            style={{ color: "#555555" }}
+            style={{ color: "var(--muted)" }}
           >
             updated {dateTime(setting.updated_at)}
           </span>
         </div>
 
         {!valid && draft.trim() !== "" && (
-          <p className="text-[11px] mt-2" style={{ color: "#FF4444" }}>
+          <p className="text-[11px] mt-2" style={{ color: "var(--danger)" }}>
             Must be a number
           </p>
         )}

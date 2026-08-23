@@ -191,13 +191,13 @@ export default function EsimPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-6" style={{ color: "#F5F5F5" }}>
+      <h1 className="text-2xl font-bold mb-6" style={{ color: "var(--foreground)" }}>
         eSIM data
       </h1>
 
       {/* Active eSIMs */}
       <section className="mb-10">
-        <h2 className="text-sm font-semibold mb-4" style={{ color: "#555555" }}>
+        <h2 className="text-sm font-semibold mb-4" style={{ color: "var(--muted)" }}>
           Your eSIMs
         </h2>
         {loadingList ? (
@@ -207,7 +207,7 @@ export default function EsimPage() {
               style={{
                 width: 24,
                 height: 24,
-                borderColor: "#00FF94",
+                borderColor: "var(--accent)",
                 borderTopColor: "transparent",
               }}
             />
@@ -215,9 +215,9 @@ export default function EsimPage() {
         ) : esims.length === 0 ? (
           <div
             className="rounded-xl p-8 text-center min-h-[120px] flex items-center justify-center"
-            style={{ backgroundColor: "#0F0F0F", border: "1px solid #1A1A1A" }}
+            style={{ backgroundColor: "var(--surface)", border: "1px solid var(--line)" }}
           >
-            <p className="text-sm" style={{ color: "#555555" }}>
+            <p className="text-sm" style={{ color: "var(--muted)" }}>
               No eSIMs yet — buy one below.
             </p>
           </div>
@@ -234,12 +234,12 @@ export default function EsimPage() {
       <section>
         <div
           className="rounded-lg p-6"
-          style={{ backgroundColor: "#0F0F0F", border: "1px solid #1A1A1A" }}
+          style={{ backgroundColor: "var(--surface)", border: "1px solid var(--line)" }}
         >
-          <h2 className="text-lg font-bold mb-1" style={{ color: "#F5F5F5" }}>
+          <h2 className="text-lg font-bold mb-1" style={{ color: "var(--foreground)" }}>
             Buy a data eSIM
           </h2>
-          <p className="text-[13px] mb-6" style={{ color: "#555555" }}>
+          <p className="text-[13px] mb-6" style={{ color: "var(--muted)" }}>
             Data-only — no calls or SMS. Activates by QR / manual entry.
           </p>
 
@@ -247,14 +247,14 @@ export default function EsimPage() {
             <div
               className="rounded-[6px] p-3 mb-5"
               style={{
-                backgroundColor: "#141414",
+                backgroundColor: "var(--field)",
                 border: "1px solid rgba(245,166,35,0.35)",
               }}
             >
-              <p className="text-[13px]" style={{ color: "#F5A623" }}>
+              <p className="text-[13px]" style={{ color: "var(--warning)" }}>
                 eSIMs are temporarily unavailable
               </p>
-              <p className="text-[12px] mt-1" style={{ color: "#888888" }}>
+              <p className="text-[12px] mt-1" style={{ color: "var(--muted)" }}>
                 We&apos;re restocking with our supplier — browsing still works,
                 and purchases will reopen shortly. Nothing has been charged.
               </p>
@@ -278,7 +278,7 @@ export default function EsimPage() {
               <div>
                 <label
                   className="block text-[12px] mb-1.5"
-                  style={{ color: "#888888" }}
+                  style={{ color: "var(--muted)" }}
                 >
                   Step 2 — Plan
                 </label>
@@ -315,7 +315,7 @@ export default function EsimPage() {
                   onClick={handleBuy}
                   disabled={buying || !available}
                   className="w-full h-[44px] rounded-[6px] text-[14px] font-bold transition-opacity disabled:opacity-40 flex items-center justify-center gap-2"
-                  style={{ backgroundColor: "#00FF94", color: "#080808" }}
+                  style={{ backgroundColor: "var(--accent)", color: "var(--accent-ink)" }}
                 >
                   {!available ? (
                     "Temporarily unavailable"
@@ -324,7 +324,7 @@ export default function EsimPage() {
                       <span
                         className="auth-spinner"
                         style={{
-                          borderColor: "#080808",
+                          borderColor: "var(--accent-ink)",
                           borderTopColor: "transparent",
                         }}
                       />

@@ -76,10 +76,10 @@ export default function AdminUsersPage() {
   return (
     <div>
       <div className="flex items-baseline justify-between gap-4 mb-6">
-        <h1 className="text-2xl font-bold" style={{ color: "#F5F5F5" }}>
+        <h1 className="text-2xl font-bold" style={{ color: "var(--foreground)" }}>
           Users
         </h1>
-        <span className="font-mono text-xs" style={{ color: "#555555" }}>
+        <span className="font-mono text-xs" style={{ color: "var(--muted)" }}>
           {total} total
         </span>
       </div>
@@ -91,12 +91,12 @@ export default function AdminUsersPage() {
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search by email…"
           className="flex-1 h-[44px] px-3 text-[14px] rounded-[6px] outline-none"
-          style={{ backgroundColor: "#141414", border: "1px solid #222222", color: "#F5F5F5" }}
+          style={{ backgroundColor: "var(--field)", border: "1px solid var(--line-strong)", color: "var(--foreground)" }}
         />
         <button
           type="submit"
           className="h-[44px] px-5 rounded-[6px] text-[14px] font-bold"
-          style={{ backgroundColor: "#00FF94", color: "#080808" }}
+          style={{ backgroundColor: "var(--accent)", color: "var(--accent-ink)" }}
         >
           Search
         </button>
@@ -162,8 +162,8 @@ function UserRow({
                 has ordered, been charged and been refunded lives one click in. */}
             <Link
               href={`/admin/users/${user.id}`}
-              className="truncate max-w-[180px] sm:max-w-none underline underline-offset-2 decoration-[#333333] hover:decoration-[#00FF94] transition-colors"
-              style={{ color: "#F5F5F5" }}
+              className="truncate max-w-[180px] sm:max-w-none underline underline-offset-2 decoration-line-strong hover:decoration-accent transition-colors"
+              style={{ color: "var(--foreground)" }}
             >
               {user.email ?? user.id.slice(0, 8)}
             </Link>
@@ -172,7 +172,7 @@ function UserRow({
                 className="shrink-0 px-1.5 py-0.5 rounded text-[9px] font-medium tracking-wider"
                 style={{
                   backgroundColor: "rgba(245,166,35,0.12)",
-                  color: "#F5A623",
+                  color: "var(--warning)",
                   border: "1px solid rgba(245,166,35,0.32)",
                 }}
               >
@@ -185,13 +185,13 @@ function UserRow({
         <Td hide="sm">
           <StatusBadge status={user.is_banned ? "banned" : "active"} />
         </Td>
-        <Td hide="md" mono color="#555555">{shortDate(user.created_at)}</Td>
+        <Td hide="md" mono color="var(--muted)">{shortDate(user.created_at)}</Td>
         <Td align="right">
           <span className="flex items-center justify-end gap-2 whitespace-nowrap">
             <button
               onClick={onToggle}
               className="px-2 py-1.5 rounded-[4px] text-[11px] font-medium transition-colors"
-              style={{ border: "1px solid #333333", color: "#F5F5F5" }}
+              style={{ border: "1px solid var(--line-strong)", color: "var(--foreground)" }}
             >
               {open ? "Cancel" : "Adjust"}
             </button>
@@ -201,8 +201,8 @@ function UserRow({
               title={isSelf ? "You can't ban your own account" : undefined}
               className="px-2 py-1.5 rounded-[4px] text-[11px] font-medium transition-colors disabled:opacity-30"
               style={{
-                border: `1px solid ${user.is_banned ? "#00FF94" : "#FF4444"}`,
-                color: user.is_banned ? "#00FF94" : "#FF4444",
+                border: `1px solid ${user.is_banned ? "var(--accent)" : "var(--danger)"}`,
+                color: user.is_banned ? "var(--accent)" : "var(--danger)",
               }}
             >
               {user.is_banned ? "Unban" : "Ban"}
@@ -212,8 +212,8 @@ function UserRow({
       </Tr>
 
       {open && (
-        <tr style={{ borderBottom: "1px solid #1A1A1A" }}>
-          <td colSpan={5} className="px-4 py-4" style={{ backgroundColor: "#0A0A0A" }}>
+        <tr style={{ borderBottom: "1px solid var(--line)" }}>
+          <td colSpan={5} className="px-4 py-4" style={{ backgroundColor: "var(--field)" }}>
             <AdjustBalanceForm
               userId={user.id}
               currentBalance={user.balance}

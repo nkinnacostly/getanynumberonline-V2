@@ -1,8 +1,8 @@
 import { Bolt, Calendar, Clock, SimIcon } from "./icons";
 
 /**
- * Capability bento — 2×2 grid of product features with inline-SVG glyphs
- * and hover border lift (color only; the design system bans shadows).
+ * Capability bento on the light surface — 2×2 white cards with pine icon
+ * tiles carrying the mint accent, and a border-color hover (no shadows).
  */
 
 const FEATURES = [
@@ -32,11 +32,11 @@ export default function FeatureBento() {
   return (
     <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pb-24">
       <div className="max-w-2xl mb-12">
-        <h2 className="font-sans text-3xl sm:text-4xl font-bold tracking-tight text-[#F5F5F5] mb-3">
+        <h2 className="font-sans text-3xl sm:text-4xl font-bold tracking-tight text-foreground mb-3">
           Everything in{" "}
-          <span className="text-[#00FF94]">one dashboard</span>
+          <span className="text-accent">one dashboard</span>
         </h2>
-        <p className="text-[#555555] text-base">
+        <p className="text-muted text-base">
           Order numbers, read codes, manage rentals and top up — without
           juggling tools.
         </p>
@@ -46,15 +46,15 @@ export default function FeatureBento() {
         {FEATURES.map((f) => (
           <div
             key={f.title}
-            className="bg-[#0F0F0F] border border-[#1A1A1A] rounded-lg p-8 hover:border-[#333333] transition-colors"
+            className="bg-surface border border-line rounded-lg p-8 hover:border-line-strong transition-colors"
           >
-            <span className="inline-flex p-2.5 rounded-md bg-[#00FF94]/10 text-[#00FF94] mb-5">
+            <span className="inline-flex p-2.5 rounded-lg bg-pine text-mint mb-5">
               <f.icon className="w-5 h-5" />
             </span>
-            <h3 className="font-sans text-lg font-bold text-[#F5F5F5] mb-2">
+            <h3 className="font-sans text-lg font-bold text-foreground mb-2">
               {f.title}
             </h3>
-            <p className="text-sm text-[#555555] leading-relaxed">{f.desc}</p>
+            <p className="text-sm text-muted leading-relaxed">{f.desc}</p>
           </div>
         ))}
       </div>

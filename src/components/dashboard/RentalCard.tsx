@@ -53,10 +53,10 @@ function DetailRow({
 }) {
   return (
     <div className="flex items-start justify-between gap-2">
-      <span className="text-[#555555] w-24 shrink-0 pt-0.5">{label}</span>
+      <span className="text-muted w-24 shrink-0 pt-0.5">{label}</span>
       <span
         className={`font-mono text-[13px] text-right min-w-0 flex-1 ${valueClassName ?? ""}`}
-        style={valueStyle ?? { color: "#F5F5F5" }}
+        style={valueStyle ?? { color: "var(--foreground)" }}
       >
         {value}
       </span>
@@ -93,7 +93,7 @@ export default function RentalCard({
   }, [rental.expires_at]);
 
   const phone = rental.phone_number ?? "—";
-  const statusColor = "#00FF94";
+  const statusColor = "var(--accent)";
 
   const loadMessagesFromDb = useCallback(async () => {
     const supabase = createClient();
@@ -161,9 +161,9 @@ export default function RentalCard({
     <div
       className="rounded-xl overflow-hidden"
       style={{
-        backgroundColor: "#0F0F0F",
-        border: "1px solid #1A1A1A",
-        borderTopColor: "#00FF94",
+        backgroundColor: "var(--surface)",
+        border: "1px solid var(--line)",
+        borderTopColor: "var(--accent)",
         borderTopWidth: "2px",
       }}
     >
@@ -171,10 +171,10 @@ export default function RentalCard({
         <DetailRow label="service" value={rental.service_name} />
         <DetailRow label="country" value={rental.country_name} />
         <div className="flex items-center justify-between gap-2">
-          <span className="text-[#555555] w-24 shrink-0">number</span>
+          <span className="text-muted w-24 shrink-0">number</span>
           <div className="flex items-center gap-2 min-w-0">
             <span
-              className="text-[#F5F5F5] text-lg font-mono tracking-wide truncate"
+              className="text-foreground text-lg font-mono tracking-wide truncate"
               title={phone}
             >
               {phone}
@@ -185,8 +185,8 @@ export default function RentalCard({
                 onClick={copyNumber}
                 className="text-[10px] px-2 py-0.5 rounded shrink-0"
                 style={{
-                  backgroundColor: copiedNumber ? "#00FF94" : "#1A1A1A",
-                  color: copiedNumber ? "#080808" : "#F5F5F5",
+                  backgroundColor: copiedNumber ? "var(--accent)" : "var(--line)",
+                  color: copiedNumber ? "var(--accent-ink)" : "var(--foreground)",
                 }}
               >
                 {copiedNumber ? "Copied!" : "Copy"}
@@ -198,11 +198,11 @@ export default function RentalCard({
         <DetailRow
           label="expires"
           value={`${daysLeft} days (${expiresLabel})`}
-          valueStyle={{ color: "#F5F5F5" }}
+          valueStyle={{ color: "var(--foreground)" }}
         />
 
         <div className="flex items-center justify-between">
-          <span className="text-[#555555] w-24 shrink-0">status</span>
+          <span className="text-muted w-24 shrink-0">status</span>
           <span
             className="flex items-center gap-2 font-mono"
             style={{ color: statusColor }}
@@ -218,7 +218,7 @@ export default function RentalCard({
         <DetailRow
           label="cost"
           value={`$${rental.cost.toFixed(2)}`}
-          valueStyle={{ color: "#00FF94" }}
+          valueStyle={{ color: "var(--accent)" }}
         />
       </div>
 
@@ -227,7 +227,7 @@ export default function RentalCard({
           type="button"
           onClick={handleToggleMessages}
           className="w-full py-2.5 rounded-[6px] text-[13px] font-semibold transition-colors"
-          style={{ backgroundColor: "#1A1A1A", color: "#F5F5F5" }}
+          style={{ backgroundColor: "var(--line)", color: "var(--foreground)" }}
         >
           {messagesOpen ? "Hide messages" : "View messages"}
         </button>
@@ -235,21 +235,21 @@ export default function RentalCard({
         {messagesOpen && (
           <div
             className="rounded-[6px] p-3 space-y-3"
-            style={{ backgroundColor: "#141414", border: "1px solid #1A1A1A" }}
+            style={{ backgroundColor: "var(--field)", border: "1px solid var(--line)" }}
           >
             <button
               type="button"
               onClick={handleRefreshMessages}
               disabled={refreshing || messagesLoading}
               className="w-full py-2 rounded-[6px] text-[12px] font-medium disabled:opacity-50 flex items-center justify-center gap-2 min-h-[44px]"
-              style={{ backgroundColor: "#00FF94", color: "#080808" }}
+              style={{ backgroundColor: "var(--accent)", color: "var(--accent-ink)" }}
             >
               {refreshing ? (
                 <>
                   <span
                     className="auth-spinner"
                     style={{
-                      borderColor: "#080808",
+                      borderColor: "var(--accent-ink)",
                       borderTopColor: "transparent",
                       width: 14,
                       height: 14,
@@ -267,16 +267,16 @@ export default function RentalCard({
                 <span
                   className="auth-spinner"
                   style={{
-                    borderColor: "#00FF94",
+                    borderColor: "var(--accent)",
                     borderTopColor: "transparent",
                     width: 20,
                     height: 20,
                   }}
                 />
-                <span className="text-[12px] text-[#555555]">Loading…</span>
+                <span className="text-[12px] text-muted">Loading…</span>
               </div>
             ) : messages && messages.length === 0 ? (
-              <p className="text-[12px] text-[#555555] text-center py-4 leading-relaxed">
+              <p className="text-[12px] text-muted text-center py-4 leading-relaxed">
                 No messages yet. Use your number on a service and click
                 refresh.
               </p>
@@ -287,8 +287,8 @@ export default function RentalCard({
                     key={m.id}
                     className="rounded-[6px] p-3 space-y-2"
                     style={{
-                      backgroundColor: "#0F0F0F",
-                      border: "1px solid #1A1A1A",
+                      backgroundColor: "var(--surface)",
+                      border: "1px solid var(--line)",
                     }}
                   >
                     <DetailRow
@@ -300,22 +300,22 @@ export default function RentalCard({
                       value={m.sender?.trim() ? m.sender : "—"}
                     />
                     <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:gap-2">
-                      <span className="text-[#555555] w-24 shrink-0 text-[13px]">
+                      <span className="text-muted w-24 shrink-0 text-[13px]">
                         message
                       </span>
-                      <span className="font-mono text-[13px] text-[#F5F5F5] whitespace-pre-wrap break-words flex-1 min-w-0 text-left">
+                      <span className="font-mono text-[13px] text-foreground whitespace-pre-wrap break-words flex-1 min-w-0 text-left">
                         {m.full_sms || "—"}
                       </span>
                     </div>
                     {m.code ? (
-                      <div className="flex items-center justify-between gap-2 pt-1 border-t border-[#1A1A1A]">
-                        <span className="text-[#555555] w-24 shrink-0 text-[13px]">
+                      <div className="flex items-center justify-between gap-2 pt-1 border-t border-line">
+                        <span className="text-muted w-24 shrink-0 text-[13px]">
                           code
                         </span>
                         <div className="flex items-center gap-2 min-w-0 flex-1 justify-end">
                           <span
                             className="font-mono text-2xl font-bold tracking-wide truncate"
-                            style={{ color: "#00FF94" }}
+                            style={{ color: "var(--accent)" }}
                           >
                             {m.code}
                           </span>
@@ -325,9 +325,9 @@ export default function RentalCard({
                             className="text-[10px] px-2 py-1 rounded shrink-0"
                             style={{
                               backgroundColor:
-                                copiedCodeId === m.id ? "#00FF94" : "#1A1A1A",
+                                copiedCodeId === m.id ? "var(--accent)" : "var(--line)",
                               color:
-                                copiedCodeId === m.id ? "#080808" : "#F5F5F5",
+                                copiedCodeId === m.id ? "var(--accent-ink)" : "var(--foreground)",
                             }}
                           >
                             {copiedCodeId === m.id ? "Copied!" : "Copy"}
@@ -346,11 +346,11 @@ export default function RentalCard({
           <div
             className="rounded-lg p-3"
             style={{
-              backgroundColor: "#1A0000",
-              border: "1px solid #FF4444",
+              backgroundColor: "color-mix(in srgb, var(--danger) 10%, transparent)",
+              border: "1px solid var(--danger)",
             }}
           >
-            <p className="text-[#FF4444] text-xs mb-2">
+            <p className="text-danger text-xs mb-2">
               Cancel this rental? If SMSPool accepts the refund, your balance
               will be credited.
             </p>
@@ -367,7 +367,7 @@ export default function RentalCard({
                 }}
                 disabled={cancelling}
                 className="flex-1 py-2 rounded text-xs font-medium"
-                style={{ backgroundColor: "#FF4444", color: "#080808" }}
+                style={{ backgroundColor: "var(--danger)", color: "var(--accent-ink)" }}
               >
                 {cancelling ? "Cancelling…" : "Yes, cancel"}
               </button>
@@ -375,7 +375,7 @@ export default function RentalCard({
                 type="button"
                 onClick={() => setShowConfirm(false)}
                 className="flex-1 py-2 rounded text-xs font-medium"
-                style={{ backgroundColor: "#1A1A1A", color: "#F5F5F5" }}
+                style={{ backgroundColor: "var(--line)", color: "var(--foreground)" }}
               >
                 Keep rental
               </button>
@@ -386,7 +386,7 @@ export default function RentalCard({
             type="button"
             onClick={() => setShowConfirm(true)}
             className="text-xs w-full text-center py-2 transition-colors"
-            style={{ color: "#FF4444" }}
+            style={{ color: "var(--danger)" }}
           >
             Cancel rental
           </button>

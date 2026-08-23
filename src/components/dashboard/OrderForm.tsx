@@ -175,27 +175,27 @@ export default function OrderForm({
   };
 
   const INPUT_STYLE = {
-    backgroundColor: "#141414",
-    border: "1px solid #222222",
+    backgroundColor: "var(--field)",
+    border: "1px solid var(--line-strong)",
   };
   const DROP_STYLE = {
-    backgroundColor: "#0F0F0F",
-    border: "1px solid #1A1A1A",
+    backgroundColor: "var(--surface)",
+    border: "1px solid var(--line)",
   };
 
   return (
     <div
       className="rounded-lg p-6"
-      style={{ backgroundColor: "#0F0F0F", border: "1px solid #1A1A1A" }}
+      style={{ backgroundColor: "var(--surface)", border: "1px solid var(--line)" }}
     >
-      <h2 className="font-sans text-lg font-bold text-[#F5F5F5] mb-6">
+      <h2 className="font-sans text-lg font-bold text-foreground mb-6">
         Get a number
       </h2>
 
       <div className="space-y-5">
         {/* Step 1 — Service */}
         <div ref={svcRef}>
-          <label className="block text-[12px] text-[#888888] mb-1.5">
+          <label className="block text-[12px] text-muted mb-1.5">
             Step 1 — Service
           </label>
           <div className="relative">
@@ -211,7 +211,7 @@ export default function OrderForm({
               }}
               onFocus={() => setShowSvcDrop(true)}
               placeholder="Search services..."
-              className="w-full h-[44px] px-3 text-[14px] text-[#F5F5F5] placeholder-[#444444] rounded-[6px] outline-none"
+              className="w-full h-[44px] px-3 text-[14px] text-foreground placeholder-muted rounded-[6px] outline-none"
               style={INPUT_STYLE}
             />
             {showSvcDrop && (
@@ -227,13 +227,13 @@ export default function OrderForm({
                       setSvcSearch(s.name);
                       setShowSvcDrop(false);
                     }}
-                    className="w-full px-3 py-2 text-left text-[13px] text-[#F5F5F5] hover:bg-[#1A1A1A] transition-colors"
+                    className="w-full px-3 py-2 text-left text-[13px] text-foreground hover:bg-line transition-colors"
                   >
                     {s.name}
                   </button>
                 ))}
                 {filteredSvc.length === 0 && (
-                  <div className="px-3 py-3 text-[13px] text-[#555555]">
+                  <div className="px-3 py-3 text-[13px] text-muted">
                     No services found
                   </div>
                 )}
@@ -244,7 +244,7 @@ export default function OrderForm({
 
         {/* Step 2 — Country */}
         <div ref={ctyRef}>
-          <label className="block text-[12px] text-[#888888] mb-1.5">
+          <label className="block text-[12px] text-muted mb-1.5">
             Step 2 — Country
           </label>
           <div className="relative">
@@ -260,7 +260,7 @@ export default function OrderForm({
               }}
               onFocus={() => setShowCtyDrop(true)}
               placeholder="Search countries..."
-              className="w-full h-[44px] px-3 text-[14px] text-[#F5F5F5] placeholder-[#444444] rounded-[6px] outline-none"
+              className="w-full h-[44px] px-3 text-[14px] text-foreground placeholder-muted rounded-[6px] outline-none"
               style={INPUT_STYLE}
             />
             {showCtyDrop && (
@@ -276,13 +276,13 @@ export default function OrderForm({
                       setCtySearch(c.name);
                       setShowCtyDrop(false);
                     }}
-                    className="w-full px-3 py-2 text-left text-[13px] text-[#F5F5F5] hover:bg-[#1A1A1A] transition-colors"
+                    className="w-full px-3 py-2 text-left text-[13px] text-foreground hover:bg-line transition-colors"
                   >
                     {c.name}
                   </button>
                 ))}
                 {filteredCty.length === 0 && (
-                  <div className="px-3 py-3 text-[13px] text-[#555555]">
+                  <div className="px-3 py-3 text-[13px] text-muted">
                     No countries found
                   </div>
                 )}
@@ -295,25 +295,25 @@ export default function OrderForm({
         {selectedService && selectedCountry && (
           <div
             className="flex items-center justify-between py-3 px-3 rounded-[6px]"
-            style={{ backgroundColor: "#141414" }}
+            style={{ backgroundColor: "var(--field)" }}
           >
-            <span className="text-[13px] text-[#555555]">Estimated cost</span>
+            <span className="text-[13px] text-muted">Estimated cost</span>
             {priceLoading ? (
               <span
                 className="auth-spinner"
                 style={{
-                  borderColor: "#00FF94",
+                  borderColor: "var(--accent)",
                   borderTopColor: "transparent",
                   width: 14,
                   height: 14,
                 }}
               />
             ) : price !== null ? (
-              <span className="font-mono text-[#00FF94] font-medium">
+              <span className="font-mono text-accent font-medium">
                 ${price.toFixed(2)}
               </span>
             ) : (
-              <span className="text-[13px] text-[#555555]">—</span>
+              <span className="text-[13px] text-muted">—</span>
             )}
           </div>
         )}
@@ -323,18 +323,18 @@ export default function OrderForm({
           successRate !== null && (
             <div
               className="flex items-center justify-between py-3 px-3 rounded-[6px] -mt-2"
-              style={{ backgroundColor: "#141414" }}
+              style={{ backgroundColor: "var(--field)" }}
             >
-              <span className="text-[13px] text-[#555555]">Success rate</span>
+              <span className="text-[13px] text-muted">Success rate</span>
               <span
                 className="font-mono font-medium"
                 style={{
                   color:
                     successRate >= 75
-                      ? "#00FF94"
+                      ? "var(--accent)"
                       : successRate >= 50
-                        ? "#F5A623"
-                        : "#FF4444",
+                        ? "var(--warning)"
+                        : "var(--danger)",
                 }}
               >
                 {successRate}%
@@ -346,12 +346,12 @@ export default function OrderForm({
           price !== null &&
           successRate !== null &&
           successRate < 60 && (
-            <p className="text-[11px] -mt-2" style={{ color: "#F5A623" }}>
+            <p className="text-[11px] -mt-2" style={{ color: "var(--warning)" }}>
               Low success rate. Consider a different country.
             </p>
           )}
         {selectedService && selectedCountry && price !== null && (
-          <p className="text-[11px] text-[#555555] -mt-2">
+          <p className="text-[11px] text-muted -mt-2">
             You are only charged if an SMS is received
           </p>
         )}
@@ -361,9 +361,9 @@ export default function OrderForm({
           <div
             className="px-3 py-3 rounded-[6px] text-[13px]"
             style={{
-              backgroundColor: "#1A0000",
-              border: "1px solid #FF4444",
-              color: "#FF4444",
+              backgroundColor: "color-mix(in srgb, var(--danger) 10%, transparent)",
+              border: "1px solid var(--danger)",
+              color: "var(--danger)",
             }}
           >
             <div dangerouslySetInnerHTML={{ __html: error }} />
@@ -385,7 +385,7 @@ export default function OrderForm({
               loading || !selectedService || !selectedCountry || price === null
             }
             className="w-full h-[44px] rounded-[6px] text-[14px] font-bold transition-opacity disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-            style={{ backgroundColor: "#00FF94", color: "#080808" }}
+            style={{ backgroundColor: "var(--accent)", color: "var(--accent-ink)" }}
           >
             {loading ? (
               <>

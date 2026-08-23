@@ -1,10 +1,9 @@
 import { Check, Cross, Refresh, Shield } from "./icons";
 
 /**
- * "What makes us different" split — comparison table on the left, claim +
- * supporting points on the right, mirroring modern two-column differentiator
- * sections. The table data is static and matches what platforms actually
- * reject; nothing here is fetched at render time.
+ * "What makes us different" split on the light surface — comparison table in
+ * a white card on the left, claim + supporting points on the right. Icon
+ * chips are pine tiles carrying the mint accent (green-on-pine rule).
  */
 
 const SIM_COMPARE = [
@@ -32,12 +31,12 @@ export default function DifferenceSplit() {
     <section className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pb-24">
       <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
         {/* Left — comparison mock */}
-        <div className="bg-[#0F0F0F] border border-[#1A1A1A] rounded-lg p-8">
-          <span className="font-mono text-[11px] uppercase tracking-wider text-[#555555] block mb-6">
+        <div className="bg-surface border border-line rounded-lg p-8">
+          <span className="font-mono text-[11px] uppercase tracking-wider text-muted block mb-6">
             platform checks
           </span>
           <div className="font-mono text-xs">
-            <div className="grid grid-cols-[1fr_auto_auto] gap-x-6 pb-2 mb-2 border-b border-[#1A1A1A] text-[#555555]">
+            <div className="grid grid-cols-[1fr_auto_auto] gap-x-6 pb-2 mb-2 border-b border-line text-muted">
               <span>platform</span>
               <span className="w-16 text-center">VoIP</span>
               <span className="w-16 text-center">real sim</span>
@@ -45,19 +44,19 @@ export default function DifferenceSplit() {
             {SIM_COMPARE.map((row) => (
               <div
                 key={row.platform}
-                className="grid grid-cols-[1fr_auto_auto] gap-x-6 py-3 border-b border-[#1A1A1A]/50 last:border-0"
+                className="grid grid-cols-[1fr_auto_auto] gap-x-6 py-3 border-b border-line/60 last:border-0"
               >
-                <span className="text-[#F5F5F5]">{row.platform}</span>
-                <span className="w-16 flex justify-center text-[#FF4444]">
+                <span className="text-foreground">{row.platform}</span>
+                <span className="w-16 flex justify-center text-danger">
                   <Cross className="w-4 h-4" />
                 </span>
-                <span className="w-16 flex justify-center text-[#00FF94]">
+                <span className="w-16 flex justify-center text-accent">
                   <Check className="w-4 h-4" />
                 </span>
               </div>
             ))}
           </div>
-          <p className="text-xs text-[#555555] mt-6 leading-relaxed">
+          <p className="text-xs text-muted mt-6 leading-relaxed">
             Most verification platforms block VoIP ranges outright. Real SIM
             numbers clear the same checks.
           </p>
@@ -65,12 +64,12 @@ export default function DifferenceSplit() {
 
         {/* Right — claim + points */}
         <div>
-          <h2 className="font-sans text-3xl sm:text-4xl font-bold leading-tight tracking-tight text-[#F5F5F5] mb-4">
+          <h2 className="font-sans text-3xl sm:text-4xl font-bold leading-tight tracking-tight text-foreground mb-4">
             What makes us{" "}
-            <span className="text-[#00FF94]">different</span> from VoIP
+            <span className="text-accent">different</span> from VoIP
             sites
           </h2>
-          <p className="text-[#555555] text-base leading-relaxed mb-10 max-w-md">
+          <p className="text-muted text-base leading-relaxed mb-10 max-w-md">
             Typical temp-number services resell internet-generated ranges.
             Every number here comes from a physical SIM card in a real device
             on a mobile network.
@@ -79,14 +78,14 @@ export default function DifferenceSplit() {
           <div className="space-y-8">
             {POINTS.map((p) => (
               <div key={p.title} className="flex items-start gap-4">
-                <span className="p-2.5 rounded-md bg-[#00FF94]/10 text-[#00FF94] shrink-0">
+                <span className="p-2.5 rounded-lg bg-pine text-mint shrink-0">
                   <p.icon className="w-5 h-5" />
                 </span>
                 <div>
-                  <h3 className="font-sans text-base font-bold text-[#F5F5F5] mb-1">
+                  <h3 className="font-sans text-base font-bold text-foreground mb-1">
                     {p.title}
                   </h3>
-                  <p className="text-sm text-[#555555] leading-relaxed max-w-md">
+                  <p className="text-sm text-muted leading-relaxed max-w-md">
                     {p.desc}
                   </p>
                 </div>

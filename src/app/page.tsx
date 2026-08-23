@@ -1,5 +1,5 @@
 import Link from "next/link";
-import HeroCollage from "@/components/landing/HeroCollage";
+import HeroPortrait from "@/components/landing/HeroPortrait";
 import ServiceTicker from "@/components/landing/ServiceTicker";
 import StatsBand from "@/components/landing/StatsBand";
 import HowItWorks from "@/components/landing/HowItWorks";
@@ -49,7 +49,7 @@ const HOME_FAQ: FaqItem[] = [
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-[#080808] text-[#F5F5F5]">
+    <div className="min-h-screen bg-background text-foreground">
       <SiteNav />
 
       <JsonLd data={faqSchema(HOME_FAQ)} />
@@ -59,9 +59,9 @@ export default function Home() {
         <div className="grid lg:grid-cols-[1.1fr_1fr] gap-14 lg:gap-20 items-center">
           {/* Left — claim */}
           <div className="max-w-xl">
-            <div className="inline-flex items-center gap-2 mb-8 px-3 py-1 rounded-full border border-[#00FF94]/20 bg-[#00FF94]/5">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#00FF94] status-dot" />
-              <span className="font-mono text-xs text-[#00FF94]">
+            <div className="inline-flex items-center gap-2 mb-8 px-3 py-1 rounded-full border-terracotta/25 bg-terracotta/5">
+              <span className="w-1.5 h-1.5 rounded-full bg-terracotta" />
+              <span className="font-mono text-xs text-terracotta">
                 Real SIM cards&nbsp;&bull;&nbsp;Not VoIP
               </span>
             </div>
@@ -69,20 +69,20 @@ export default function Home() {
             <h1 className="font-sans text-5xl sm:text-6xl md:text-7xl font-extrabold leading-[1.02] tracking-tight mb-6">
               Verify anything.
               <br />
-              <span className="text-[#00FF94]">Instantly.</span>
+              <span className="text-accent">Instantly.</span>
             </h1>
 
             {/* Keyword-bearing subheading: the H1 is a brand tagline, so this
                 is where the page states what it actually is, in the words
                 people search for. */}
-            <p className="text-[#555555] text-base sm:text-lg max-w-md mb-4">
-              <strong className="text-[#F5F5F5] font-semibold">
+            <p className="text-muted text-base sm:text-lg max-w-md mb-4">
+              <strong className="text-foreground font-semibold">
                 Temporary phone numbers for SMS verification.
               </strong>{" "}
               Receive verification codes online from real SIM cards — not
               VoIP — across 1,300+ services and 150+ countries.
             </p>
-            <p className="text-[#555555] text-sm max-w-md mb-10">
+            <p className="text-muted text-sm max-w-md mb-10">
               Pay only when a code arrives. Automatic refund if it doesn&apos;t.
               No subscription.
             </p>
@@ -90,13 +90,13 @@ export default function Home() {
             <div className="flex flex-wrap items-center gap-4 mb-12">
               <Link
                 href="/auth"
-                className="inline-flex items-center min-h-[44px] px-6 bg-[#00FF94] text-[#080808] font-semibold rounded-md hover:bg-[#00FF94]/90 transition-colors text-sm"
+                className="inline-flex items-center min-h-11 px-6 bg-pine text-paper font-semibold rounded-full hover:bg-pine-deep transition-colors text-sm"
               >
                 Get a number&nbsp;&rarr;
               </Link>
               <a
                 href="#pricing"
-                className="inline-flex items-center justify-center min-h-[44px] px-6 border border-[#333333] text-[#F5F5F5] rounded-md hover:border-[#555555] transition-colors text-sm"
+                className="inline-flex items-center justify-center min-h-11 px-6 border border-line-strong text-foreground rounded-full hover:border-muted transition-colors text-sm"
               >
                 See pricing
               </a>
@@ -107,20 +107,20 @@ export default function Home() {
                 {["A", "K", "R", "M"].map((letter) => (
                   <span
                     key={letter}
-                    className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold text-[#080808] ring-2 ring-[#080808] bg-[#1A1A1A] border border-[#333333]"
+                    className="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold text-muted ring-2 ring-background bg-line border border-surface"
                   >
                     {letter}
                   </span>
                 ))}
               </div>
-              <span className="text-xs text-[#555555]">
+              <span className="text-xs text-muted">
                 Trusted by 2,400+ developers
               </span>
             </div>
           </div>
 
-          {/* Right — bento collage */}
-          <HeroCollage />
+          {/* Right — portrait + floating bubbles */}
+          <HeroPortrait />
         </div>
       </section>
 

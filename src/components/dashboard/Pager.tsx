@@ -20,8 +20,8 @@ export default function Pager({
     "px-3 py-2 rounded-lg text-xs font-medium transition-colors disabled:opacity-30";
   const btnStyle = {
     backgroundColor: "transparent",
-    border: "1px solid #1A1A1A",
-    color: "#F5F5F5",
+    border: "1px solid var(--line)",
+    color: "var(--foreground)",
   } as const;
 
   return (
@@ -34,7 +34,7 @@ export default function Pager({
       >
         ← Prev
       </button>
-      <span className="font-mono text-xs" style={{ color: "#555555" }}>
+      <span className="font-mono text-xs" style={{ color: "var(--muted)" }}>
         Page {page} of {totalPages}
       </span>
       <button

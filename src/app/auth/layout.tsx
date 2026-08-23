@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import ThemeToggle from "@/components/site/ThemeToggle";
 
 /**
  * The auth pages are client components and can't export metadata themselves,
@@ -18,5 +19,13 @@ export default function AuthLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return <>{children}</>;
+  return (
+    <>
+      {/* Mirrors the fixed auth logo in AuthCard — theme switch top-right. */}
+      <div className="fixed top-0 right-0 p-5 z-10">
+        <ThemeToggle />
+      </div>
+      {children}
+    </>
+  );
 }

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import AdminSidebar from "@/components/admin/AdminSidebar";
+import ThemeToggle from "@/components/site/ThemeToggle";
 import { ToastProvider } from "@/components/dashboard/Toast";
 import { UserProvider } from "@/hooks/useUser";
 import { createClient } from "@/lib/supabase/server";
@@ -47,9 +48,13 @@ export default async function AdminLayout({
   return (
     <UserProvider initialUser={user}>
       <ToastProvider>
-        <div className="min-h-screen" style={{ backgroundColor: "#080808" }}>
+        <div className="min-h-screen bg-background text-foreground">
           <AdminSidebar email={profile.email ?? user.email ?? ""} />
           <main className="md:ml-[220px] px-4 sm:px-6 lg:px-8 py-8 pb-24 md:pb-8">
+            {/* Mobile theme switch — mirrors the dashboard layout. */}
+            <div className="flex justify-end mb-2 md:hidden">
+              <ThemeToggle />
+            </div>
             {children}
           </main>
         </div>

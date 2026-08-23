@@ -36,12 +36,12 @@ const POLL_LIMIT = 24;
 
 function statusTone(status: string) {
   if (status === "active")
-    return { bg: "#0A1F0A", color: "#00FF94", border: "rgba(0,255,148,0.32)" };
+    return { bg: "color-mix(in srgb, var(--accent) 10%, transparent)", color: "var(--accent)", border: "color-mix(in srgb, var(--accent) 32%, transparent)" };
   if (status === "pending" || status === "suspended")
-    return { bg: "#1A1500", color: "#F5A623", border: "rgba(245,166,35,0.32)" };
+    return { bg: "color-mix(in srgb, var(--warning) 12%, transparent)", color: "var(--warning)", border: "color-mix(in srgb, var(--warning) 32%, transparent)" };
   if (status === "failed" || status === "cancelled")
-    return { bg: "#1A0000", color: "#FF4444", border: "rgba(255,68,68,0.32)" };
-  return { bg: "#141414", color: "#555555", border: "#242424" };
+    return { bg: "color-mix(in srgb, var(--danger) 10%, transparent)", color: "var(--danger)", border: "color-mix(in srgb, var(--danger) 32%, transparent)" };
+  return { bg: "var(--field)", color: "var(--muted)", border: "var(--line-strong)" };
 }
 
 /** Human label for the SM-DP+ state, which is what tells you if it's installed. */
@@ -152,20 +152,20 @@ export default function EsimCard({
   return (
     <div
       className="rounded-xl overflow-hidden"
-      style={{ backgroundColor: "#0F0F0F", border: "1px solid #1A1A1A" }}
+      style={{ backgroundColor: "var(--surface)", border: "1px solid var(--line)" }}
     >
       <div className="p-5">
         <div className="flex items-start justify-between gap-3 mb-3">
           <div className="min-w-0">
             <p
               className="text-[15px] font-semibold"
-              style={{ color: "#F5F5F5" }}
+              style={{ color: "var(--foreground)" }}
             >
               {esim.country_name || esim.country || "eSIM"}
             </p>
             <p
               className="font-mono text-[11px] mt-1"
-              style={{ color: "#555555" }}
+              style={{ color: "var(--muted)" }}
             >
               {volume}
               {esim.duration_days ? ` · ${esim.duration_days} days` : ""}
@@ -189,15 +189,15 @@ export default function EsimCard({
             onClick={toggle}
             className="w-full h-[44px] rounded-[6px] text-[14px] font-bold transition-colors"
             style={{
-              backgroundColor: open ? "transparent" : "#00FF94",
-              color: open ? "#F5F5F5" : "#080808",
-              border: open ? "1px solid #333333" : "none",
+              backgroundColor: open ? "transparent" : "var(--accent)",
+              color: open ? "var(--foreground)" : "var(--background)",
+              border: open ? "1px solid var(--line-strong)" : "none",
             }}
           >
             {open ? "Hide activation" : "View activation"}
           </button>
         ) : isLegacy ? (
-          <p className="text-[12px] leading-relaxed" style={{ color: "#555555" }}>
+          <p className="text-[12px] leading-relaxed" style={{ color: "var(--muted)" }}>
             Issued by our previous eSIM provider, which has shut down its API.
             Contact support if you still need its activation details.
           </p>
@@ -205,28 +205,28 @@ export default function EsimCard({
           <div className="flex items-center gap-2">
             <span
               className="auth-spinner"
-              style={{ borderColor: "#F5A623", borderTopColor: "transparent" }}
+              style={{ borderColor: "var(--warning)", borderTopColor: "transparent" }}
             />
-            <p className="text-[12px]" style={{ color: "#555555" }}>
+            <p className="text-[12px]" style={{ color: "var(--muted)" }}>
               Provisioning your eSIM — this usually takes under a minute.
             </p>
           </div>
         ) : (
-          <p className="text-[12px]" style={{ color: "#555555" }}>
+          <p className="text-[12px]" style={{ color: "var(--muted)" }}>
             Activation unavailable
           </p>
         )}
       </div>
 
       {open && (
-        <div className="px-5 pb-5" style={{ backgroundColor: "#0A0A0A" }}>
+        <div className="px-5 pb-5" style={{ backgroundColor: "var(--field)" }}>
           {loading ? (
             <div className="flex items-center gap-2 py-3">
               <span
                 className="auth-spinner"
-                style={{ borderColor: "#00FF94", borderTopColor: "transparent" }}
+                style={{ borderColor: "var(--accent)", borderTopColor: "transparent" }}
               />
-              <span className="text-xs" style={{ color: "#555555" }}>
+              <span className="text-xs" style={{ color: "var(--muted)" }}>
                 Loading activation…
               </span>
             </div>

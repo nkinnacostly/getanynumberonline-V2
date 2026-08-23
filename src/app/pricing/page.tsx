@@ -58,7 +58,7 @@ export default async function PricingPage() {
     .sort((a, b) => b - a)[0];
 
   return (
-    <div className="min-h-screen bg-[#080808] text-[#F5F5F5]">
+    <div className="min-h-screen bg-background text-foreground">
       <SiteNav />
 
       <JsonLd
@@ -88,13 +88,13 @@ export default async function PricingPage() {
           <h1 className="font-sans text-4xl sm:text-5xl font-bold tracking-tight mb-4">
             Pricing
           </h1>
-          <p className="text-[#555555] text-base sm:text-lg max-w-2xl">
+          <p className="text-muted text-base sm:text-lg max-w-2xl">
             You pay per verification code received — never a subscription.
             {low && (
               <>
                 {" "}
                 Numbers start at{" "}
-                <span className="font-mono text-[#00FF94]">
+                <span className="font-mono text-accent">
                   {formatPrice(low.price)}
                 </span>{" "}
                 per SMS.
@@ -107,7 +107,7 @@ export default async function PricingPage() {
           <div className="mt-8 flex flex-wrap gap-3">
             <Link
               href="/auth"
-              className="inline-flex items-center gap-2 px-6 py-3 bg-[#00FF94] text-[#080808] font-semibold rounded-md hover:bg-[#00FF94]/90 transition-colors text-sm"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-accent text-accent-ink font-semibold rounded-md hover:bg-accent/90 transition-colors text-sm"
             >
               Get a number&nbsp;&rarr;
             </Link>
@@ -127,15 +127,15 @@ export default async function PricingPage() {
                     <h3 className="font-sans text-lg font-bold">
                       <Link
                         href={`/receive-sms/${service.slug}`}
-                        className="hover:text-[#00FF94] transition-colors"
+                        className="hover:text-accent transition-colors"
                       >
                         {service.name}
                       </Link>
                     </h3>
                     {serviceLow && (
-                      <span className="font-mono text-xs text-[#555555]">
+                      <span className="font-mono text-xs text-muted">
                         from{" "}
-                        <span className="text-[#00FF94]">
+                        <span className="text-accent">
                           {formatPrice(serviceLow.price)}
                         </span>
                       </span>
@@ -156,7 +156,7 @@ export default async function PricingPage() {
             })}
           </div>
 
-          <p className="text-xs text-[#555555] mt-10 leading-relaxed">
+          <p className="text-xs text-muted mt-10 leading-relaxed">
             Prices are live wholesale rates plus our margin, refreshed hourly,
             and shown in USD. The exact price is always displayed before you
             confirm an order. Rows marked <span className="font-mono">n/a</span>{" "}

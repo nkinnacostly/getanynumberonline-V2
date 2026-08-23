@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 
 export default function PrivacyPage() {
   return (
-    <div className="min-h-screen" style={{ backgroundColor: "#080808" }}>
+    <div className="min-h-screen" style={{ backgroundColor: "var(--background)" }}>
       <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
         <Link
           href="/"
@@ -21,10 +21,10 @@ export default function PrivacyPage() {
           <Logo id="privacy" className="h-4 w-auto" />
         </Link>
 
-        <h1 className="text-3xl font-bold mb-2" style={{ color: "#F5F5F5" }}>
+        <h1 className="text-3xl font-bold mb-2" style={{ color: "var(--foreground)" }}>
           Privacy Policy
         </h1>
-        <p className="text-sm mb-10" style={{ color: "#555555" }}>
+        <p className="text-sm mb-10" style={{ color: "var(--muted)" }}>
           Last updated: April 2026
         </p>
 
@@ -32,19 +32,19 @@ export default function PrivacyPage() {
           <section>
             <h2
               className="text-xl font-semibold mb-3"
-              style={{ color: "#F5F5F5" }}
+              style={{ color: "var(--foreground)" }}
             >
               1. What Data We Collect
             </h2>
             <p
               className="text-sm leading-relaxed mb-3"
-              style={{ color: "#A0A0A0" }}
+              style={{ color: "var(--muted)" }}
             >
               We collect only the data necessary to provide our Service:
             </p>
             <ul
               className="list-disc list-inside text-sm space-y-1.5"
-              style={{ color: "#A0A0A0" }}
+              style={{ color: "var(--muted)" }}
             >
               <li>
                 <strong>Email address</strong> — for account creation and
@@ -65,7 +65,7 @@ export default function PrivacyPage() {
             </ul>
             <p
               className="text-sm leading-relaxed mt-3"
-              style={{ color: "#A0A0A0" }}
+              style={{ color: "var(--muted)" }}
             >
               We do not collect, store, or process the content of SMS messages
               beyond the verification code itself.
@@ -75,16 +75,16 @@ export default function PrivacyPage() {
           <section>
             <h2
               className="text-xl font-semibold mb-3"
-              style={{ color: "#F5F5F5" }}
+              style={{ color: "var(--foreground)" }}
             >
               2. How We Use Your Data
             </h2>
-            <p className="text-sm leading-relaxed" style={{ color: "#A0A0A0" }}>
+            <p className="text-sm leading-relaxed" style={{ color: "var(--muted)" }}>
               Your data is used exclusively for:
             </p>
             <ul
               className="list-disc list-inside text-sm space-y-1.5"
-              style={{ color: "#A0A0A0" }}
+              style={{ color: "var(--muted)" }}
             >
               <li>Creating and managing your account</li>
               <li>Processing payments and maintaining your wallet balance</li>
@@ -99,20 +99,20 @@ export default function PrivacyPage() {
           <section>
             <h2
               className="text-xl font-semibold mb-3"
-              style={{ color: "#F5F5F5" }}
+              style={{ color: "var(--foreground)" }}
             >
               3. Third-Party Services
             </h2>
             <p
               className="text-sm leading-relaxed mb-3"
-              style={{ color: "#A0A0A0" }}
+              style={{ color: "var(--muted)" }}
             >
               We work with the following third-party providers, each of which
               has its own privacy policy:
             </p>
             <ul
               className="list-disc list-inside text-sm space-y-2"
-              style={{ color: "#A0A0A0" }}
+              style={{ color: "var(--muted)" }}
             >
               <li>
                 <strong>Supabase</strong> — database hosting and authentication.
@@ -144,7 +144,7 @@ export default function PrivacyPage() {
                 provider. Processes your verification requests.{" "}
                 <a
                   href="https://smspool.net/privacy"
-                  className="text-[#00FF94] hover:underline"
+                  className="text-accent hover:underline"
                   target="_blank"
                   rel="noopener noreferrer"
                 >
@@ -157,11 +157,11 @@ export default function PrivacyPage() {
           <section>
             <h2
               className="text-xl font-semibold mb-3"
-              style={{ color: "#F5F5F5" }}
+              style={{ color: "var(--foreground)" }}
             >
               4. Data Retention
             </h2>
-            <p className="text-sm leading-relaxed" style={{ color: "#A0A0A0" }}>
+            <p className="text-sm leading-relaxed" style={{ color: "var(--muted)" }}>
               We retain your account data and transaction history for as long as
               your account is active. Inactive accounts may be purged after 24
               months of no activity. SMS verification codes are deleted from our
@@ -173,14 +173,14 @@ export default function PrivacyPage() {
           <section>
             <h2
               className="text-xl font-semibold mb-3"
-              style={{ color: "#F5F5F5" }}
+              style={{ color: "var(--foreground)" }}
             >
               5. Your Rights
             </h2>
-            <p className="text-sm leading-relaxed" style={{ color: "#A0A0A0" }}>
+            <p className="text-sm leading-relaxed" style={{ color: "var(--muted)" }}>
               You have the right to access, correct, or delete your personal
               data at any time. To exercise these rights, contact us at{" "}
-              <span className="font-mono text-[#00FF94]">
+              <span className="font-mono text-accent">
                 support@getanynumberonline.com
               </span>
               . We will respond within 30 days.
@@ -190,16 +190,16 @@ export default function PrivacyPage() {
           <section>
             <h2
               className="text-xl font-semibold mb-3"
-              style={{ color: "#F5F5F5" }}
+              style={{ color: "var(--foreground)" }}
             >
               6. Contact
             </h2>
-            <p className="text-sm leading-relaxed" style={{ color: "#A0A0A0" }}>
+            <p className="text-sm leading-relaxed" style={{ color: "var(--muted)" }}>
               For any privacy-related inquiries, data access requests, or
               concerns, please reach out to us at:{" "}
               <a
                 href="mailto:support@getanynumberonline.com"
-                className="text-[#00FF94] hover:underline"
+                className="text-accent hover:underline"
               >
                 support@getanynumberonline.com
               </a>
@@ -207,8 +207,8 @@ export default function PrivacyPage() {
           </section>
         </div>
 
-        <div className="mt-12 pt-6 border-t" style={{ borderColor: "#1A1A1A" }}>
-          <p className="text-xs text-center" style={{ color: "#555555" }}>
+        <div className="mt-12 pt-6 border-t" style={{ borderColor: "var(--line)" }}>
+          <p className="text-xs text-center" style={{ color: "var(--muted)" }}>
             This Privacy Policy may be updated periodically. Continued use of
             the Service constitutes acceptance of any changes.
           </p>

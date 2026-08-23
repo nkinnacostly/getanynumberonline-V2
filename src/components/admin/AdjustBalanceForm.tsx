@@ -59,9 +59,9 @@ export default function AdjustBalanceForm({
           placeholder="±0.00"
           aria-label="Adjustment amount"
           className="w-full h-[44px] px-3 font-mono text-[14px] rounded-[6px] outline-none"
-          style={{ backgroundColor: "#141414", border: "1px solid #222222", color: "#F5F5F5" }}
+          style={{ backgroundColor: "var(--field)", border: "1px solid var(--line-strong)", color: "var(--foreground)" }}
         />
-        <p className="text-[10px] mt-1" style={{ color: "#555555" }}>
+        <p className="text-[10px] mt-1" style={{ color: "var(--muted)" }}>
           negative to debit
         </p>
       </div>
@@ -73,20 +73,20 @@ export default function AdjustBalanceForm({
         placeholder="Reason (shown in the user's history)"
         aria-label="Reason"
         className="flex-1 h-[44px] px-3 text-[14px] rounded-[6px] outline-none"
-        style={{ backgroundColor: "#141414", border: "1px solid #222222", color: "#F5F5F5" }}
+        style={{ backgroundColor: "var(--field)", border: "1px solid var(--line-strong)", color: "var(--foreground)" }}
       />
 
       <button
         type="submit"
         disabled={!valid || wouldGoNegative || saving}
         className="h-[44px] px-5 rounded-[6px] text-[14px] font-bold disabled:opacity-40 shrink-0"
-        style={{ backgroundColor: "#00FF94", color: "#080808" }}
+        style={{ backgroundColor: "var(--accent)", color: "var(--accent-ink)" }}
       >
         {saving ? "Saving…" : "Apply"}
       </button>
 
       {wouldGoNegative && (
-        <p className="text-[11px] self-center" style={{ color: "#FF4444" }}>
+        <p className="text-[11px] self-center" style={{ color: "var(--danger)" }}>
           Would take balance below zero
         </p>
       )}

@@ -80,7 +80,7 @@ export default function UserDetailClient({ userId }: { userId: string }) {
       <div className="flex justify-center py-24">
         <span
           className="auth-spinner"
-          style={{ borderColor: "#00FF94", borderTopColor: "transparent" }}
+          style={{ borderColor: "var(--accent)", borderTopColor: "transparent" }}
         />
       </div>
     );
@@ -91,7 +91,7 @@ export default function UserDetailClient({ userId }: { userId: string }) {
       <div>
         <BackLink />
         <AdminCard>
-          <p className="py-12 text-center text-sm" style={{ color: "#FF4444" }}>
+          <p className="py-12 text-center text-sm" style={{ color: "var(--danger)" }}>
             {failed ?? "User not found"}
           </p>
         </AdminCard>
@@ -117,15 +117,15 @@ export default function UserDetailClient({ userId }: { userId: string }) {
       <div className="flex flex-wrap items-center gap-3 mb-1">
         <h1
           className="text-xl sm:text-2xl font-bold break-all"
-          style={{ color: "#F5F5F5" }}
+          style={{ color: "var(--foreground)" }}
         >
           {user.email ?? "(no email)"}
         </h1>
-        {user.is_admin && <Tag label="ADMIN" color="#F5A623" />}
-        {user.is_flagged && <Tag label="FLAGGED" color="#F5A623" />}
-        {user.is_banned && <Tag label="BANNED" color="#FF4444" />}
+        {user.is_admin && <Tag label="ADMIN" color="var(--warning)" />}
+        {user.is_flagged && <Tag label="FLAGGED" color="var(--warning)" />}
+        {user.is_banned && <Tag label="BANNED" color="var(--danger)" />}
       </div>
-      <p className="font-mono text-[11px] mb-6" style={{ color: "#555555" }}>
+      <p className="font-mono text-[11px] mb-6" style={{ color: "var(--muted)" }}>
         {user.user_id} · joined {dateTime(user.joined)}
       </p>
 
@@ -140,17 +140,17 @@ export default function UserDetailClient({ userId }: { userId: string }) {
           }}
         >
           <div>
-            <p className="text-[13px] font-semibold" style={{ color: "#F5A623" }}>
+            <p className="text-[13px] font-semibold" style={{ color: "var(--warning)" }}>
               Flagged for review
             </p>
-            <p className="text-[12px] mt-1" style={{ color: "#888888" }}>
+            <p className="text-[12px] mt-1" style={{ color: "var(--muted)" }}>
               {user.flag_reason ?? "No reason recorded."}
             </p>
           </div>
           <Link
             href="/admin/flagged"
             className="font-mono text-[11px] underline underline-offset-2 shrink-0"
-            style={{ color: "#F5A623" }}
+            style={{ color: "var(--warning)" }}
           >
             Review queue →
           </Link>
@@ -175,7 +175,7 @@ export default function UserDetailClient({ userId }: { userId: string }) {
               ? `${money(user.total_refunded)} refunded`
               : "nothing refunded"
           }
-          tone={user.total_refunded > 0 ? "#F5A623" : undefined}
+          tone={user.total_refunded > 0 ? "var(--warning)" : undefined}
         />
         <Metric
           label="Codes delivered"
@@ -185,12 +185,12 @@ export default function UserDetailClient({ userId }: { userId: string }) {
           // it separates "this person is unhappy" from "our supply is failing".
           tone={
             deliveryRate === null
-              ? "#555555"
+              ? "var(--muted)"
               : deliveryRate < 30
-                ? "#FF4444"
+                ? "var(--danger)"
                 : deliveryRate < 70
-                  ? "#F5A623"
-                  : "#00FF94"
+                  ? "var(--warning)"
+                  : "var(--accent)"
           }
         />
       </div>
@@ -198,7 +198,7 @@ export default function UserDetailClient({ userId }: { userId: string }) {
       {/* Admin credits are not revenue and are broken out so they can't be
           mistaken for money this person actually paid. */}
       {user.credited_by_admin > 0 && (
-        <p className="font-mono text-[11px] mb-4" style={{ color: "#555555" }}>
+        <p className="font-mono text-[11px] mb-4" style={{ color: "var(--muted)" }}>
           Includes {money(user.credited_by_admin)} credited by an admin —{" "}
           {money(totalIn)} in total, {money(user.spent_on_delivered)} of spend
           delivered a code.
@@ -212,7 +212,7 @@ export default function UserDetailClient({ userId }: { userId: string }) {
             <button
               onClick={() => setAdjusting((v) => !v)}
               className="h-[38px] px-4 rounded-[6px] text-[13px] font-medium"
-              style={{ border: "1px solid #333333", color: "#F5F5F5" }}
+              style={{ border: "1px solid var(--line-strong)", color: "var(--foreground)" }}
             >
               {adjusting ? "Cancel" : "Adjust balance"}
             </button>
@@ -222,8 +222,8 @@ export default function UserDetailClient({ userId }: { userId: string }) {
               title={isSelf ? "You can't ban your own account" : undefined}
               className="h-[38px] px-4 rounded-[6px] text-[13px] font-medium disabled:opacity-30"
               style={{
-                border: `1px solid ${user.is_banned ? "#00FF94" : "#FF4444"}`,
-                color: user.is_banned ? "#00FF94" : "#FF4444",
+                border: `1px solid ${user.is_banned ? "var(--accent)" : "var(--danger)"}`,
+                color: user.is_banned ? "var(--accent)" : "var(--danger)",
               }}
             >
               {user.is_banned ? "Unban user" : "Ban user"}
@@ -326,7 +326,7 @@ function RentalsTab({ userId }: { userId: string }) {
 
 function TabCount({ noun, total }: { noun: string; total: number }) {
   return (
-    <p className="font-mono text-xs mb-3" style={{ color: "#555555" }}>
+    <p className="font-mono text-xs mb-3" style={{ color: "var(--muted)" }}>
       {total} {noun}
       {total === 1 ? "" : "s"}
     </p>
@@ -338,7 +338,7 @@ function BackLink() {
     <Link
       href="/admin/users"
       className="inline-flex items-center gap-1.5 text-[13px] mb-5"
-      style={{ color: "#555555" }}
+      style={{ color: "var(--muted)" }}
     >
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
         <path
@@ -381,22 +381,22 @@ function Metric({
   return (
     <div
       className="rounded-lg p-4"
-      style={{ backgroundColor: "#0F0F0F", border: "1px solid #1A1A1A" }}
+      style={{ backgroundColor: "var(--surface)", border: "1px solid var(--line)" }}
     >
       <p
         className="text-[11px] uppercase tracking-wider mb-2"
-        style={{ color: "#555555" }}
+        style={{ color: "var(--muted)" }}
       >
         {label}
       </p>
       <p
         className="font-mono text-xl sm:text-2xl font-medium"
-        style={{ color: tone ?? (accent ? "#00FF94" : "#F5F5F5") }}
+        style={{ color: tone ?? (accent ? "var(--accent)" : "var(--foreground)") }}
       >
         {value}
       </p>
       {sub && (
-        <p className="font-mono text-[11px] mt-1" style={{ color: "#555555" }}>
+        <p className="font-mono text-[11px] mt-1" style={{ color: "var(--muted)" }}>
           {sub}
         </p>
       )}

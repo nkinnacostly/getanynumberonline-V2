@@ -158,13 +158,13 @@ export default function ActiveOrder({
     return (
       <div
         className="rounded-xl p-8 flex flex-col items-center justify-center min-h-[340px] text-center"
-        style={{ backgroundColor: "#0F0F0F", border: "1px solid #1A1A1A" }}
+        style={{ backgroundColor: "var(--surface)", border: "1px solid var(--line)" }}
       >
-        <p className="text-[#555555] text-sm mb-1">No active order</p>
-        <p className="text-[#555555] text-xs mb-6">
+        <p className="text-muted text-sm mb-1">No active order</p>
+        <p className="text-muted text-xs mb-6">
           Pick a service and country to get a number
         </p>
-        <span className="font-mono text-[#00FF94] text-xl cursor-blink">|</span>
+        <span className="font-mono text-accent text-xl cursor-blink">|</span>
       </div>
     );
   }
@@ -178,9 +178,9 @@ export default function ActiveOrder({
       <div
         className="rounded-xl overflow-hidden"
         style={{
-          backgroundColor: "#0F0F0F",
-          border: "1px solid #1A1A1A",
-          borderTopColor: "#00FF94",
+          backgroundColor: "var(--surface)",
+          border: "1px solid var(--line)",
+          borderTopColor: "var(--accent)",
           borderTopWidth: "2px",
         }}
       >
@@ -190,7 +190,7 @@ export default function ActiveOrder({
             <>
               <div className="flex items-center justify-between mb-4">
                 <Pill tone="ok">Code received</Pill>
-                <span className="font-mono text-xs" style={{ color: "#555555" }}>
+                <span className="font-mono text-xs" style={{ color: "var(--muted)" }}>
                   just now
                 </span>
               </div>
@@ -205,7 +205,7 @@ export default function ActiveOrder({
               >
                 <div
                   className="text-[11px] uppercase font-mono mb-1"
-                  style={{ color: "#00FF94", letterSpacing: "0.12em" }}
+                  style={{ color: "var(--accent)", letterSpacing: "0.12em" }}
                 >
                   Your code — tap to copy
                 </div>
@@ -215,14 +215,14 @@ export default function ActiveOrder({
                     fontSize: "40px",
                     lineHeight: 1.1,
                     letterSpacing: "0.16em",
-                    color: "#00FF94",
+                    color: "var(--accent)",
                   }}
                 >
                   {sms.code}
                 </div>
                 <div
                   className="text-[11px] font-mono mt-1"
-                  style={{ color: "#00FF94", letterSpacing: "0.1em" }}
+                  style={{ color: "var(--accent)", letterSpacing: "0.1em" }}
                 >
                   {isCopied("code") ? "✓ COPIED" : " "}
                 </div>
@@ -232,19 +232,19 @@ export default function ActiveOrder({
                 <div
                   className="rounded-lg px-4 py-3 mb-3"
                   style={{
-                    backgroundColor: "#141414",
-                    border: "1px solid #1A1A1A",
+                    backgroundColor: "var(--field)",
+                    border: "1px solid var(--line)",
                   }}
                 >
                   <p
                     className="text-[11px] uppercase font-mono mb-1"
-                    style={{ color: "#555555", letterSpacing: "0.1em" }}
+                    style={{ color: "var(--muted)", letterSpacing: "0.1em" }}
                   >
                     From {sms.sender || order.service}
                   </p>
                   <p
                     className="font-mono text-[13px]"
-                    style={{ color: "#8A8A8A" }}
+                    style={{ color: "var(--muted)" }}
                   >
                     {sms.fullSms}
                   </p>
@@ -253,16 +253,16 @@ export default function ActiveOrder({
 
               <div
                 className="space-y-2 font-mono text-[13px] pt-3"
-                style={{ borderTop: "1px solid #1A1A1A" }}
+                style={{ borderTop: "1px solid var(--line)" }}
               >
                 <div className="flex items-center justify-between">
-                  <span className="text-[#555555] w-24 shrink-0">number</span>
+                  <span className="text-muted w-24 shrink-0">number</span>
                   <button
                     onClick={() => doCopy(order.number, "number")}
                     className="flex items-center gap-2"
                   >
-                    <span style={{ color: "#F5F5F5" }}>{order.number}</span>
-                    <span className="text-[11px]" style={{ color: "#00FF94" }}>
+                    <span style={{ color: "var(--foreground)" }}>{order.number}</span>
+                    <span className="text-[11px]" style={{ color: "var(--accent)" }}>
                       {isCopied("number") ? "copied" : "copy"}
                     </span>
                   </button>
@@ -280,7 +280,7 @@ export default function ActiveOrder({
                 {!cd.expired && (
                   <span
                     className="font-mono text-sm"
-                    style={{ color: under2 ? "#FF4444" : "#F5A623" }}
+                    style={{ color: under2 ? "var(--danger)" : "var(--warning)" }}
                   >
                     {cd.label}
                   </span>
@@ -289,7 +289,7 @@ export default function ActiveOrder({
 
               <p
                 className="text-[11px] uppercase font-mono mb-1.5"
-                style={{ color: "#555555", letterSpacing: "0.1em" }}
+                style={{ color: "var(--muted)", letterSpacing: "0.1em" }}
               >
                 Your number
               </p>
@@ -297,38 +297,38 @@ export default function ActiveOrder({
                 onClick={() => doCopy(order.number, "number")}
                 className="w-full flex items-center justify-between rounded-lg px-4 py-3 mb-2 text-left"
                 style={{
-                  backgroundColor: "#141414",
-                  border: "1px solid #222222",
+                  backgroundColor: "var(--field)",
+                  border: "1px solid var(--line-strong)",
                 }}
               >
                 <span
                   className="font-mono text-lg tracking-wide"
-                  style={{ color: "#F5F5F5" }}
+                  style={{ color: "var(--foreground)" }}
                 >
                   {order.number}
                 </span>
                 <span
                   className="font-mono text-xs flex items-center gap-1.5"
-                  style={{ color: "#00FF94" }}
+                  style={{ color: "var(--accent)" }}
                 >
                   {isCopied("number") ? "✓ copied" : "copy"}
                 </span>
               </button>
-              <p className="text-xs mb-4" style={{ color: "#8A8A8A" }}>
+              <p className="text-xs mb-4" style={{ color: "var(--muted)" }}>
                 Paste this number into {order.service}, then keep this tab open —
                 the code appears here automatically.
               </p>
 
               <div
                 className="space-y-2 font-mono text-[13px] pt-3"
-                style={{ borderTop: "1px solid #1A1A1A" }}
+                style={{ borderTop: "1px solid var(--line)" }}
               >
                 <Row label="service" value={order.service} />
                 <Row label="country" value={order.country} />
                 <Row
                   label="cost"
                   value={`$${order.cost.toFixed(2)}`}
-                  valueColor="#00FF94"
+                  valueColor="var(--accent)"
                 />
               </div>
             </>
@@ -341,7 +341,7 @@ export default function ActiveOrder({
             <button
               onClick={() => doCopy(sms.code, "code")}
               className="w-full py-3 rounded-lg font-semibold text-sm transition-colors"
-              style={{ backgroundColor: "#00FF94", color: "#080808" }}
+              style={{ backgroundColor: "var(--accent)", color: "var(--accent-ink)" }}
             >
               {isCopied("code") ? "Copied!" : "Copy code"}
             </button>
@@ -353,11 +353,11 @@ export default function ActiveOrder({
                 <div
                   className="rounded-lg p-3"
                   style={{
-                    backgroundColor: "#1A0000",
-                    border: "1px solid #FF4444",
+                    backgroundColor: "color-mix(in srgb, var(--danger) 10%, transparent)",
+                    border: "1px solid var(--danger)",
                   }}
                 >
-                  <p className="text-[#FF4444] text-xs mb-2">
+                  <p className="text-danger text-xs mb-2">
                     Cancel this order? You&apos;ll be refunded $
                     {order.cost.toFixed(2)}.
                   </p>
@@ -366,14 +366,14 @@ export default function ActiveOrder({
                       onClick={handleCancel}
                       disabled={isCancelling}
                       className="flex-1 py-2 rounded text-xs font-medium disabled:opacity-50"
-                      style={{ backgroundColor: "#FF4444", color: "#080808" }}
+                      style={{ backgroundColor: "var(--danger)", color: "var(--accent-ink)" }}
                     >
                       {isCancelling ? "Cancelling..." : "Yes, cancel"}
                     </button>
                     <button
                       onClick={() => setShowConfirm(false)}
                       className="flex-1 py-2 rounded text-xs font-medium"
-                      style={{ backgroundColor: "#1A1A1A", color: "#F5F5F5" }}
+                      style={{ backgroundColor: "var(--line)", color: "var(--foreground)" }}
                     >
                       Keep waiting
                     </button>
@@ -386,7 +386,7 @@ export default function ActiveOrder({
                   style={{
                     backgroundColor: "transparent",
                     border: "1px solid rgba(255,68,68,0.35)",
-                    color: "#FF4444",
+                    color: "var(--danger)",
                   }}
                 >
                   Cancel &amp; refund ${order.cost.toFixed(2)}
@@ -399,7 +399,7 @@ export default function ActiveOrder({
             <button
               onClick={onOrderCancelled}
               className="w-full py-3 rounded-lg font-semibold text-sm"
-              style={{ backgroundColor: "#1A1A1A", color: "#F5F5F5" }}
+              style={{ backgroundColor: "var(--line)", color: "var(--foreground)" }}
             >
               Order expired — Dismiss
             </button>
@@ -420,10 +420,10 @@ function Pill({
   children: ReactNode;
 }) {
   const map = {
-    ok: { c: "#00FF94", b: "rgba(0,255,148,0.32)", bg: "rgba(0,255,148,0.10)" },
-    warn: { c: "#F5A623", b: "rgba(245,166,35,0.32)", bg: "rgba(245,166,35,0.10)" },
-    err: { c: "#FF4444", b: "rgba(255,68,68,0.32)", bg: "rgba(255,68,68,0.10)" },
-    off: { c: "#555555", b: "#242424", bg: "transparent" },
+    ok: { c: "var(--accent)", b: "color-mix(in srgb, var(--accent) 32%, transparent)", bg: "rgba(0,255,148,0.10)" },
+    warn: { c: "var(--warning)", b: "color-mix(in srgb, var(--warning) 32%, transparent)", bg: "rgba(245,166,35,0.10)" },
+    err: { c: "var(--danger)", b: "color-mix(in srgb, var(--danger) 32%, transparent)", bg: "rgba(255,68,68,0.10)" },
+    off: { c: "var(--muted)", b: "var(--line-strong)", bg: "transparent" },
   }[tone];
   return (
     <span
@@ -461,8 +461,8 @@ function Row({
 }) {
   return (
     <div className="flex items-center justify-between">
-      <span className="text-[#555555] w-24 shrink-0">{label}</span>
-      <span className="font-mono" style={{ color: valueColor || "#F5F5F5" }}>
+      <span className="text-muted w-24 shrink-0">{label}</span>
+      <span className="font-mono" style={{ color: valueColor || "var(--foreground)" }}>
         {value}
       </span>
     </div>

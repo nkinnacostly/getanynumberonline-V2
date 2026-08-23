@@ -23,7 +23,7 @@ export default function TopupButton({
   loadingLabel,
   className = "",
   style,
-  spinnerColor = "#080808",
+  spinnerColor = "var(--accent-ink)",
 }: {
   amount: number;
   label: string;
@@ -65,12 +65,12 @@ export default function TopupButton({
       </button>
 
       {!topup.available && (
-        <p className="mt-2 text-xs" style={{ color: "#FF4444" }}>
+        <p className="mt-2 text-xs" style={{ color: "var(--danger)" }}>
           Payments are temporarily unavailable — missing configuration.
         </p>
       )}
       {topup.scriptError && (
-        <p className="mt-2 text-xs" style={{ color: "#FF4444" }}>
+        <p className="mt-2 text-xs" style={{ color: "var(--danger)" }}>
           Couldn&apos;t load the payment window. Disable ad-blockers / browser
           shields for this site and try again.
         </p>

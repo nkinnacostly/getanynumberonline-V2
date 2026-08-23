@@ -6,10 +6,10 @@ import { createClient } from "@/lib/supabase/client";
 import AuthCard from "@/components/auth/AuthCard";
 
 const INPUT_CLS =
-  "w-full h-[44px] px-3 text-[14px] text-[#F5F5F5] placeholder-[#444444] rounded-[6px] outline-none transition-colors";
+  "w-full h-[44px] px-3 text-[14px] text-foreground placeholder-muted rounded-[6px] outline-none transition-colors";
 const INPUT_STYLE = {
-  backgroundColor: "#141414",
-  border: "1px solid #222222",
+  backgroundColor: "var(--field)",
+  border: "1px solid var(--line-strong)",
 };
 
 export default function ResetPasswordPage() {
@@ -19,10 +19,10 @@ export default function ResetPasswordPage() {
   const [sent, setSent] = useState(false);
 
   const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
-    e.target.style.borderColor = "#00FF94";
+    e.target.style.borderColor = "var(--accent)";
   };
   const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
-    e.target.style.borderColor = "#222222";
+    e.target.style.borderColor = "var(--line-strong)";
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -61,25 +61,25 @@ export default function ResetPasswordPage() {
             fill="none"
             className="mb-4"
           >
-            <circle cx="24" cy="24" r="24" fill="#00FF94" fillOpacity="0.1" />
+            <circle cx="24" cy="24" r="24" fill="var(--accent)" fillOpacity="0.1" />
             <path
               d="M16 24l6 6 10-12"
-              stroke="#00FF94"
+              stroke="var(--accent)"
               strokeWidth="2.5"
               strokeLinecap="round"
               strokeLinejoin="round"
             />
           </svg>
-          <h2 className="font-sans text-lg font-bold text-[#F5F5F5] mb-2">
+          <h2 className="font-sans text-lg font-bold text-foreground mb-2">
             Reset link sent
           </h2>
-          <p className="text-[13px] text-[#555555] mb-6">
-            Check your inbox at <span className="text-[#F5F5F5]">{email}</span>{" "}
+          <p className="text-[13px] text-muted mb-6">
+            Check your inbox at <span className="text-foreground">{email}</span>{" "}
             for a link to reset your password.
           </p>
           <Link
             href="/auth"
-            className="text-[13px] text-[#00FF94] hover:opacity-80 transition-opacity"
+            className="text-[13px] text-accent hover:opacity-80 transition-opacity"
           >
             &larr; Back to sign in
           </Link>
@@ -90,10 +90,10 @@ export default function ResetPasswordPage() {
 
   return (
     <AuthCard>
-      <h2 className="font-sans text-xl font-bold text-[#F5F5F5] mb-2">
+      <h2 className="font-sans text-xl font-bold text-foreground mb-2">
         Reset your password
       </h2>
-      <p className="text-[13px] text-[#555555] mb-6">
+      <p className="text-[13px] text-muted mb-6">
         Enter your email and we&apos;ll send you a reset link.
       </p>
 
@@ -101,9 +101,9 @@ export default function ResetPasswordPage() {
         <div
           className="mb-4 px-3 py-3 rounded-[6px] text-[13px]"
           style={{
-            backgroundColor: "#1A0000",
-            border: "1px solid #FF4444",
-            color: "#FF4444",
+            backgroundColor: "color-mix(in srgb, var(--danger) 10%, transparent)",
+            border: "1px solid var(--danger)",
+            color: "var(--danger)",
           }}
         >
           {error}
@@ -115,7 +115,7 @@ export default function ResetPasswordPage() {
           <label
             htmlFor="email"
             className="block text-[12px] mb-1.5"
-            style={{ color: "#888888" }}
+            style={{ color: "var(--muted)" }}
           >
             Email
           </label>
@@ -136,7 +136,7 @@ export default function ResetPasswordPage() {
           type="submit"
           disabled={loading}
           className="w-full h-[44px] rounded-[6px] text-[14px] font-bold transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-          style={{ backgroundColor: "#00FF94", color: "#080808" }}
+          style={{ backgroundColor: "var(--accent)", color: "var(--accent-ink)" }}
           onMouseEnter={(e) => {
             if (!loading) e.currentTarget.style.opacity = "0.9";
           }}
@@ -152,7 +152,7 @@ export default function ResetPasswordPage() {
       <div className="mt-6 text-center">
         <Link
           href="/auth"
-          className="text-[13px] text-[#555555] hover:text-[#888888] transition-colors"
+          className="text-[13px] text-muted hover:text-muted transition-colors"
         >
           &larr; Back to sign in
         </Link>

@@ -87,7 +87,7 @@ export default function DashboardPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-6" style={{ color: "#F5F5F5" }}>
+      <h1 className="text-2xl font-bold mb-6" style={{ color: "var(--foreground)" }}>
         GetAnyNumberOnline
       </h1>
       {showGuide && <FirstRunGuide onFunded={fetchBalance} />}

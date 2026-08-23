@@ -12,6 +12,15 @@ import {
 import { organizationSchema, websiteSchema } from "@/lib/seo/jsonld";
 import "./globals.css";
 
+/**
+ * Applies the stored theme before first paint so there is no flash of the
+ * wrong palette. Runs synchronously at the top of <head>; must stay a plain
+ * string — no imports, no JSX beyond this file's own markup.
+ *
+ * Default is dark when no preference is stored (the product's origin theme).
+ */
+const THEME_INIT = `(function(){try{var s=localStorage.getItem("gano-theme");var d=s?s==="dark":true;document.documentElement.classList.toggle("dark",d);}catch(e){document.documentElement.classList.add("dark");}})();`;
+
 const syne = Syne({
   variable: "--font-syne",
   subsets: ["latin"],
@@ -61,10 +70,16 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
+    // suppressHydrationWarning: the theme script mutates <html>'s class list
+    // before React hydrates — the attribute difference is expected.
     <html
       lang="en"
       className={`${syne.variable} ${dmMono.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT }} />
+      </head>
       <body className="min-h-full flex flex-col">
         {/* Site-wide identity. Page-level schema (FAQ, Product) is added by
             the individual routes and references these by @id. */}
