@@ -89,6 +89,20 @@ export default function RootLayout({
           data-domain="getanynumberonline.com"
           src="https://plausible.io/js/script.js"
         />
+        {/* Google tag (gtag.js) — measurement IDs are public by design,
+            hardcoded so analytics never depends on env wiring. */}
+        <Script
+          src="https://www.googletagmanager.com/gtag/js?id=G-K2NM69XDDG"
+          strategy="afterInteractive"
+        />
+        <Script id="google-analytics" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'G-K2NM69XDDG');
+          `}
+        </Script>
         {children}
       </body>
     </html>
