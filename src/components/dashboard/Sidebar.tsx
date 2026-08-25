@@ -1,13 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useUser } from "@/hooks/useUser";
 import Logo from "@/components/site/Logo";
 import ThemeToggle from "@/components/site/ThemeToggle";
 import BalanceChip from "./BalanceChip";
+import SignOutButton from "./SignOutButton";
 
 interface SidebarProps {
   initialBalance: number;
@@ -120,7 +121,6 @@ export default function Sidebar({
   initialEmail,
 }: SidebarProps) {
   const pathname = usePathname();
-  const router = useRouter();
   const user = useUser();
   const [balance, setBalance] = useState(initialBalance);
 
@@ -156,18 +156,13 @@ export default function Sidebar({
     ).__refreshBalance = refreshBalance;
   }, [refreshBalance]);
 
-  const handleSignOut = async () => {
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    router.push("/");
-    router.refresh();
-  };
-
   return (
     <>
-      {/* Desktop sidebar */}
+      {/* Desktop/tablet sidebar. h-dvh (not h-screen) so Safari/Chrome browser
+          chrome can't push the bottom section — the sign-out button — under
+          the fold, and the safe-area padding keeps it above the home bar. */}
       <aside
-        className="hidden md:flex fixed top-0 left-0 h-screen flex-col justify-between py-6 px-4 z-40"
+        className="hidden md:flex fixed top-0 left-0 h-dvh flex-col justify-between pt-6 px-4 pb-[calc(1.5rem_+_env(safe-area-inset-bottom))] z-40"
         style={{
           width: 220,
           backgroundColor: "var(--surface)",
@@ -217,21 +212,16 @@ export default function Sidebar({
           <div className="text-[11px] text-muted truncate">
             {initialEmail}
           </div>
-          <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
             <ThemeToggle />
-            <button
-              onClick={handleSignOut}
-              className="text-[12px] text-muted hover:text-danger transition-colors"
-            >
-              Sign out
-            </button>
+            <SignOutButton className="flex-1" />
           </div>
         </div>
       </aside>
 
       {/* Mobile bottom tab bar */}
       <nav
-        className="md:hidden fixed bottom-0 left-0 right-0 z-40 flex items-center justify-around py-2"
+        className="md:hidden fixed bottom-0 left-0 right-0 z-40 flex items-center justify-around pt-2 pb-[calc(0.5rem_+_env(safe-area-inset-bottom))]"
         style={{ backgroundColor: "var(--surface)", borderTop: "1px solid var(--line)" }}
       >
         {navItems.map((item) => {
