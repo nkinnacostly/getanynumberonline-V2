@@ -1,4 +1,5 @@
 import Link from "next/link";
+import AnnouncementBanner from "@/components/landing/AnnouncementBanner";
 import HeroPortrait from "@/components/landing/HeroPortrait";
 import ServiceTicker from "@/components/landing/ServiceTicker";
 import StatsBand from "@/components/landing/StatsBand";
@@ -51,6 +52,8 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <SiteNav />
+
+      <AnnouncementBanner />
 
       <JsonLd data={faqSchema(HOME_FAQ)} />
 
