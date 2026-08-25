@@ -20,8 +20,10 @@ const getServerSnapshot = () => false;
 
 /**
  * Landing-page announcement: we sell data-only eSIMs and a three-step summary
- * of how they work. Pine + mint are fixed brand tokens, so the strip reads
- * identically in both themes. Dismissal persists in localStorage.
+ * of how they work. Sticks directly under the sticky nav while scrolling
+ * (top-14 = the nav's height) until the user dismisses it. Pine + mint are
+ * fixed brand tokens, so the strip reads identically in both themes.
+ * Dismissal persists in localStorage.
  */
 export default function AnnouncementBanner() {
   const dismissed = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
@@ -39,7 +41,11 @@ export default function AnnouncementBanner() {
   if (dismissed) return null;
 
   return (
-    <div className="bg-pine text-paper" role="region" aria-label="eSIM announcement">
+    <div
+      className="sticky top-14 z-40 bg-pine text-paper border-b border-pine-deep"
+      role="region"
+      aria-label="eSIM announcement"
+    >
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-wrap items-center gap-x-4 gap-y-2">
         {/* Badge */}
         <span className="inline-flex items-center gap-1.5 shrink-0">
