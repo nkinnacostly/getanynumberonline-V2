@@ -14,6 +14,23 @@ const INPUT_STYLE = {
 } as const;
 const FOCUS_BORDER = "var(--accent)";
 
+/**
+ * Where to go once there is a session.
+ *
+ * The middleware appends ?next=<path> when it bounces someone out of a
+ * protected page, so signing in returns them to the page they asked for
+ * instead of dropping everyone on /dashboard. Only same-origin absolute paths
+ * are honoured — a value starting "//" or "http" would be an open redirect.
+ */
+function destinationFrom(params: URLSearchParams): string {
+  if (params.get("topup") === "success") {
+    return `/dashboard/wallet?${params.toString()}`;
+  }
+  const next = params.get("next");
+  if (next && next.startsWith("/") && !next.startsWith("//")) return next;
+  return "/dashboard";
+}
+
 function validateEmail(v: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
 }
@@ -98,13 +115,9 @@ export default function AuthPage() {
     const supabase = createClient();
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
-        const params = new URLSearchParams(window.location.search);
-        const fullQuery = params.toString();
-        if (params.get("topup") === "success") {
-          router.replace(`/dashboard/wallet?${fullQuery}`);
-        } else {
-          router.replace("/dashboard");
-        }
+        router.replace(
+          destinationFrom(new URLSearchParams(window.location.search)),
+        );
         return;
       }
       const params = new URLSearchParams(window.location.search);
@@ -186,13 +199,7 @@ export default function AuthPage() {
           throw error;
         }
         if (!data.session) throw new Error("Sign in failed");
-        const params = new URLSearchParams(window.location.search);
-        const topup = params.get("topup");
-        if (topup === "success") {
-          router.push(`/dashboard/wallet?${params.toString()}`);
-        } else {
-          router.push("/dashboard");
-        }
+        router.push(destinationFrom(new URLSearchParams(window.location.search)));
         router.refresh();
       }
     } catch (err: unknown) {
