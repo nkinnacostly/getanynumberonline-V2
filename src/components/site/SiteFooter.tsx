@@ -109,10 +109,10 @@ export default function SiteFooter() {
         </div>
 
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-8 border-t border-line">
-          {/* Recessive in the footer — the mark drops to muted rather than
-              carrying the accent a second time on the same page. */}
+          {/* Recessive in the footer — a solid accent block a second time on
+              the same page would compete with the call to action above it. */}
           <Link href="/" aria-label="GetAnyNumberOnline home">
-            <Logo id="footer" className="h-4 w-auto text-muted" />
+            <Logo className="h-7 w-auto text-muted" />
           </Link>
           <p className="text-xs text-muted/70">
             &copy; {new Date().getFullYear()} {SITE_NAME}. All rights reserved.

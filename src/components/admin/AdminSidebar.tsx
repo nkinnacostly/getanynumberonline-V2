@@ -178,7 +178,7 @@ export default function AdminSidebar({ email }: { email: string }) {
         <div>
           <div className="mb-10 px-2">
             <Link href="/admin" aria-label="Admin overview">
-              <Logo id="admin" className="h-[18px] w-auto text-accent" />
+              <Logo className="h-8 w-auto text-accent" />
             </Link>
             <span
               className="inline-block mt-2 px-2 py-0.5 rounded font-mono text-[10px] font-medium tracking-wider"

@@ -14,7 +14,7 @@ export default function SiteNav() {
         {/* Mark only — the accessible name carries "GetAnyNumberOnline" for
             screen readers and search, so the wordmark does not have to. */}
         <Link href="/" aria-label="GetAnyNumberOnline home">
-          <Logo id="nav" className="h-5 w-auto text-accent" />
+          <Logo className="h-8 w-auto text-accent" />
         </Link>
 
         <div className="flex items-center gap-3 sm:gap-6">

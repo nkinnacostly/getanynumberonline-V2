@@ -18,7 +18,7 @@ export default function TermsPage() {
           aria-label="GetAnyNumberOnline home"
           className="text-muted hover:text-foreground transition-colors mb-8 inline-block"
         >
-          <Logo id="terms" className="h-4 w-auto" />
+          <Logo className="h-7 w-auto text-accent" />
         </Link>
 
         <h1 className="text-3xl font-bold mb-2" style={{ color: "var(--foreground)" }}>

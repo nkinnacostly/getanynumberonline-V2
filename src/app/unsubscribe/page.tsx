@@ -56,7 +56,7 @@ export default async function UnsubscribePage({
           border: "1px solid var(--line)",
         }}
       >
-        <Logo id="unsub" className="h-5 w-auto mx-auto mb-6 text-accent" />
+        <Logo className="h-11 w-auto mx-auto mb-6 text-accent" />
 
         <h1
           className="text-lg font-bold mb-2"

@@ -176,7 +176,7 @@ export default function Sidebar({
             aria-label="GetAnyNumberOnline home"
             className="block mb-10 px-2"
           >
-            <Logo id="dash" className="h-[18px] w-auto text-accent" />
+            <Logo className="h-8 w-auto text-accent" />
           </Link>
 
           {/* Nav */}

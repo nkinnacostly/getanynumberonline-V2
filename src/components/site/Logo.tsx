@@ -1,72 +1,40 @@
 /**
- * The GANO wordmark — g, a, n, o, for GetAnyNumberOnline.
+ * The GANO mark — a rounded square with the G and its speech-bubble tail.
  *
- * Recoloured from the supplied two-tone artwork (warm black #141312 on cream
- * #FDFAF7) onto the product palette. Two things changed beyond the colours:
+ * Two things about how it is drawn:
  *
- * 1. The counters — the holes in the g, a, n and o, plus the ring separating
- *    the g's descender from the a — were opaque cream circles painted on top.
- *    Here they are knocked out with a mask, so they are genuinely transparent.
- *    That matters because the original only worked on its own cream background;
- *    this sits correctly on #080808, on a #0F0F0F card, on an OG image, or on
- *    white.
+ * 1. The G is a KNOCKOUT, not a white shape. The single path is the square
+ *    with the letterform subtracted, exactly as the source artwork draws it,
+ *    so the G always takes the colour of whatever is behind the mark — the
+ *    page on the landing header, the card in a sidebar, the tab strip in a
+ *    favicon. One file works on #080808, on a #0F0F0F card and on white.
  *
- * 2. The mark draws in `currentColor`, so one file serves every context —
- *    #F5F5F5 in the nav, #00FF94 where the accent is earned, #555555 when
- *    muted. Colour is set by the caller with `className` or `style`.
+ * 2. It fills with `currentColor`, so colour is set by the caller with
+ *    `className` or `style` (CLAUDE.md §13's one literal-colour exception).
+ *    In practice that is `text-accent` everywhere: mint in dark, emerald in
+ *    light.
  *
- * Server-renderable: no hooks, no client JS. `id` only needs overriding if two
- * instances share a page and you want strictly valid unique IDs.
+ * Server-renderable: no hooks, no client JS, no <text> (which would depend on
+ * Syne having loaded). The square is slightly wider than tall — 184.86 x
+ * 171.11 — so size it by height and let the width follow.
  */
 export default function Logo({
   className = "",
   title = "GetAnyNumberOnline",
-  id = "gano",
   ...rest
-}: React.SVGProps<SVGSVGElement> & { title?: string; id?: string }) {
-  const maskId = `${id}-counters`;
-
+}: React.SVGProps<SVGSVGElement> & { title?: string }) {
   return (
     <svg
-      viewBox="160 460 1072 470"
+      viewBox="328.52 212.09 184.86 171.11"
       xmlns="http://www.w3.org/2000/svg"
       role="img"
       aria-label={title}
       className={className}
       {...rest}
     >
-      <mask id={maskId} maskUnits="userSpaceOnUse" x="160" y="460" width="1072" height="470">
-        {/* White paints the letterforms, black cuts them away. Order matters:
-            the r=146 disc must land after the g's descender to clear the gap,
-            and before the a, which is drawn back over the top of it. */}
-        <circle cx="300" cy="610" r="130" fill="#fff" />
-        <path
-          d="M 384 526 L 384 780 Q 384 854 310 854"
-          fill="none"
-          stroke="#fff"
-          strokeWidth="92"
-          strokeLinecap="round"
-        />
-        <circle cx="552" cy="610" r="146" fill="#000" />
-        <circle cx="552" cy="610" r="130" fill="#fff" />
-        <rect x="590" y="480" width="92" height="260" fill="#fff" />
-        <path d="M 692 740 L 692 610 A 130 130 0 0 1 952 610 L 952 740 Z" fill="#fff" />
-        <circle cx="1082" cy="610" r="130" fill="#fff" />
-
-        {/* Counters */}
-        <circle cx="300" cy="610" r="26" fill="#000" />
-        <circle cx="552" cy="610" r="26" fill="#000" />
-        <path d="M 782 740 L 782 640 A 40 40 0 0 1 862 640 L 862 740 Z" fill="#000" />
-        <circle cx="1082" cy="610" r="26" fill="#000" />
-      </mask>
-
-      <rect
-        x="160"
-        y="460"
-        width="1072"
-        height="470"
+      <path
         fill="currentColor"
-        mask={`url(#${maskId})`}
+        d="m497.45,212.09h-153c-8.8,0-15.93,7.13-15.93,15.93v139.25c0,8.8,7.13,15.93,15.93,15.93h153c8.8,0,15.93-7.13,15.93-15.93v-139.25c0-8.8-7.13-15.93-15.93-15.93Zm-6.64,156.9h-25.44c0-4.57.29-9.84.89-15.82.02-.2.04-.41.06-.61-9.74,7.82-21.78,13.61-34.98,15.07-45.95,5.09-78.81-30.06-80.21-67.32-1.57-41.77,32.88-77.17,77.33-73.8,33.33,2.53,60.81,31.81,62.29,56.14h-34.19c-10.57-17.89-25.47-26.38-46.3-19.93-13.91,4.31-24.74,18.69-24.77,32.91-.05,21.58,12.11,33.69,32.54,38.97-2.6,6.76-7.17,11.63-12.76,15.9,12.26.77,22.67-3.59,31.87-10.68,7.52-5.79,13.12-13.14,16.9-21.72h-48.6v-18.8h85.38v69.68Zm-51.31-83.3c0,1.88-1.52,3.4-3.4,3.4s-3.4-1.52-3.4-3.4,1.52-3.4,3.4-3.4,3.4,1.52,3.4,3.4Zm-11.6,0c0,2.61-2.11,4.72-4.72,4.72s-4.72-2.11-4.72-4.72,2.11-4.72,4.72-4.72,4.72,2.11,4.72,4.72Zm-14.23,0c0,1.88-1.52,3.4-3.4,3.4s-3.4-1.52-3.4-3.4,1.52-3.4,3.4-3.4,3.4,1.52,3.4,3.4Z"
       />
     </svg>
   );

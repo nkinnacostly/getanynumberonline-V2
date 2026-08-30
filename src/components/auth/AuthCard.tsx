@@ -22,7 +22,7 @@ export default function AuthCard({ children }: AuthCardProps) {
       {/* Logo — top-left fixed */}
       <div className="fixed top-0 left-0 p-5">
         <Link href="/" aria-label="GetAnyNumberOnline home">
-          <Logo id="auth" className="h-5 w-auto text-accent" />
+          <Logo className="h-9 w-auto text-accent" />
         </Link>
       </div>
 
