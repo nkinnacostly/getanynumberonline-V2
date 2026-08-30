@@ -6,6 +6,7 @@ import EmailPreview from "@/components/admin/EmailPreview";
 import HeroImagePicker from "@/components/admin/HeroImagePicker";
 import UserPicker from "@/components/admin/UserPicker";
 import { useToast } from "@/components/dashboard/Toast";
+import { EMAIL_PRESETS, type EmailPreset } from "@/lib/email-presets";
 import {
   type AdminUser,
   type CampaignDraft,
@@ -75,6 +76,19 @@ export default function CampaignComposer({
     setCampaignId(null);
     setTested(false);
     setProgress(null);
+  };
+
+  /** Load a ready-written campaign. Every field is written, none left over. */
+  const loadPreset = (p: EmailPreset) => {
+    setTemplate(p.draft.template);
+    setSubject(p.draft.subject);
+    setBody(p.draft.body);
+    setPreheader(p.draft.preheader ?? "");
+    setHeadline(p.draft.headline ?? "");
+    setCtaLabel(p.draft.cta_label ?? "");
+    setCtaUrl(p.draft.cta_url ?? "");
+    setHeroImage(p.draft.hero_image ?? "");
+    invalidate();
   };
 
   const meta = TEMPLATES.find((t) => t.id === template)!;
@@ -253,6 +267,31 @@ export default function CampaignComposer({
               To: {lockedUser.email ?? lockedUser.id}
             </p>
           )}
+
+          <div>
+            <Label>Start from</Label>
+            <div className="flex flex-wrap gap-2">
+              {EMAIL_PRESETS.map((p) => (
+                <button
+                  key={p.id}
+                  onClick={() => loadPreset(p)}
+                  title={p.summary}
+                  className="px-3 h-[38px] rounded-[6px] text-[13px] font-medium"
+                  style={{
+                    backgroundColor: "var(--field)",
+                    color: "var(--foreground)",
+                    border: "1px solid var(--line-strong)",
+                  }}
+                >
+                  {p.name}
+                </button>
+              ))}
+            </div>
+            <Hint>
+              Loads a written campaign into the fields below. Edit it freely —
+              nothing is sent until you press Send.
+            </Hint>
+          </div>
 
           {/* Template */}
           <div>
