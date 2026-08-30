@@ -65,7 +65,7 @@ Deno.serve(async (req) => {
     const { data: campaign } = await supabase
       .from("email_campaigns")
       .select(
-        "id, subject, body_markdown, status, template, preheader, headline, cta_label, cta_url",
+        "id, subject, body_markdown, status, template, preheader, headline, cta_label, cta_url, hero_image",
       )
       .eq("id", campaignId)
       .maybeSingle();
@@ -80,6 +80,7 @@ Deno.serve(async (req) => {
       headline: campaign.headline as string | null,
       ctaLabel: campaign.cta_label as string | null,
       ctaUrl: campaign.cta_url as string | null,
+      heroImage: campaign.hero_image as string | null,
     };
 
     // ── Test send ────────────────────────────────────────────

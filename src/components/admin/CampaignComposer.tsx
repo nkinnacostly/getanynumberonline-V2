@@ -3,14 +3,17 @@
 import { useEffect, useMemo, useState } from "react";
 import { AdminCard } from "@/components/admin/AdminTable";
 import EmailPreview from "@/components/admin/EmailPreview";
+import HeroImagePicker from "@/components/admin/HeroImagePicker";
 import UserPicker from "@/components/admin/UserPicker";
 import { useToast } from "@/components/dashboard/Toast";
 import {
   type AdminUser,
   type CampaignDraft,
   type EmailTemplate,
+  HERO_IMAGES,
   TEMPLATES,
   createCampaign,
+  heroImageUrl,
   getAudienceSize,
   queueCampaign,
   sendCampaign,
@@ -43,6 +46,9 @@ export default function CampaignComposer({
   const [headline, setHeadline] = useState("");
   const [ctaLabel, setCtaLabel] = useState("");
   const [ctaUrl, setCtaUrl] = useState("");
+  const [heroImage, setHeroImage] = useState(
+    heroImageUrl(HERO_IMAGES[0].file),
+  );
   const [body, setBody] = useState("");
   const [audience, setAudience] = useState<"all" | "user">(
     lockedUser ? "user" : "all",
@@ -86,10 +92,25 @@ export default function CampaignComposer({
       preheader,
       // A hero heading only exists on the layouts that draw one.
       ...(meta.hero
-        ? { headline, cta_label: ctaLabel, cta_url: ctaUrl }
+        ? {
+            headline,
+            cta_label: ctaLabel,
+            cta_url: ctaUrl,
+            hero_image: heroImage,
+          }
         : {}),
     }),
-    [subject, body, template, preheader, meta.hero, headline, ctaLabel, ctaUrl],
+    [
+      subject,
+      body,
+      template,
+      preheader,
+      meta.hero,
+      headline,
+      ctaLabel,
+      ctaUrl,
+      heroImage,
+    ],
   );
 
   /** Creates the draft on first use, then reuses it until the text changes. */
@@ -291,6 +312,21 @@ export default function CampaignComposer({
 
           {meta.hero && (
             <>
+              <div>
+                <Label>Banner</Label>
+                <HeroImagePicker
+                  value={heroImage}
+                  onChange={(url) => {
+                    setHeroImage(url);
+                    invalidate();
+                  }}
+                />
+                <Hint>
+                  Sits above the heading. Choosing none falls back to the solid
+                  brand banner, so the email never arrives looking unfinished.
+                </Hint>
+              </div>
+
               <div>
                 <Label>Headline</Label>
                 <input

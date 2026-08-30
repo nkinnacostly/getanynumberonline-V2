@@ -397,6 +397,7 @@ async function createCampaign(
     p_headline: optionalText(body.headline),
     p_cta_label: optionalText(body.cta_label),
     p_cta_url: optionalText(body.cta_url),
+    p_hero_image: optionalText(body.hero_image),
   });
   if (error) return { error: error.message, status: 400 };
   return { campaign_id: data };
@@ -430,6 +431,7 @@ function previewCampaign(adminEmail: string | null, body: Record<string, unknown
     headline: optionalText(body.headline),
     ctaLabel: optionalText(body.cta_label),
     ctaUrl: optionalText(body.cta_url),
+    heroImage: optionalText(body.hero_image),
   };
 
   // A dead link, not a signed one: a preview must never mint a token that

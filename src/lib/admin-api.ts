@@ -312,6 +312,29 @@ export const TEMPLATES: {
   },
 ];
 
+/**
+ * The site's own origin, because an email banner must be an absolute URL and
+ * the mail is rendered in an Edge Function that has no idea where the frontend
+ * is deployed. Hardcoded like the other canonical-domain references in the SEO
+ * layer rather than read from an env var that only exists at build time.
+ */
+export const SITE_ORIGIN = "https://www.getanynumberonline.com";
+
+/**
+ * Banner images we ship in `public/images/email/`. An admin can still paste any
+ * other absolute URL — these are the ones that are always there and always the
+ * right crop.
+ */
+export const HERO_IMAGES: { label: string; file: string }[] = [
+  { label: "Phone in hand", file: "hero-phone.jpg" },
+  { label: "Travel", file: "hero-travel.jpg" },
+  { label: "SIM card", file: "hero-sim.jpg" },
+  { label: "World map", file: "hero-world.jpg" },
+];
+
+export const heroImageUrl = (file: string) =>
+  `${SITE_ORIGIN}/images/email/${file}`;
+
 export interface AdminCampaign {
   id: string;
   subject: string;
@@ -345,6 +368,7 @@ export interface CampaignDraft {
   headline?: string;
   cta_label?: string;
   cta_url?: string;
+  hero_image?: string;
 }
 
 export const createCampaign = (

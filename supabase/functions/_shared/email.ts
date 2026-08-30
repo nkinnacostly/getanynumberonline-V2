@@ -126,6 +126,8 @@ export interface EmailContent {
   headline?: string | null;
   ctaLabel?: string | null;
   ctaUrl?: string | null;
+  /** Absolute URL of the banner image at the top of the card. */
+  heroImage?: string | null;
 }
 
 // ── Body rendering ───────────────────────────────────────────
@@ -157,7 +159,7 @@ export function renderBody(markdown: string): string {
   return markdown
     .trim()
     .split(/\n{2,}/)
-    .map((raw) => {
+    .map((raw, i) => {
       const block = raw.trim();
       if (!block) return "";
 
@@ -170,7 +172,9 @@ export function renderBody(markdown: string): string {
       const heading = block.match(/^(#{2,3})\s+(.*)$/s);
       if (heading) {
         const size = heading[1].length === 2 ? 19 : 16;
-        return `<h2 style="margin:28px 0 10px;font:700 ${size}px/1.3 ${SANS};color:${PINE}">${
+        // The first block sits directly under the heading the template drew,
+        // which already carries its own spacing.
+        return `<h2 style="margin:${i === 0 ? 0 : 28}px 0 10px;font:700 ${size}px/1.3 ${SANS};color:${PINE}">${
           inline(escapeHtml(heading[2].trim()))
         }</h2>`;
       }
@@ -236,11 +240,36 @@ function button(label: string, url: string, onDark: boolean): string {
 }
 
 /**
- * Promotional hero: a pine band filling the top of the card, the closest
- * email-safe equivalent of a full-bleed image without shipping an image that
- * half of all clients block by default.
+ * The banner image, when there is one.
+ *
+ * Width and display:block are attributes and inline style rather than CSS,
+ * because Outlook ignores the stylesheet and Gmail strips <style>. The alt is
+ * deliberately empty: the image is decorative, and a blocked-image placeholder
+ * reading "banner" is worse than nothing — every word that matters is in the
+ * heading below it, which is text.
  */
-function promoHero(headline: string): string {
+function imageBand(url: string): string {
+  return `<tr><td style="padding:0;font-size:0;line-height:0">
+<img src="${url}" width="560" alt="" style="display:block;width:100%;max-width:560px;height:auto;border:0;border-radius:8px 8px 0 0;outline:none;text-decoration:none">
+</td></tr>
+<tr><td bgcolor="${MINT}" style="background:${MINT};height:4px;line-height:4px;font-size:0">&nbsp;</td></tr>`;
+}
+
+/**
+ * Promotional hero.
+ *
+ * With an image it follows the banner-then-heading order: the picture carries
+ * the mood, the heading carries the message, and the email still reads if the
+ * client blocks images. Without one, the pine band stands in so a promo never
+ * arrives looking like a plain note.
+ */
+function promoHero(headline: string, image: string | null): string {
+  if (image) {
+    return `${imageBand(image)}
+<tr><td style="padding:32px 32px 0">
+<h1 style="margin:0;font:700 26px/1.25 ${SANS};color:${PINE}">${escapeHtml(headline)}</h1>
+</td></tr>`;
+  }
   return `<tr><td bgcolor="${PINE}" style="background:${PINE};border-radius:8px 8px 0 0;padding:38px 32px 34px">
 <span style="display:inline-block;font:600 11px/1 ${MONO};letter-spacing:1.6px;text-transform:uppercase;color:${MINT}">GetAnyNumberOnline</span>
 <div style="height:14px;line-height:14px">&nbsp;</div>
@@ -254,14 +283,30 @@ function promoHero(headline: string): string {
  * Weekly hero: quieter on purpose. A digest that shouts every week stops being
  * read; the mint rule and the dated eyebrow carry the brand instead.
  */
-function weeklyHero(headline: string, dated: string): string {
+function weeklyHero(
+  headline: string,
+  dated: string,
+  image: string | null,
+): string {
+  const eyebrow =
+    `<span style="display:inline-block;font:600 11px/1 ${MONO};letter-spacing:1.6px;text-transform:uppercase;color:${LINK}">Weekly update &middot; ${
+      escapeHtml(dated)
+    }</span>`;
+
+  if (image) {
+    return `${imageBand(image)}
+<tr><td style="padding:28px 32px 0">
+${eyebrow}
+<div style="height:12px;line-height:12px">&nbsp;</div>
+<h1 style="margin:0;font:700 23px/1.3 ${SANS};color:${PINE}">${escapeHtml(headline)}</h1>
+</td></tr>`;
+  }
+
   return `<tr><td style="padding:0">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
 <tr><td bgcolor="${MINT}" style="background:${MINT};height:4px;line-height:4px;font-size:0;border-radius:8px 8px 0 0">&nbsp;</td></tr>
 <tr><td bgcolor="${PAPER}" style="background:${PAPER};padding:26px 32px 24px;border-bottom:1px solid ${LINE}">
-<span style="display:inline-block;font:600 11px/1 ${MONO};letter-spacing:1.6px;text-transform:uppercase;color:${LINK}">Weekly update &middot; ${
-    escapeHtml(dated)
-  }</span>
+${eyebrow}
 <div style="height:12px;line-height:12px">&nbsp;</div>
 <h1 style="margin:0;font:700 23px/1.3 ${SANS};color:${PINE}">${escapeHtml(headline)}</h1>
 </td></tr>
@@ -288,7 +333,9 @@ function footer(unsubUrl: string, to: string): string {
   }
 </td>
 <td align="right" valign="top">
-<a href="${INSTAGRAM}" style="display:inline-block;padding:9px 14px;border:1px solid rgba(245,243,237,0.3);border-radius:999px;font:600 12px/1 ${SANS};color:${PAPER};text-decoration:none">Instagram ${IG_HANDLE}</a>
+<a href="${INSTAGRAM}" aria-label="Instagram ${IG_HANDLE}" style="text-decoration:none">
+<img src="${SITE}/images/email/instagram.png" width="24" height="24" alt="Instagram" title="Instagram ${IG_HANDLE}" style="display:inline-block;width:24px;height:24px;border:0;outline:none">
+</a>
 </td>
 </tr></table>
 <div style="height:18px;line-height:18px">&nbsp;</div>
@@ -333,11 +380,16 @@ export function renderEmail(
     timeZone: "UTC",
   });
 
+  // A banner only belongs on the layouts that draw one, and only if it is a
+  // real link — a broken image at the top of a campaign is the first thing
+  // every recipient sees.
+  const image = template === "basic" ? null : safeUrl(content.heroImage);
+
   const hero =
     template === "promo"
-      ? promoHero(headline)
+      ? promoHero(headline, image)
       : template === "weekly"
-        ? weeklyHero(headline, dated)
+        ? weeklyHero(headline, dated, image)
         : basicHeader();
 
   // The wordmark sits above the card for the hero templates, matching the
@@ -366,7 +418,7 @@ ${preheaderBlock(preheader)}
 ${brandBar}
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${CARD};border:1px solid ${LINE};border-radius:8px">
 ${hero}
-<tr><td style="padding:28px 32px 30px;font:15px/1.6 ${SANS};color:${INK}">
+<tr><td style="padding:${image ? "18px" : "28px"} 32px 30px;font:15px/1.6 ${SANS};color:${INK}">
 ${renderBody(content.body)}
 ${cta ? button(ctaLabel, cta, false) : ""}
 </td></tr>
