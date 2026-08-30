@@ -18,7 +18,7 @@
 //          simjuno_status, simjuno_refresh,
 //          list_flagged, clear_flag, get_settings, update_setting,
 //          create_campaign, queue_campaign, list_campaigns, audience_size,
-//          delete_campaign, set_marketing_opt_out
+//          delete_campaign, set_marketing_opt_out, campaign_stats
 //
 // The three list_* actions take an optional user_id, which is what the user
 // detail page is built on — same query, same paging, scoped to one account.
@@ -450,6 +450,28 @@ async function setMarketingOptOut(
   return { opt_out: data === true };
 }
 
+/** Headline numbers plus the per-recipient rows behind them, in one call. */
+async function campaignStats(
+  supabase: Supabase,
+  adminId: string,
+  body: Record<string, unknown>,
+) {
+  const id = String(body.campaign_id ?? "").trim();
+  if (!id) return { error: "campaign_id is required", status: 400 };
+
+  const { data, error } = await supabase.rpc("admin_campaign_stats", {
+    p_admin_id: adminId,
+    p_campaign_id: id,
+    p_filter: String(body.filter ?? "all"),
+    p_limit: 200,
+  });
+  if (error) return { error: error.message, status: 400 };
+
+  const out = data as { found?: boolean } | null;
+  if (!out?.found) return { error: "Campaign not found", status: 404 };
+  return { stats: out };
+}
+
 async function deleteCampaign(
   supabase: Supabase,
   adminId: string,
@@ -671,6 +693,11 @@ Deno.serve(async (req) => {
       }
       case "set_marketing_opt_out": {
         const result = await setMarketingOptOut(supabase, user.id, body);
+        if ("error" in result) return errorResponse(result.error!, result.status!);
+        return jsonResponse({ success: true, ...result });
+      }
+      case "campaign_stats": {
+        const result = await campaignStats(supabase, user.id, body);
         if ("error" in result) return errorResponse(result.error!, result.status!);
         return jsonResponse({ success: true, ...result });
       }

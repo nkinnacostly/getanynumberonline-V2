@@ -295,6 +295,8 @@ export interface AdminCampaign {
   completed_at: string | null;
   last_error: string | null;
   target_email: string | null;
+  opened_count?: number;
+  bounced_count?: number;
 }
 
 export interface AudienceSize {
@@ -318,6 +320,47 @@ export const listCampaigns = (params: ListParams = {}) =>
     limit: ADMIN_PAGE_SIZE,
     ...params,
   });
+
+export interface CampaignTotals {
+  recipients: number;
+  sent: number;
+  delivered: number;
+  opened: number;
+  clicked: number;
+  bounced: number;
+  complained: number;
+  failed: number;
+  pending: number;
+  /** Delivered but never opened — only meaningful against delivered. */
+  unopened: number;
+}
+
+export interface CampaignRecipient {
+  user_id: string;
+  email: string;
+  status: string;
+  sent_at: string | null;
+  delivered_at: string | null;
+  opened_at: string | null;
+  open_count: number;
+  clicked_at: string | null;
+  click_count: number;
+  bounced_at: string | null;
+  bounce_type: string | null;
+  bounce_detail: string | null;
+  complained_at: string | null;
+  error: string | null;
+}
+
+export interface CampaignStats {
+  found: true;
+  campaign: AdminCampaign;
+  totals: CampaignTotals;
+  rows: CampaignRecipient[];
+}
+
+export const getCampaignStats = (campaign_id: string, filter = "all") =>
+  callAdminApi<{ stats: CampaignStats }>("campaign_stats", { campaign_id, filter });
 
 export const setMarketingOptOut = (user_id: string, opt_out: boolean) =>
   callAdminApi<{ opt_out: boolean }>("set_marketing_opt_out", { user_id, opt_out });

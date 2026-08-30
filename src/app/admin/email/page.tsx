@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { StatusBadge, TableShell, Td, Th, Tr } from "@/components/admin/AdminTable";
 import CampaignComposer from "@/components/admin/CampaignComposer";
@@ -107,7 +108,17 @@ export default function AdminEmailPage() {
         {rows.map((c) => (
           <Tr key={c.id}>
             <Td>
-              <span className="block truncate max-w-[220px]">{c.subject}</span>
+              {c.status === "draft" ? (
+                <span className="block truncate max-w-[220px]">{c.subject}</span>
+              ) : (
+                <Link
+                  href={`/admin/email/${c.id}`}
+                  className="block truncate max-w-[220px] underline underline-offset-2"
+                  style={{ color: "var(--foreground)" }}
+                >
+                  {c.subject}
+                </Link>
+              )}
               {c.last_error && (
                 <span className="block text-[11px]" style={{ color: "var(--danger)" }}>
                   {c.last_error}
@@ -127,8 +138,11 @@ export default function AdminEmailPage() {
             </Td>
             <Td mono align="right">
               {c.sent_count}
+              {typeof c.opened_count === "number" && c.opened_count > 0 && (
+                <span style={{ color: "var(--accent)" }}> · {c.opened_count} opened</span>
+              )}
               {c.failed_count > 0 && (
-                <span style={{ color: "var(--danger)" }}> +{c.failed_count} failed</span>
+                <span style={{ color: "var(--danger)" }}> · {c.failed_count} failed</span>
               )}
             </Td>
             <Td hide="md" mono color="var(--muted)">
