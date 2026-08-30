@@ -317,6 +317,9 @@ export const listCampaigns = (params: ListParams = {}) =>
     ...params,
   });
 
+export const deleteCampaign = (campaign_id: string) =>
+  callAdminApi<{ deleted: boolean }>("delete_campaign", { campaign_id });
+
 export const getAudienceSize = () =>
   callAdminApi<{ audience: AudienceSize }>("audience_size");
 

@@ -60,7 +60,25 @@ export async function verifyUnsubscribe(
   return diff === 0;
 }
 
+/**
+ * The link a person clicks, on our own domain.
+ *
+ * A supabase.co URL in a marketing footer reads as phishing to both people and
+ * filters, and Supabase's function gateway rewrites Content-Type to text/plain
+ * so an HTML page served from there renders as source. The page at /unsubscribe
+ * calls the function server-side instead.
+ */
 export function unsubscribeUrl(userId: string, token: string): string {
+  const app = Deno.env.get("APP_URL") ?? "https://www.getanynumberonline.com";
+  return `${app.replace(/\/$/, "")}/unsubscribe?u=${userId}&t=${token}`;
+}
+
+/**
+ * The URL Gmail and Yahoo POST to for RFC 8058 one-click. That has to be an
+ * endpoint that accepts POST and answers 2xx with no body — a Next page route
+ * only handles GET, so the machine path stays on the Edge Function.
+ */
+export function unsubscribePostUrl(userId: string, token: string): string {
   const base = Deno.env.get("SUPABASE_URL")!;
   return `${base}/functions/v1/email-unsubscribe?u=${userId}&t=${token}`;
 }
@@ -151,7 +169,9 @@ export async function sendBatch(
   }
 
   const payload = await Promise.all(emails.map(async (e) => {
-    const url = unsubscribeUrl(e.userId, await unsubscribeToken(e.userId));
+    const token = await unsubscribeToken(e.userId);
+    const url = unsubscribeUrl(e.userId, token);
+    const postUrl = unsubscribePostUrl(e.userId, token);
     return {
       from,
       ...(replyTo ? { reply_to: replyTo } : {}),
@@ -161,7 +181,7 @@ export async function sendBatch(
       text: plainText(bodyMarkdown, url),
       // RFC 8058. Gmail and Yahoo reject bulk mail without these outright.
       headers: {
-        "List-Unsubscribe": `<${url}>`,
+        "List-Unsubscribe": `<${postUrl}>`,
         "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
       },
     };

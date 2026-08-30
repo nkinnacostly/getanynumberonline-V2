@@ -1,7 +1,15 @@
 // ============================================================
 // Edge Function: email-unsubscribe  (PUBLIC — no JWT)
-// GET  /functions/v1/email-unsubscribe?u=<user_id>&t=<token>
-// POST same URL — RFC 8058 one-click, called by Gmail/Yahoo directly
+//
+// POST ?u=<user_id>&t=<token>  → performs the opt-out, answers a bare 2xx.
+//   Two callers: Gmail/Yahoo's RFC 8058 one-click, and the /unsubscribe page
+//   on the app domain, which calls this server-side.
+//
+// GET  ?u=…&t=…               → 302 to that page.
+//   This function cannot render the confirmation itself: Supabase's gateway
+//   rewrites Content-Type to text/plain, so an HTML body arrives as source.
+//   Verified against the deployed function — a custom header passed through
+//   untouched while content-type did not.
 //
 // Authenticated by an HMAC over the user id, not a session: the person
 // clicking is in their mail client, and requiring a login to unsubscribe is
@@ -19,39 +27,30 @@ const cors = {
   "Access-Control-Allow-Headers": "content-type",
 };
 
-function page(title: string, message: string, ok: boolean): Response {
-  return new Response(
-    `<!doctype html><html><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>${title}</title></head>
-<body style="margin:0;background:#F5F3ED;font:15px/1.6 -apple-system,Segoe UI,Helvetica,Arial,sans-serif">
-<div style="max-width:440px;margin:12vh auto;padding:32px;background:#fff;border:1px solid #E4E0D6;border-radius:8px;text-align:center">
-<div style="font:700 18px/1 inherit;color:#0C2E22;margin-bottom:20px">getanynumberonline</div>
-<h1 style="font-size:18px;margin:0 0 10px;color:${ok ? "#0F8A57" : "#B4231F"}">${title}</h1>
-<p style="margin:0;color:#4A4A4A">${message}</p>
-</div></body></html>`,
-    { status: ok ? 200 : 400, headers: { ...cors, "Content-Type": "text/html; charset=utf-8" } },
-  );
+function appUrl(): string {
+  return (Deno.env.get("APP_URL") ?? "https://www.getanynumberonline.com")
+    .replace(/\/$/, "");
 }
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
 
-  try {
-    const url = new URL(req.url);
-    const userId = url.searchParams.get("u") ?? "";
-    const token = url.searchParams.get("t") ?? "";
+  const url = new URL(req.url);
+  const userId = url.searchParams.get("u") ?? "";
+  const token = url.searchParams.get("t") ?? "";
 
+  // A human followed the link. Send them to the page that can actually render.
+  if (req.method === "GET") {
+    const q = `?u=${encodeURIComponent(userId)}&t=${encodeURIComponent(token)}`;
+    return new Response(null, {
+      status: 302,
+      headers: { ...cors, Location: `${appUrl()}/unsubscribe${q}` },
+    });
+  }
+
+  try {
     if (!userId || !token || !(await verifyUnsubscribe(userId, token))) {
-      // One-click callers get a status code, humans get a page.
-      if (req.method === "POST") {
-        return new Response("invalid", { status: 400, headers: cors });
-      }
-      return page(
-        "Link not valid",
-        "This unsubscribe link is incomplete or has been altered. Reply to any of our emails and we will remove you.",
-        false,
-      );
+      return new Response("invalid", { status: 400, headers: cors });
     }
 
     const supabase = createClient(
@@ -64,23 +63,13 @@ Deno.serve(async (req) => {
 
     if (error) {
       console.error("ALERT unsubscribe failed for", userId, error);
-      if (req.method === "POST") {
-        return new Response("error", { status: 500, headers: cors });
-      }
-      return page("Something went wrong", "Please try again in a moment.", false);
+      return new Response("error", { status: 500, headers: cors });
     }
 
-    // Gmail/Yahoo expect a plain 2xx from the one-click POST, not HTML.
-    if (req.method === "POST") {
-      return new Response("ok", { status: 200, headers: cors });
-    }
-    return page(
-      "You're unsubscribed",
-      "You won't receive marketing email from us again. Account and security emails — password resets and order updates — will still be sent.",
-      true,
-    );
+    // Mailbox providers expect a bare 2xx from one-click, not a document.
+    return new Response("ok", { status: 200, headers: cors });
   } catch (err) {
     console.error("email-unsubscribe unhandled error:", err);
-    return page("Something went wrong", "Please try again in a moment.", false);
+    return new Response("error", { status: 500, headers: cors });
   }
 });

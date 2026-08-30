@@ -17,7 +17,8 @@
 //          list_transactions, adjust_balance, set_ban, smspool_balance,
 //          simjuno_status, simjuno_refresh,
 //          list_flagged, clear_flag, get_settings, update_setting,
-//          create_campaign, queue_campaign, list_campaigns, audience_size
+//          create_campaign, queue_campaign, list_campaigns, audience_size,
+//          delete_campaign
 //
 // The three list_* actions take an optional user_id, which is what the user
 // detail page is built on — same query, same paging, scoped to one account.
@@ -427,6 +428,22 @@ async function listCampaigns(
   return { rows: out?.rows ?? [], total: out?.total ?? 0, limit };
 }
 
+async function deleteCampaign(
+  supabase: Supabase,
+  adminId: string,
+  body: Record<string, unknown>,
+) {
+  const id = String(body.campaign_id ?? "").trim();
+  if (!id) return { error: "campaign_id is required", status: 400 };
+
+  const { error } = await supabase.rpc("admin_delete_campaign", {
+    p_admin_id: adminId,
+    p_campaign_id: id,
+  });
+  if (error) return { error: error.message, status: 400 };
+  return { deleted: true };
+}
+
 async function audienceSize(supabase: Supabase, adminId: string) {
   const { data, error } = await supabase.rpc("admin_audience_size", {
     p_admin_id: adminId,
@@ -627,6 +644,11 @@ Deno.serve(async (req) => {
       }
       case "list_campaigns": {
         const result = await listCampaigns(supabase, user.id, body);
+        if ("error" in result) return errorResponse(result.error!, result.status!);
+        return jsonResponse({ success: true, ...result });
+      }
+      case "delete_campaign": {
+        const result = await deleteCampaign(supabase, user.id, body);
         if ("error" in result) return errorResponse(result.error!, result.status!);
         return jsonResponse({ success: true, ...result });
       }

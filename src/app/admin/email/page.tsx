@@ -10,6 +10,7 @@ import {
   type AdminCampaign,
   type AudienceSize,
   dateTime,
+  deleteCampaign,
   getAudienceSize,
   listCampaigns,
 } from "@/lib/admin-api";
@@ -43,6 +44,17 @@ export default function AdminEmailPage() {
     load();
   }, [load]);
 
+  const handleDelete = async (c: AdminCampaign) => {
+    if (!confirm(`Delete the draft "${c.subject}"?`)) return;
+    try {
+      await deleteCampaign(c.id);
+      toast("Draft deleted", "success");
+      load();
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "Could not delete", "error");
+    }
+  };
+
   return (
     <div>
       <h1 className="text-2xl font-bold mb-2" style={{ color: "var(--foreground)" }}>
@@ -65,15 +77,22 @@ export default function AdminEmailPage() {
         <CampaignComposer onSent={load} />
       </div>
 
-      <h2 className="text-sm font-semibold mb-4" style={{ color: "var(--muted)" }}>
-        Past campaigns
+      <h2 className="text-sm font-semibold mb-1" style={{ color: "var(--muted)" }}>
+        Campaigns
       </h2>
+      {/* The single most confusing state here is a row sitting at "draft" after
+          a successful test, so the table says why rather than leaving it to be
+          worked out. */}
+      <p className="text-[12px] mb-4" style={{ color: "var(--muted)" }}>
+        A draft is a message that was written and tested but never sent — only
+        the Send button delivers to real recipients.
+      </p>
 
       <TableShell
         loading={loading}
         empty={rows.length === 0}
         emptyLabel="Nothing sent yet"
-        colSpan={5}
+        colSpan={6}
         head={
           <>
             <Th>Subject</Th>
@@ -81,6 +100,7 @@ export default function AdminEmailPage() {
             <Th>Status</Th>
             <Th align="right">Sent</Th>
             <Th hide="md">When</Th>
+            <Th align="right">{""}</Th>
           </>
         }
       >
@@ -97,7 +117,14 @@ export default function AdminEmailPage() {
             <Td hide="sm" mono color="var(--muted)">
               {c.audience === "all" ? "all subscribers" : (c.target_email ?? "—")}
             </Td>
-            <Td><StatusBadge status={c.status} /></Td>
+            <Td>
+              <StatusBadge status={c.status} />
+              {c.status === "draft" && c.test_sent_at && (
+                <span className="block text-[10px] mt-1" style={{ color: "var(--muted)" }}>
+                  tested, not sent
+                </span>
+              )}
+            </Td>
             <Td mono align="right">
               {c.sent_count}
               {c.failed_count > 0 && (
@@ -106,6 +133,17 @@ export default function AdminEmailPage() {
             </Td>
             <Td hide="md" mono color="var(--muted)">
               {dateTime(c.completed_at ?? c.created_at)}
+            </Td>
+            <Td align="right">
+              {c.status === "draft" && (
+                <button
+                  onClick={() => handleDelete(c)}
+                  className="px-2 py-1.5 rounded-[4px] text-[11px] font-medium"
+                  style={{ border: "1px solid var(--line-strong)", color: "var(--muted)" }}
+                >
+                  Delete
+                </button>
+              )}
             </Td>
           </Tr>
         ))}
