@@ -26,6 +26,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { queryBalance as querySimJunoBalance } from "../_shared/simjuno.ts";
+import { type EmailContent, renderEmail } from "../_shared/email.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -391,9 +392,53 @@ async function createCampaign(
     p_body: String(body.body ?? ""),
     p_audience: audience,
     p_target_user_id: targetUserId,
+    p_template: String(body.template ?? "basic"),
+    p_preheader: optionalText(body.preheader),
+    p_headline: optionalText(body.headline),
+    p_cta_label: optionalText(body.cta_label),
+    p_cta_url: optionalText(body.cta_url),
   });
   if (error) return { error: error.message, status: 400 };
   return { campaign_id: data };
+}
+
+/** Empty strings from an untouched input are absence, not a value. */
+function optionalText(v: unknown): string | null {
+  const s = typeof v === "string" ? v.trim() : "";
+  return s === "" ? null : s;
+}
+
+/**
+ * Render a campaign exactly as it would be sent, without sending it.
+ *
+ * Deliberately server-side through the same renderEmail the send path uses:
+ * a preview built from a second copy of the markup in the React app would
+ * drift, and the whole point of a preview is that it cannot.
+ */
+function previewCampaign(adminEmail: string | null, body: Record<string, unknown>) {
+  const subject = String(body.subject ?? "").trim();
+  const text = String(body.body ?? "");
+  if (!subject && !text.trim()) {
+    return { error: "Nothing to preview", status: 400 };
+  }
+
+  const content: EmailContent = {
+    subject: subject || "(no subject)",
+    body: text.trim() || "Your message will appear here.",
+    template: (String(body.template ?? "basic") as EmailContent["template"]),
+    preheader: optionalText(body.preheader),
+    headline: optionalText(body.headline),
+    ctaLabel: optionalText(body.cta_label),
+    ctaUrl: optionalText(body.cta_url),
+  };
+
+  // A dead link, not a signed one: a preview must never mint a token that
+  // could unsubscribe someone by being clicked in the admin panel.
+  const html = renderEmail(content, {
+    unsubUrl: "#preview",
+    to: adminEmail ?? "you@example.com",
+  });
+  return { html };
 }
 
 async function queueCampaign(
@@ -616,7 +661,7 @@ Deno.serve(async (req) => {
     // ── Admin gate ───────────────────────────────────────────
     const { data: profile } = await supabase
       .from("profiles")
-      .select("is_admin, is_banned")
+      .select("is_admin, is_banned, email")
       .eq("id", user.id)
       .maybeSingle();
 
@@ -678,6 +723,11 @@ Deno.serve(async (req) => {
       }
       case "create_campaign": {
         const result = await createCampaign(supabase, user.id, body);
+        if ("error" in result) return errorResponse(result.error!, result.status!);
+        return jsonResponse({ success: true, ...result });
+      }
+      case "preview_campaign": {
+        const result = previewCampaign(profile.email as string | null, body);
         if ("error" in result) return errorResponse(result.error!, result.status!);
         return jsonResponse({ success: true, ...result });
       }

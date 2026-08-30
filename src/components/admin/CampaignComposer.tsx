@@ -1,13 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AdminCard } from "@/components/admin/AdminTable";
+import EmailPreview from "@/components/admin/EmailPreview";
+import UserPicker from "@/components/admin/UserPicker";
 import { useToast } from "@/components/dashboard/Toast";
 import {
   type AdminUser,
+  type CampaignDraft,
+  type EmailTemplate,
+  TEMPLATES,
   createCampaign,
   getAudienceSize,
-  listUsers,
   queueCampaign,
   sendCampaign,
 } from "@/lib/admin-api";
@@ -33,7 +37,12 @@ export default function CampaignComposer({
 }) {
   const { toast } = useToast();
 
+  const [template, setTemplate] = useState<EmailTemplate>("promo");
   const [subject, setSubject] = useState("");
+  const [preheader, setPreheader] = useState("");
+  const [headline, setHeadline] = useState("");
+  const [ctaLabel, setCtaLabel] = useState("");
+  const [ctaUrl, setCtaUrl] = useState("");
   const [body, setBody] = useState("");
   const [audience, setAudience] = useState<"all" | "user">(
     lockedUser ? "user" : "all",
@@ -62,18 +71,33 @@ export default function CampaignComposer({
     setProgress(null);
   };
 
+  const meta = TEMPLATES.find((t) => t.id === template)!;
   const targetId = lockedUser?.id ?? picked?.id;
   const ready =
     subject.trim().length > 0 &&
     body.trim().length > 0 &&
     (audience === "all" || !!targetId);
 
+  const draft: CampaignDraft = useMemo(
+    () => ({
+      subject,
+      body,
+      template,
+      preheader,
+      // A hero heading only exists on the layouts that draw one.
+      ...(meta.hero
+        ? { headline, cta_label: ctaLabel, cta_url: ctaUrl }
+        : {}),
+    }),
+    [subject, body, template, preheader, meta.hero, headline, ctaLabel, ctaUrl],
+  );
+
   /** Creates the draft on first use, then reuses it until the text changes. */
   const ensureCampaign = async (): Promise<string> => {
     if (campaignId) return campaignId;
     const res = await createCampaign({
+      ...draft,
       subject: subject.trim(),
-      body,
       audience,
       ...(audience === "user" && targetId ? { user_id: targetId } : {}),
     });
@@ -125,6 +149,10 @@ export default function CampaignComposer({
       toast(`Sent to ${sent} recipient${sent === 1 ? "" : "s"}`, "success");
       setSubject("");
       setBody("");
+      setHeadline("");
+      setPreheader("");
+      setCtaLabel("");
+      setCtaUrl("");
       invalidate();
       onSent?.();
     } catch (e) {
@@ -141,207 +169,251 @@ export default function CampaignComposer({
     color: "var(--foreground)",
   };
 
+  /** Every input invalidates the test, so they all share one change handler. */
+  const edit =
+    (set: (v: string) => void) =>
+    (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+      set(e.target.value);
+      invalidate();
+    };
+
   return (
     <AdminCard>
-      <div className="p-4 flex flex-col gap-4">
-        {!lockedUser && (
-          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-            <div className="flex gap-2">
-              {(["all", "user"] as const).map((a) => (
+      <div className="grid lg:grid-cols-2 gap-6 p-4">
+        <div className="flex flex-col gap-4">
+          {!lockedUser && (
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+              <div className="flex gap-2">
+                {(["all", "user"] as const).map((a) => (
+                  <button
+                    key={a}
+                    onClick={() => {
+                      setAudience(a);
+                      invalidate();
+                    }}
+                    className="px-4 h-[38px] rounded-[6px] text-[13px] font-medium"
+                    style={{
+                      backgroundColor:
+                        audience === a ? "var(--accent)" : "var(--field)",
+                      color:
+                        audience === a ? "var(--accent-ink)" : "var(--muted)",
+                      border: `1px solid ${
+                        audience === a ? "var(--accent)" : "var(--line-strong)"
+                      }`,
+                    }}
+                  >
+                    {a === "all" ? "All subscribers" : "One user"}
+                  </button>
+                ))}
+              </div>
+              {audience === "all" && (
+                <span
+                  className="font-mono text-[12px]"
+                  style={{ color: "var(--muted)" }}
+                >
+                  {eligible === null ? "…" : `${eligible} eligible`}
+                </span>
+              )}
+            </div>
+          )}
+
+          {!lockedUser && audience === "user" && (
+            <UserPicker
+              picked={picked}
+              onPick={(u) => {
+                setPicked(u);
+                invalidate();
+              }}
+            />
+          )}
+
+          {lockedUser && (
+            <p className="font-mono text-[12px]" style={{ color: "var(--muted)" }}>
+              To: {lockedUser.email ?? lockedUser.id}
+            </p>
+          )}
+
+          {/* Template */}
+          <div>
+            <Label>Template</Label>
+            <div className="flex flex-wrap gap-2">
+              {TEMPLATES.map((t) => (
                 <button
-                  key={a}
+                  key={t.id}
                   onClick={() => {
-                    setAudience(a);
+                    setTemplate(t.id);
                     invalidate();
                   }}
-                  className="px-4 h-[38px] rounded-[6px] text-[13px] font-medium"
+                  className="px-3 h-[38px] rounded-[6px] text-[13px] font-medium"
                   style={{
                     backgroundColor:
-                      audience === a ? "var(--accent)" : "var(--field)",
+                      template === t.id ? "var(--accent)" : "var(--field)",
                     color:
-                      audience === a ? "var(--accent-ink)" : "var(--muted)",
+                      template === t.id ? "var(--accent-ink)" : "var(--muted)",
                     border: `1px solid ${
-                      audience === a ? "var(--accent)" : "var(--line-strong)"
+                      template === t.id ? "var(--accent)" : "var(--line-strong)"
                     }`,
                   }}
                 >
-                  {a === "all" ? "All subscribers" : "One user"}
+                  {t.label}
                 </button>
               ))}
             </div>
-            {audience === "all" && (
-              <span
-                className="font-mono text-[12px]"
-                style={{ color: "var(--muted)" }}
-              >
-                {eligible === null ? "…" : `${eligible} eligible`}
+            <Hint>{meta.hint}</Hint>
+          </div>
+
+          <div>
+            <Label>Subject</Label>
+            <input
+              value={subject}
+              onChange={edit(setSubject)}
+              placeholder="What lands in the inbox list"
+              aria-label="Subject"
+              className="w-full h-[44px] px-3 text-[14px] rounded-[6px] outline-none"
+              style={field}
+            />
+          </div>
+
+          <div>
+            <Label>Preview line</Label>
+            <input
+              value={preheader}
+              onChange={edit(setPreheader)}
+              placeholder="Shown after the subject in the inbox (optional)"
+              aria-label="Preview line"
+              className="w-full h-[44px] px-3 text-[14px] rounded-[6px] outline-none"
+              style={field}
+            />
+            <Hint>
+              Left blank, the first line of your message is used.
+            </Hint>
+          </div>
+
+          {meta.hero && (
+            <>
+              <div>
+                <Label>Headline</Label>
+                <input
+                  value={headline}
+                  onChange={edit(setHeadline)}
+                  placeholder="The big heading in the banner (optional)"
+                  aria-label="Headline"
+                  className="w-full h-[44px] px-3 text-[14px] rounded-[6px] outline-none"
+                  style={field}
+                />
+                <Hint>Left blank, the subject is used.</Hint>
+              </div>
+
+              <div>
+                <Label>Button</Label>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <input
+                    value={ctaLabel}
+                    onChange={edit(setCtaLabel)}
+                    placeholder="Button text"
+                    aria-label="Button text"
+                    className="sm:w-[40%] h-[44px] px-3 text-[14px] rounded-[6px] outline-none"
+                    style={field}
+                  />
+                  <input
+                    value={ctaUrl}
+                    onChange={edit(setCtaUrl)}
+                    placeholder="https://www.getanynumberonline.com/dashboard"
+                    aria-label="Button link"
+                    inputMode="url"
+                    className="flex-1 h-[44px] px-3 text-[14px] rounded-[6px] outline-none font-mono"
+                    style={field}
+                  />
+                </div>
+                <Hint>
+                  Optional. A button is only drawn when there is a link for it
+                  to point at.
+                </Hint>
+              </div>
+            </>
+          )}
+
+          <div>
+            <Label>Message</Label>
+            <textarea
+              value={body}
+              onChange={edit(setBody)}
+              rows={12}
+              placeholder={
+                template === "weekly"
+                  ? "## This week\n\n- One thing that shipped\n- Another thing\n\n---\n\n## Coming up\n\nA short paragraph."
+                  : "Write your message.\n\nBlank lines start a new paragraph. **bold** and [links](https://example.com) work."
+              }
+              aria-label="Message"
+              className="w-full p-3 text-[14px] rounded-[6px] outline-none resize-y"
+              style={field}
+            />
+            <Hint>
+              Plain text with <b>##</b> headings, <b>-</b> bullets, <b>---</b>{" "}
+              dividers, **bold** and [links](url). The unsubscribe footer is
+              added automatically — it is required, so it cannot be removed.
+            </Hint>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={handleTest}
+              disabled={!ready || busy !== null}
+              className="h-[44px] px-5 rounded-[6px] text-[14px] font-medium disabled:opacity-30"
+              style={{
+                border: "1px solid var(--line-strong)",
+                color: "var(--foreground)",
+              }}
+            >
+              {busy === "test" ? "Sending…" : "Send test to me"}
+            </button>
+
+            <button
+              onClick={handleSend}
+              disabled={!ready || !tested || busy !== null}
+              title={!tested ? "Send yourself a test first" : undefined}
+              className="h-[44px] px-5 rounded-[6px] text-[14px] font-bold disabled:opacity-30"
+              style={{
+                backgroundColor: "var(--accent)",
+                color: "var(--accent-ink)",
+              }}
+            >
+              {busy === "send"
+                ? (progress ?? "Sending…")
+                : audience === "all"
+                  ? `Send to ${eligible ?? "…"} people`
+                  : "Send"}
+            </button>
+
+            {tested && busy === null && (
+              <span className="text-[12px]" style={{ color: "var(--accent)" }}>
+                Test delivered — check it before sending.
               </span>
             )}
           </div>
-        )}
-
-        {!lockedUser && audience === "user" && (
-          <UserPicker
-            picked={picked}
-            onPick={(u) => {
-              setPicked(u);
-              invalidate();
-            }}
-          />
-        )}
-
-        {lockedUser && (
-          <p className="font-mono text-[12px]" style={{ color: "var(--muted)" }}>
-            To: {lockedUser.email ?? lockedUser.id}
-          </p>
-        )}
-
-        <input
-          value={subject}
-          onChange={(e) => {
-            setSubject(e.target.value);
-            invalidate();
-          }}
-          placeholder="Subject"
-          aria-label="Subject"
-          className="h-[44px] px-3 text-[14px] rounded-[6px] outline-none"
-          style={field}
-        />
-
-        <div>
-          <textarea
-            value={body}
-            onChange={(e) => {
-              setBody(e.target.value);
-              invalidate();
-            }}
-            rows={10}
-            placeholder={"Write your message.\n\nBlank lines start a new paragraph. **bold** and [links](https://example.com) work."}
-            aria-label="Message"
-            className="w-full p-3 text-[14px] rounded-[6px] outline-none resize-y"
-            style={field}
-          />
-          <p className="text-[11px] mt-1" style={{ color: "var(--muted)" }}>
-            Plain text with **bold** and [links](url). An unsubscribe footer is
-            added automatically — it is required, so it cannot be removed.
-          </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            onClick={handleTest}
-            disabled={!ready || busy !== null}
-            className="h-[44px] px-5 rounded-[6px] text-[14px] font-medium disabled:opacity-30"
-            style={{ border: "1px solid var(--line-strong)", color: "var(--foreground)" }}
-          >
-            {busy === "test" ? "Sending…" : "Send test to me"}
-          </button>
-
-          <button
-            onClick={handleSend}
-            disabled={!ready || !tested || busy !== null}
-            title={!tested ? "Send yourself a test first" : undefined}
-            className="h-[44px] px-5 rounded-[6px] text-[14px] font-bold disabled:opacity-30"
-            style={{ backgroundColor: "var(--accent)", color: "var(--accent-ink)" }}
-          >
-            {busy === "send"
-              ? (progress ?? "Sending…")
-              : audience === "all"
-                ? `Send to ${eligible ?? "…"} people`
-                : "Send"}
-          </button>
-
-          {tested && busy === null && (
-            <span className="text-[12px]" style={{ color: "var(--accent)" }}>
-              Test delivered — check it before sending.
-            </span>
-          )}
-        </div>
+        <EmailPreview draft={draft} />
       </div>
     </AdminCard>
   );
 }
 
-/** Email search that resolves to a real profile — never a free-typed address. */
-function UserPicker({
-  picked,
-  onPick,
-}: {
-  picked: AdminUser | null;
-  onPick: (u: AdminUser | null) => void;
-}) {
-  const [term, setTerm] = useState("");
-  const [hits, setHits] = useState<AdminUser[]>([]);
-  const [searching, setSearching] = useState(false);
-
-  const search = async () => {
-    if (!term.trim()) return;
-    setSearching(true);
-    try {
-      const res = await listUsers({ search: term.trim(), limit: 5 });
-      setHits(res.rows ?? []);
-    } finally {
-      setSearching(false);
-    }
-  };
-
-  if (picked) {
-    return (
-      <div className="flex items-center gap-2">
-        <span className="font-mono text-[13px]" style={{ color: "var(--foreground)" }}>
-          {picked.email}
-        </span>
-        <button
-          onClick={() => onPick(null)}
-          className="text-[12px] underline"
-          style={{ color: "var(--muted)" }}
-        >
-          change
-        </button>
-      </div>
-    );
-  }
-
+function Label({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex gap-2">
-        <input
-          value={term}
-          onChange={(e) => setTerm(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              search();
-            }
-          }}
-          placeholder="Search by email…"
-          aria-label="Search for a user"
-          className="flex-1 h-[44px] px-3 text-[14px] rounded-[6px] outline-none"
-          style={{
-            backgroundColor: "var(--field)",
-            border: "1px solid var(--line-strong)",
-            color: "var(--foreground)",
-          }}
-        />
-        <button
-          onClick={search}
-          disabled={searching}
-          className="h-[44px] px-4 rounded-[6px] text-[13px] font-medium"
-          style={{ border: "1px solid var(--line-strong)", color: "var(--foreground)" }}
-        >
-          {searching ? "…" : "Find"}
-        </button>
-      </div>
-      {hits.map((u) => (
-        <button
-          key={u.id}
-          onClick={() => onPick(u)}
-          className="text-left px-3 py-2 rounded-[6px] font-mono text-[13px]"
-          style={{ backgroundColor: "var(--field)", color: "var(--foreground)" }}
-        >
-          {u.email}
-        </button>
-      ))}
-    </div>
+    <p
+      className="text-[10px] uppercase tracking-wider mb-1.5"
+      style={{ color: "var(--muted)" }}
+    >
+      {children}
+    </p>
+  );
+}
+
+function Hint({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="text-[11px] mt-1" style={{ color: "var(--muted)" }}>
+      {children}
+    </p>
   );
 }

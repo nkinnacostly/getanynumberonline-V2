@@ -13,7 +13,7 @@
 // ============================================================
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { MAX_BATCH, sendBatch } from "../_shared/email.ts";
+import { type EmailContent, MAX_BATCH, sendBatch } from "../_shared/email.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -64,10 +64,23 @@ Deno.serve(async (req) => {
 
     const { data: campaign } = await supabase
       .from("email_campaigns")
-      .select("id, subject, body_markdown, status")
+      .select(
+        "id, subject, body_markdown, status, template, preheader, headline, cta_label, cta_url",
+      )
       .eq("id", campaignId)
       .maybeSingle();
     if (!campaign) return errorResponse("Campaign not found", 404);
+
+    // Assembled once, so the test and the real send cannot diverge.
+    const content: EmailContent = {
+      subject: campaign.subject as string,
+      body: campaign.body_markdown as string,
+      template: (campaign.template as EmailContent["template"]) ?? "basic",
+      preheader: campaign.preheader as string | null,
+      headline: campaign.headline as string | null,
+      ctaLabel: campaign.cta_label as string | null,
+      ctaUrl: campaign.cta_url as string | null,
+    };
 
     // ── Test send ────────────────────────────────────────────
     if (body.test === true) {
@@ -75,8 +88,7 @@ Deno.serve(async (req) => {
 
       const [result] = await sendBatch(
         [{ deliveryId: campaign.id as string, userId: user.id, to: me.email as string }],
-        `[TEST] ${campaign.subject}`,
-        campaign.body_markdown as string,
+        { ...content, subject: `[TEST] ${content.subject}` },
       );
       if (result.status === "failed") {
         return errorResponse(result.error ?? "Test send failed", 502);
@@ -112,8 +124,7 @@ Deno.serve(async (req) => {
 
       const results = await sendBatch(
         rows.map((r) => ({ deliveryId: r.id, userId: r.user_id, to: r.email })),
-        campaign.subject as string,
-        campaign.body_markdown as string,
+        content,
       );
 
       const { error: recErr } = await supabase.rpc("record_email_results", {

@@ -127,6 +127,9 @@ export default function AdminEmailPage() {
             </Td>
             <Td hide="sm" mono color="var(--muted)">
               {c.audience === "all" ? "all subscribers" : (c.target_email ?? "—")}
+              {c.template && c.template !== "basic" && (
+                <span className="block text-[10px]">{c.template}</span>
+              )}
             </Td>
             <Td>
               <StatusBadge status={c.status} />

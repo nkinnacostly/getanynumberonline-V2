@@ -282,9 +282,40 @@ export const formatSetting = (key: string, value: number) => {
 
 // ── Email campaigns ─────────────────────────────────────────
 
+/** The three layouts a campaign can be rendered into. */
+export type EmailTemplate = "basic" | "promo" | "weekly";
+
+export const TEMPLATES: {
+  id: EmailTemplate;
+  label: string;
+  hint: string;
+  /** Whether the layout has a hero heading and a call-to-action button. */
+  hero: boolean;
+}[] = [
+  {
+    id: "promo",
+    label: "Promotional",
+    hint: "Dark hero band, big headline, one call-to-action button.",
+    hero: true,
+  },
+  {
+    id: "weekly",
+    label: "Weekly",
+    hint: "Dated eyebrow, quieter heading. Built for ## sections and - bullets.",
+    hero: true,
+  },
+  {
+    id: "basic",
+    label: "Plain",
+    hint: "No hero. A short note in the brand shell.",
+    hero: false,
+  },
+];
+
 export interface AdminCampaign {
   id: string;
   subject: string;
+  template?: EmailTemplate;
   audience: "all" | "user";
   status: "draft" | "queued" | "sending" | "sent" | "failed";
   recipient_count: number;
@@ -305,12 +336,29 @@ export interface AudienceSize {
   banned: number;
 }
 
-export const createCampaign = (params: {
+/** Everything the composer holds. Shared by create and preview. */
+export interface CampaignDraft {
   subject: string;
   body: string;
-  audience: "all" | "user";
-  user_id?: string;
-}) => callAdminApi<{ campaign_id: string }>("create_campaign", params);
+  template: EmailTemplate;
+  preheader?: string;
+  headline?: string;
+  cta_label?: string;
+  cta_url?: string;
+}
+
+export const createCampaign = (
+  params: CampaignDraft & { audience: "all" | "user"; user_id?: string },
+) => callAdminApi<{ campaign_id: string }>("create_campaign", { ...params });
+
+/**
+ * The rendered HTML, straight from the same renderer the send path uses.
+ *
+ * Rendering server-side rather than rebuilding the markup in React is the
+ * whole point: a preview that can drift from what is sent is worse than none.
+ */
+export const previewCampaign = (params: CampaignDraft) =>
+  callAdminApi<{ html: string }>("preview_campaign", { ...params });
 
 export const queueCampaign = (campaign_id: string) =>
   callAdminApi<{ recipient_count: number }>("queue_campaign", { campaign_id });

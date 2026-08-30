@@ -1,9 +1,14 @@
 // ============================================================
 // Shared email plumbing: Resend transport, unsubscribe signing,
-// and the HTML wrapper every campaign is rendered into.
+// and the templates every campaign is rendered into.
 //
 // The API key lives in Supabase Edge secrets only (CLAUDE.md §6) — this module
 // is the single place it is read, and it is never returned to a caller.
+//
+// This file is ALSO the renderer behind the admin preview (admin-api's
+// preview_campaign action). There is deliberately no second copy of the markup
+// in the React app: a preview that is not byte-identical to the sent mail is
+// worse than no preview at all.
 // ============================================================
 
 const RESEND_ENDPOINT = "https://api.resend.com/emails/batch";
@@ -83,6 +88,46 @@ export function unsubscribePostUrl(userId: string, token: string): string {
   return `${base}/functions/v1/email-unsubscribe?u=${userId}&t=${token}`;
 }
 
+// ── Brand tokens, fixed ──────────────────────────────────────
+// Email does not get the app's flipping light/dark tokens: there is no
+// stylesheet, no CSS variables worth relying on, and a dark body renders
+// unpredictably across clients and trips spam heuristics. These are the fixed
+// brand colours from CLAUDE.md §13 that read correctly on a light ground.
+
+const PAPER = "#F5F3ED";
+const CARD = "#FFFFFF";
+const PINE = "#0C2E22";
+const PINE_DEEP = "#081E16";
+const MINT = "#00FF94";
+const INK = "#1A1A1A";
+const MUTED = "#767676";
+const LINE = "#E4E0D6";
+/** Mint is unreadable as text on white — links use the light-theme accent. */
+const LINK = "#0F8A57";
+
+const SANS =
+  "-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif";
+const MONO = "'SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace";
+
+const SITE = "https://www.getanynumberonline.com";
+const INSTAGRAM = "https://instagram.com/getanynumberonline";
+const IG_HANDLE = "@getanynumberonline";
+
+export type EmailTemplate = "basic" | "promo" | "weekly";
+
+/** Everything a campaign row contributes to the rendered mail. */
+export interface EmailContent {
+  subject: string;
+  body: string;
+  template: EmailTemplate;
+  /** Inbox preview line. Falls back to the first words of the body. */
+  preheader?: string | null;
+  /** Large hero heading. Falls back to the subject. */
+  headline?: string | null;
+  ctaLabel?: string | null;
+  ctaUrl?: string | null;
+}
+
 // ── Body rendering ───────────────────────────────────────────
 
 function escapeHtml(s: string): string {
@@ -91,53 +136,258 @@ function escapeHtml(s: string): string {
     .replace(/"/g, "&quot;");
 }
 
+/** Inline marks only: bold and links, on already-escaped text. */
+function inline(escaped: string): string {
+  return escaped
+    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+    .replace(
+      /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
+      `<a href="$2" style="color:${LINK};text-decoration:underline">$1</a>`,
+    )
+    .replace(/\n/g, "<br>");
+}
+
 /**
- * Deliberately a small subset — paragraphs, bold, links. An admin writing a
- * campaign should not be able to paste arbitrary HTML into 315 inboxes, so the
- * body is escaped first and only these three forms are re-introduced.
+ * Deliberately a small subset — headings, bullets, rules, paragraphs, bold and
+ * links. An admin writing a campaign should not be able to paste arbitrary HTML
+ * into 300+ inboxes, so the body is escaped first and only these forms are
+ * re-introduced.
  */
 export function renderBody(markdown: string): string {
   return markdown
     .trim()
     .split(/\n{2,}/)
-    .map((para) => {
-      const html = escapeHtml(para.trim())
-        .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
-        .replace(
-          /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,
-          '<a href="$2" style="color:#0F8A57;text-decoration:underline">$1</a>',
-        )
-        .replace(/\n/g, "<br>");
-      return `<p style="margin:0 0 16px;line-height:1.6">${html}</p>`;
+    .map((raw) => {
+      const block = raw.trim();
+      if (!block) return "";
+
+      // A horizontal rule — the section break a weekly digest needs.
+      if (/^(-{3,}|\*{3,})$/.test(block)) {
+        return `<hr style="border:0;border-top:1px solid ${LINE};margin:28px 0">`;
+      }
+
+      // A heading. Two levels is as much hierarchy as an email can carry.
+      const heading = block.match(/^(#{2,3})\s+(.*)$/s);
+      if (heading) {
+        const size = heading[1].length === 2 ? 19 : 16;
+        return `<h2 style="margin:28px 0 10px;font:700 ${size}px/1.3 ${SANS};color:${PINE}">${
+          inline(escapeHtml(heading[2].trim()))
+        }</h2>`;
+      }
+
+      // A bullet list — every line must be a bullet, so a stray dash mid
+      // paragraph stays a dash.
+      const lines = block.split("\n");
+      if (lines.every((l) => /^\s*[-*]\s+/.test(l))) {
+        const items = lines
+          .map(
+            (l) =>
+              `<li style="margin:0 0 8px">${
+                inline(escapeHtml(l.replace(/^\s*[-*]\s+/, "").trim()))
+              }</li>`,
+          )
+          .join("");
+        return `<ul style="margin:0 0 16px;padding-left:20px;line-height:1.6">${items}</ul>`;
+      }
+
+      return `<p style="margin:0 0 16px;line-height:1.6">${inline(escapeHtml(block))}</p>`;
     })
     .join("");
 }
 
-export function plainText(markdown: string, unsubUrl: string): string {
-  return `${markdown.trim()}\n\n---\nUnsubscribe: ${unsubUrl}`;
+/** Only ever emit a link we know is a link. */
+function safeUrl(url: string | null | undefined): string | null {
+  const u = (url ?? "").trim();
+  return /^https?:\/\/[^\s"'<>]+$/i.test(u) ? u : null;
 }
+
+/** First plain sentence of the body, for the inbox preview line. */
+function derivePreheader(markdown: string): string {
+  const flat = markdown
+    .replace(/^#{2,3}\s+/gm, "")
+    .replace(/\*\*/g, "")
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
+    .replace(/^\s*[-*]\s+/gm, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  return flat.length > 140 ? `${flat.slice(0, 137)}…` : flat;
+}
+
+// ── Template pieces ──────────────────────────────────────────
+
+/**
+ * Hidden inbox-preview text. The trailing whitespace run stops Gmail pulling
+ * the first line of the body in after it.
+ */
+function preheaderBlock(text: string): string {
+  return `<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;height:0;width:0">${
+    escapeHtml(text)
+  }${"&#8199;&#65279;".repeat(60)}</div>`;
+}
+
+/** Table-based button: padding gives the 44px target without min-height. */
+function button(label: string, url: string, onDark: boolean): string {
+  return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:4px 0 8px"><tr>
+<td align="center" bgcolor="${MINT}" style="border-radius:6px">
+<a href="${url}" style="display:inline-block;padding:15px 30px;font:700 15px/1 ${SANS};color:${PINE_DEEP};text-decoration:none;border-radius:6px">${
+    escapeHtml(label)
+  }</a>
+</td></tr></table>${onDark ? "" : ""}`;
+}
+
+/**
+ * Promotional hero: a pine band filling the top of the card, the closest
+ * email-safe equivalent of a full-bleed image without shipping an image that
+ * half of all clients block by default.
+ */
+function promoHero(headline: string): string {
+  return `<tr><td bgcolor="${PINE}" style="background:${PINE};border-radius:8px 8px 0 0;padding:38px 32px 34px">
+<span style="display:inline-block;font:600 11px/1 ${MONO};letter-spacing:1.6px;text-transform:uppercase;color:${MINT}">GetAnyNumberOnline</span>
+<div style="height:14px;line-height:14px">&nbsp;</div>
+<h1 style="margin:0;font:700 27px/1.25 ${SANS};color:${PAPER}">${escapeHtml(headline)}</h1>
+<div style="height:20px;line-height:20px">&nbsp;</div>
+<div style="width:56px;height:3px;background:${MINT};line-height:3px;font-size:0">&nbsp;</div>
+</td></tr>`;
+}
+
+/**
+ * Weekly hero: quieter on purpose. A digest that shouts every week stops being
+ * read; the mint rule and the dated eyebrow carry the brand instead.
+ */
+function weeklyHero(headline: string, dated: string): string {
+  return `<tr><td style="padding:0">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr><td bgcolor="${MINT}" style="background:${MINT};height:4px;line-height:4px;font-size:0;border-radius:8px 8px 0 0">&nbsp;</td></tr>
+<tr><td bgcolor="${PAPER}" style="background:${PAPER};padding:26px 32px 24px;border-bottom:1px solid ${LINE}">
+<span style="display:inline-block;font:600 11px/1 ${MONO};letter-spacing:1.6px;text-transform:uppercase;color:${LINK}">Weekly update &middot; ${
+    escapeHtml(dated)
+  }</span>
+<div style="height:12px;line-height:12px">&nbsp;</div>
+<h1 style="margin:0;font:700 23px/1.3 ${SANS};color:${PINE}">${escapeHtml(headline)}</h1>
+</td></tr>
+</table>
+</td></tr>`;
+}
+
+/** Plain header for `basic` — the wordmark, no hero. */
+function basicHeader(): string {
+  return `<tr><td style="padding:28px 32px 4px">
+<span style="font:700 18px/1 ${SANS};color:${PINE};letter-spacing:-0.2px">getanynumberonline</span>
+</td></tr>`;
+}
+
+function footer(unsubUrl: string, to: string): string {
+  const address = Deno.env.get("EMAIL_FOOTER_ADDRESS");
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:14px">
+<tr><td bgcolor="${PINE}" style="background:${PINE};border-radius:8px;padding:24px 28px">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+<td style="font:13px/1.6 ${SANS};color:${PAPER}" valign="top">
+<strong style="font-weight:700">GetAnyNumberOnline</strong><br>
+<a href="${SITE}" style="color:rgba(245,243,237,0.72);text-decoration:none">getanynumberonline.com</a>${
+    address ? `<br><span style="color:rgba(245,243,237,0.6);font-size:12px">${escapeHtml(address)}</span>` : ""
+  }
+</td>
+<td align="right" valign="top">
+<a href="${INSTAGRAM}" style="display:inline-block;padding:9px 14px;border:1px solid rgba(245,243,237,0.3);border-radius:999px;font:600 12px/1 ${SANS};color:${PAPER};text-decoration:none">Instagram ${IG_HANDLE}</a>
+</td>
+</tr></table>
+<div style="height:18px;line-height:18px">&nbsp;</div>
+<a href="${unsubUrl}" style="font:12px/1 ${SANS};color:rgba(245,243,237,0.75);text-decoration:underline">Unsubscribe</a>
+</td></tr>
+</table>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr><td align="center" style="padding:18px 12px 4px;font:11px/1.6 ${SANS};color:${MUTED}">
+This email was sent to ${escapeHtml(to)} because you have an account at
+getanynumberonline.com.<br>
+Account and security email — password resets, order updates — is sent
+separately and is not affected by unsubscribing.
+</td></tr></table>`;
+}
+
+// ── The one renderer ─────────────────────────────────────────
 
 /**
  * Light background on purpose. The product UI is near-black, but a dark email
  * body renders unpredictably across clients and trips spam heuristics — this
  * is the one place the design system's ground is not the right answer.
  */
-export function wrapHtml(bodyHtml: string, unsubUrl: string): string {
-  return `<!doctype html><html><body style="margin:0;padding:0;background:#F5F3ED">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F5F3ED;padding:32px 12px">
+export function renderEmail(
+  content: EmailContent,
+  opts: { unsubUrl: string; to: string; now?: Date },
+): string {
+  const template: EmailTemplate =
+    content.template === "promo" || content.template === "weekly"
+      ? content.template
+      : "basic";
+
+  const headline = (content.headline ?? "").trim() || content.subject;
+  const preheader =
+    (content.preheader ?? "").trim() || derivePreheader(content.body);
+  const cta = safeUrl(content.ctaUrl);
+  const ctaLabel = (content.ctaLabel ?? "").trim() || "Open GetAnyNumberOnline";
+
+  const dated = (opts.now ?? new Date()).toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  });
+
+  const hero =
+    template === "promo"
+      ? promoHero(headline)
+      : template === "weekly"
+        ? weeklyHero(headline, dated)
+        : basicHeader();
+
+  // The wordmark sits above the card for the hero templates, matching the
+  // reference layout; `basic` carries it inside the card instead.
+  const brandBar =
+    template === "basic"
+      ? ""
+      : `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+<tr><td style="padding:0 4px 16px">
+<a href="${SITE}" style="font:700 17px/1 ${SANS};color:${PINE};text-decoration:none;letter-spacing:-0.2px">getanynumberonline</a>
+</td></tr></table>`;
+
+  return `<!doctype html><html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light">
+<meta name="supported-color-schemes" content="light">
+<title>${escapeHtml(content.subject)}</title>
+</head>
+<body style="margin:0;padding:0;background:${PAPER};-webkit-text-size-adjust:100%">
+${preheaderBlock(preheader)}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${PAPER};padding:32px 12px">
 <tr><td align="center">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border:1px solid #E4E0D6;border-radius:8px">
-<tr><td style="padding:28px 28px 8px">
-<span style="font:700 18px/1 -apple-system,Segoe UI,Helvetica,Arial,sans-serif;color:#0C2E22">getanynumberonline</span>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px">
+<tr><td>
+${brandBar}
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${CARD};border:1px solid ${LINE};border-radius:8px">
+${hero}
+<tr><td style="padding:28px 32px 30px;font:15px/1.6 ${SANS};color:${INK}">
+${renderBody(content.body)}
+${cta ? button(ctaLabel, cta, false) : ""}
 </td></tr>
-<tr><td style="padding:12px 28px 24px;font:15px/1.6 -apple-system,Segoe UI,Helvetica,Arial,sans-serif;color:#1A1A1A">
-${bodyHtml}
+</table>
+${footer(opts.unsubUrl, opts.to)}
 </td></tr>
-<tr><td style="padding:16px 28px 24px;border-top:1px solid #E4E0D6;font:12px/1.5 -apple-system,Segoe UI,Helvetica,Arial,sans-serif;color:#767676">
-You are receiving this because you have an account at getanynumberonline.com.<br>
-<a href="${unsubUrl}" style="color:#767676">Unsubscribe</a>
-</td></tr>
-</table></td></tr></table></body></html>`;
+</table>
+</td></tr></table>
+</body></html>`;
+}
+
+export function plainText(content: EmailContent, unsubUrl: string): string {
+  const headline = (content.headline ?? "").trim();
+  const cta = safeUrl(content.ctaUrl);
+  const parts = [
+    headline && headline !== content.subject ? `${headline}\n` : "",
+    content.body.trim(),
+    cta ? `\n${(content.ctaLabel ?? "Open").trim()}: ${cta}` : "",
+    `\n---\nGetAnyNumberOnline — ${SITE}\nInstagram: ${INSTAGRAM}\nUnsubscribe: ${unsubUrl}`,
+  ];
+  return parts.filter(Boolean).join("\n");
 }
 
 // ── Transport ────────────────────────────────────────────────
@@ -151,8 +401,7 @@ You are receiving this because you have an account at getanynumberonline.com.<br
  */
 export async function sendBatch(
   emails: OutgoingEmail[],
-  subject: string,
-  bodyMarkdown: string,
+  content: EmailContent,
 ): Promise<SendResult[]> {
   const apiKey = Deno.env.get("RESEND_API_KEY");
   const from = Deno.env.get("EMAIL_FROM");
@@ -176,9 +425,9 @@ export async function sendBatch(
       from,
       ...(replyTo ? { reply_to: replyTo } : {}),
       to: [e.to],
-      subject,
-      html: wrapHtml(renderBody(bodyMarkdown), url),
-      text: plainText(bodyMarkdown, url),
+      subject: content.subject,
+      html: renderEmail(content, { unsubUrl: url, to: e.to }),
+      text: plainText(content, url),
       // RFC 8058. Gmail and Yahoo reject bulk mail without these outright.
       headers: {
         "List-Unsubscribe": `<${postUrl}>`,
