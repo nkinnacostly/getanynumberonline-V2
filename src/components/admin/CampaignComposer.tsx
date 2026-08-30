@@ -460,9 +460,19 @@ export default function CampaignComposer({
                   : "Send"}
             </button>
 
-            {tested && busy === null && (
-              <span className="text-[12px]" style={{ color: "var(--accent)" }}>
-                Test delivered — check it before sending.
+            {/* Why Send is greyed out, stated rather than left to a tooltip.
+                Loading a preset and editing after a test both clear `tested`,
+                which is correct but invisible unless it is said out loud. */}
+            {busy === null && (
+              <span
+                className="text-[12px]"
+                style={{ color: tested ? "var(--accent)" : "var(--muted)" }}
+              >
+                {!ready
+                  ? "Add a subject and a message."
+                  : tested
+                    ? "Test delivered — check it before sending."
+                    : "Send unlocks once you have sent yourself a test. Editing after a test resets it."}
               </span>
             )}
           </div>
