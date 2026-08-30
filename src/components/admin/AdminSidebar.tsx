@@ -69,6 +69,16 @@ const navItems = [
     ),
   },
   {
+    label: "Email",
+    href: "/admin/email",
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="2" y="5" width="20" height="14" rx="2" />
+        <path d="m2 7 10 6 10-6" />
+      </svg>
+    ),
+  },
+  {
     label: "Flagged",
     href: "/admin/flagged",
     // Carries the review-queue count — the only nav item that needs attention

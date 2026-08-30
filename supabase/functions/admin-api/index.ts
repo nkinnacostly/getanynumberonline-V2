@@ -16,7 +16,8 @@
 // Actions: get_stats, list_users, get_user, list_orders, list_rentals,
 //          list_transactions, adjust_balance, set_ban, smspool_balance,
 //          simjuno_status, simjuno_refresh,
-//          list_flagged, clear_flag, get_settings, update_setting
+//          list_flagged, clear_flag, get_settings, update_setting,
+//          create_campaign, queue_campaign, list_campaigns, audience_size
 //
 // The three list_* actions take an optional user_id, which is what the user
 // detail page is built on — same query, same paging, scoped to one account.
@@ -360,6 +361,80 @@ async function updateSetting(
   return { key, value: Number(data) };
 }
 
+// ── Email campaigns ─────────────────────────────────────────
+// Composition and queueing live here; the actual sending is send-campaign,
+// which is a queue drain with its own timeout profile and does not belong
+// behind a request/response admin action.
+
+async function createCampaign(
+  supabase: Supabase,
+  adminId: string,
+  body: Record<string, unknown>,
+) {
+  const audience = String(body.audience ?? "").trim();
+  if (audience !== "all" && audience !== "user") {
+    return { error: "audience must be 'all' or 'user'", status: 400 };
+  }
+
+  let targetUserId: string | null = null;
+  if (audience === "user") {
+    targetUserId = userScope(body);
+    if (!targetUserId) {
+      return { error: "user_id is required for a single-user send", status: 400 };
+    }
+  }
+
+  const { data, error } = await supabase.rpc("admin_create_campaign", {
+    p_admin_id: adminId,
+    p_subject: String(body.subject ?? ""),
+    p_body: String(body.body ?? ""),
+    p_audience: audience,
+    p_target_user_id: targetUserId,
+  });
+  if (error) return { error: error.message, status: 400 };
+  return { campaign_id: data };
+}
+
+async function queueCampaign(
+  supabase: Supabase,
+  adminId: string,
+  body: Record<string, unknown>,
+) {
+  const id = String(body.campaign_id ?? "").trim();
+  if (!id) return { error: "campaign_id is required", status: 400 };
+
+  const { data, error } = await supabase.rpc("admin_queue_campaign", {
+    p_admin_id: adminId,
+    p_campaign_id: id,
+  });
+  if (error) return { error: error.message, status: 400 };
+  return { recipient_count: Number(data) };
+}
+
+async function listCampaigns(
+  supabase: Supabase,
+  adminId: string,
+  body: Record<string, unknown>,
+) {
+  const { limit, offset } = paging(body);
+  const { data, error } = await supabase.rpc("admin_list_campaigns", {
+    p_admin_id: adminId,
+    p_limit: limit,
+    p_offset: offset,
+  });
+  if (error) return { error: error.message, status: 400 };
+  const out = data as { rows?: unknown[]; total?: number } | null;
+  return { rows: out?.rows ?? [], total: out?.total ?? 0, limit };
+}
+
+async function audienceSize(supabase: Supabase, adminId: string) {
+  const { data, error } = await supabase.rpc("admin_audience_size", {
+    p_admin_id: adminId,
+  });
+  if (error) return { error: error.message, status: 400 };
+  return { audience: data };
+}
+
 /** Our own float at SMSPool — the operational "can we still sell" number. */
 async function smspoolBalance() {
   const key = Deno.env.get("SMSPOOL_API_KEY");
@@ -537,6 +612,26 @@ Deno.serve(async (req) => {
       }
       case "update_setting": {
         const result = await updateSetting(supabase, user.id, body);
+        if ("error" in result) return errorResponse(result.error!, result.status!);
+        return jsonResponse({ success: true, ...result });
+      }
+      case "create_campaign": {
+        const result = await createCampaign(supabase, user.id, body);
+        if ("error" in result) return errorResponse(result.error!, result.status!);
+        return jsonResponse({ success: true, ...result });
+      }
+      case "queue_campaign": {
+        const result = await queueCampaign(supabase, user.id, body);
+        if ("error" in result) return errorResponse(result.error!, result.status!);
+        return jsonResponse({ success: true, ...result });
+      }
+      case "list_campaigns": {
+        const result = await listCampaigns(supabase, user.id, body);
+        if ("error" in result) return errorResponse(result.error!, result.status!);
+        return jsonResponse({ success: true, ...result });
+      }
+      case "audience_size": {
+        const result = await audienceSize(supabase, user.id);
         if ("error" in result) return errorResponse(result.error!, result.status!);
         return jsonResponse({ success: true, ...result });
       }

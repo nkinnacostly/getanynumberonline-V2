@@ -278,6 +278,63 @@ export const formatSetting = (key: string, value: number) => {
   return String(value);
 };
 
+// ── Email campaigns ─────────────────────────────────────────
+
+export interface AdminCampaign {
+  id: string;
+  subject: string;
+  audience: "all" | "user";
+  status: "draft" | "queued" | "sending" | "sent" | "failed";
+  recipient_count: number;
+  sent_count: number;
+  failed_count: number;
+  test_sent_at: string | null;
+  created_at: string;
+  completed_at: string | null;
+  last_error: string | null;
+  target_email: string | null;
+}
+
+export interface AudienceSize {
+  eligible: number;
+  unsubscribed: number;
+  banned: number;
+}
+
+export const createCampaign = (params: {
+  subject: string;
+  body: string;
+  audience: "all" | "user";
+  user_id?: string;
+}) => callAdminApi<{ campaign_id: string }>("create_campaign", params);
+
+export const queueCampaign = (campaign_id: string) =>
+  callAdminApi<{ recipient_count: number }>("queue_campaign", { campaign_id });
+
+export const listCampaigns = (params: ListParams = {}) =>
+  callAdminApi<Paged<AdminCampaign>>("list_campaigns", {
+    limit: ADMIN_PAGE_SIZE,
+    ...params,
+  });
+
+export const getAudienceSize = () =>
+  callAdminApi<{ audience: AudienceSize }>("audience_size");
+
+/**
+ * Sending is its own Edge Function, not an admin-api action: it is a queue
+ * drain with a different timeout profile, and it returns `remaining` so the
+ * caller can keep going until the list is empty.
+ */
+export const sendCampaign = (campaign_id: string, test = false) =>
+  callEdgeFunction("send-campaign", { campaign_id, test }) as Promise<{
+    sent: number;
+    failed: number;
+    remaining: number;
+    done: boolean;
+    test?: boolean;
+    sent_to?: string;
+  }>;
+
 // ── Formatting helpers, shared by every admin table ─────────
 
 export const money = (n: number | null | undefined) =>

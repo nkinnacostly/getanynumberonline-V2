@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import AdjustBalanceForm from "@/components/admin/AdjustBalanceForm";
+import CampaignComposer from "@/components/admin/CampaignComposer";
 import { AdminCard } from "@/components/admin/AdminTable";
 import {
   OrdersTable,
@@ -43,6 +44,7 @@ export default function UserDetailClient({ userId }: { userId: string }) {
   const [failed, setFailed] = useState<string | null>(null);
   const [tab, setTab] = useState("orders");
   const [adjusting, setAdjusting] = useState(false);
+  const [emailing, setEmailing] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -217,6 +219,13 @@ export default function UserDetailClient({ userId }: { userId: string }) {
               {adjusting ? "Cancel" : "Adjust balance"}
             </button>
             <button
+              onClick={() => setEmailing((v) => !v)}
+              className="h-[38px] px-4 rounded-[6px] text-[13px] font-medium"
+              style={{ border: "1px solid var(--line-strong)", color: "var(--foreground)" }}
+            >
+              {emailing ? "Cancel" : "Email user"}
+            </button>
+            <button
               onClick={handleBan}
               disabled={isSelf}
               title={isSelf ? "You can't ban your own account" : undefined}
@@ -229,6 +238,18 @@ export default function UserDetailClient({ userId }: { userId: string }) {
               {user.is_banned ? "Unban user" : "Ban user"}
             </button>
           </div>
+
+          {emailing && (
+            <div className="mt-4">
+              {/* Same composer as /admin/email, with the recipient fixed.
+                  It still respects the unsubscribe flag — a user who opted out
+                  is refused at queue time rather than quietly mailed. */}
+              <CampaignComposer
+                lockedUser={{ id: user.user_id, email: user.email }}
+                onSent={() => setEmailing(false)}
+              />
+            </div>
+          )}
 
           {adjusting && (
             <div className="mt-4">
