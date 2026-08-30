@@ -116,6 +116,8 @@ export interface AdminUserDetail {
   is_admin: boolean;
   is_flagged: boolean;
   flag_reason: string | null;
+  marketing_opt_out: boolean;
+  marketing_opt_out_at: string | null;
   deposited_real: number;
   credited_by_admin: number;
   deposit_count: number;
@@ -316,6 +318,9 @@ export const listCampaigns = (params: ListParams = {}) =>
     limit: ADMIN_PAGE_SIZE,
     ...params,
   });
+
+export const setMarketingOptOut = (user_id: string, opt_out: boolean) =>
+  callAdminApi<{ opt_out: boolean }>("set_marketing_opt_out", { user_id, opt_out });
 
 export const deleteCampaign = (campaign_id: string) =>
   callAdminApi<{ deleted: boolean }>("delete_campaign", { campaign_id });

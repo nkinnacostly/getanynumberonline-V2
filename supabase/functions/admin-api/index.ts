@@ -18,7 +18,7 @@
 //          simjuno_status, simjuno_refresh,
 //          list_flagged, clear_flag, get_settings, update_setting,
 //          create_campaign, queue_campaign, list_campaigns, audience_size,
-//          delete_campaign
+//          delete_campaign, set_marketing_opt_out
 //
 // The three list_* actions take an optional user_id, which is what the user
 // detail page is built on — same query, same paging, scoped to one account.
@@ -428,6 +428,28 @@ async function listCampaigns(
   return { rows: out?.rows ?? [], total: out?.total ?? 0, limit };
 }
 
+/**
+ * Change a user's marketing subscription. The resubscribe direction reinstates
+ * consent the person withdrew, so the RPC records who did it — this is the one
+ * admin action where the audit entry is the point, not a side effect.
+ */
+async function setMarketingOptOut(
+  supabase: Supabase,
+  adminId: string,
+  body: Record<string, unknown>,
+) {
+  const userId = userScope(body);
+  if (!userId) return { error: "user_id is required", status: 400 };
+
+  const { data, error } = await supabase.rpc("admin_set_marketing_opt_out", {
+    p_admin_id: adminId,
+    p_user_id: userId,
+    p_opt_out: body.opt_out === true,
+  });
+  if (error) return { error: error.message, status: 400 };
+  return { opt_out: data === true };
+}
+
 async function deleteCampaign(
   supabase: Supabase,
   adminId: string,
@@ -644,6 +666,11 @@ Deno.serve(async (req) => {
       }
       case "list_campaigns": {
         const result = await listCampaigns(supabase, user.id, body);
+        if ("error" in result) return errorResponse(result.error!, result.status!);
+        return jsonResponse({ success: true, ...result });
+      }
+      case "set_marketing_opt_out": {
+        const result = await setMarketingOptOut(supabase, user.id, body);
         if ("error" in result) return errorResponse(result.error!, result.status!);
         return jsonResponse({ success: true, ...result });
       }

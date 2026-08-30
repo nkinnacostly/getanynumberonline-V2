@@ -27,6 +27,7 @@ import {
   listTransactions,
   money,
   setBan,
+  setMarketingOptOut,
 } from "@/lib/admin-api";
 
 const TABS = [
@@ -74,6 +75,26 @@ export default function UserDetailClient({ userId }: { userId: string }) {
       load();
     } catch (e) {
       toast(e instanceof Error ? e.message : `${verb} failed`, "error");
+    }
+  };
+
+  const handleSubscription = async () => {
+    if (!user) return;
+    const resubscribing = user.marketing_opt_out;
+    // Resubscribing reinstates consent the person withdrew, so the prompt says
+    // that plainly rather than asking "are you sure?".
+    const prompt = resubscribing
+      ? `Put ${user.email ?? "this user"} back on the marketing list? `
+        + "They unsubscribed themselves — only do this if they asked you to."
+      : `Unsubscribe ${user.email ?? "this user"} from marketing email?`;
+    if (!confirm(prompt)) return;
+
+    try {
+      await setMarketingOptOut(user.user_id, !user.marketing_opt_out);
+      toast(resubscribing ? "Resubscribed" : "Unsubscribed", "success");
+      load();
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "Could not update", "error");
     }
   };
 
@@ -159,6 +180,27 @@ export default function UserDetailClient({ userId }: { userId: string }) {
         </div>
       )}
 
+      {user.marketing_opt_out && (
+        <div
+          className="rounded-lg p-4 mb-6"
+          style={{
+            backgroundColor: "color-mix(in srgb, var(--warning) 8%, transparent)",
+            border: "1px solid color-mix(in srgb, var(--warning) 32%, transparent)",
+          }}
+        >
+          <p className="text-[13px] font-semibold" style={{ color: "var(--warning)" }}>
+            Unsubscribed from marketing
+          </p>
+          <p className="text-[12px] mt-1" style={{ color: "var(--muted)" }}>
+            {user.marketing_opt_out_at
+              ? `Opted out ${dateTime(user.marketing_opt_out_at)}. `
+              : ""}
+            Campaigns skip this account. Password resets and order updates are
+            unaffected.
+          </p>
+        </div>
+      )}
+
       {/* ── Money ──────────────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
         <Metric label="Balance" value={money(user.balance)} accent />
@@ -217,6 +259,13 @@ export default function UserDetailClient({ userId }: { userId: string }) {
               style={{ border: "1px solid var(--line-strong)", color: "var(--foreground)" }}
             >
               {adjusting ? "Cancel" : "Adjust balance"}
+            </button>
+            <button
+              onClick={handleSubscription}
+              className="h-[38px] px-4 rounded-[6px] text-[13px] font-medium"
+              style={{ border: "1px solid var(--line-strong)", color: "var(--foreground)" }}
+            >
+              {user.marketing_opt_out ? "Resubscribe" : "Unsubscribe"}
             </button>
             <button
               onClick={() => setEmailing((v) => !v)}
