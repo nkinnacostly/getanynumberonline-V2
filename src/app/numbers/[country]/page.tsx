@@ -232,7 +232,12 @@ export default async function CountryPage({
         <Faq items={faq} heading={`${country.name} number FAQ`} headingId="country-faq" />
 
         <section className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
-          <h2 className="font-sans text-lg font-bold mb-4">Numbers in other countries</h2>
+          <div className="flex items-baseline justify-between gap-4 mb-4">
+            <h2 className="font-sans text-lg font-bold">Numbers in other countries</h2>
+            <Link href="/numbers" className="font-mono text-xs text-muted hover:text-accent whitespace-nowrap">
+              All {COUNTRIES.length} countries &rarr;
+            </Link>
+          </div>
           <div className="flex flex-wrap gap-2">
             {otherCountries.map((c) => (
               <Link

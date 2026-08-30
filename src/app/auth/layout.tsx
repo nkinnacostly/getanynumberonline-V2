@@ -1,16 +1,19 @@
 import type { Metadata } from "next";
-import ThemeToggle from "@/components/site/ThemeToggle";
 
 /**
- * The auth pages are client components and can't export metadata themselves,
- * so it lives here.
+ * Sign-in and password pages are crawlable but never indexed.
  *
- * noindex in addition to the robots.txt disallow: robots.txt stops a crawl but
- * does not prevent Google indexing a URL it discovers via an external link, so
- * the meta tag covers that case if the disallow is ever relaxed.
+ * They used to be blocked in robots.txt instead, which is the weaker tool: a
+ * disallowed URL that is linked sitewide (the nav's "Sign in") can still be
+ * indexed URL-only, because Google is not allowed to fetch the page and see
+ * that it shouldn't. It also showed up in Search Console as "Blocked by
+ * robots.txt" forever. Letting the crawler in and telling it noindex removes
+ * the page cleanly.
+ *
+ * /dashboard stays disallowed in robots.ts — it is auth-walled, so there is
+ * nothing for a crawler to see there either way.
  */
 export const metadata: Metadata = {
-  title: "Sign in",
   robots: { index: false, follow: false },
 };
 
@@ -19,13 +22,5 @@ export default function AuthLayout({
 }: {
   children: React.ReactNode;
 }) {
-  return (
-    <>
-      {/* Mirrors the fixed auth logo in AuthCard — theme switch top-right. */}
-      <div className="fixed top-0 right-0 p-5 z-10">
-        <ThemeToggle />
-      </div>
-      {children}
-    </>
-  );
+  return children;
 }

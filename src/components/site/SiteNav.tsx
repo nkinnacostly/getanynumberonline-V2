@@ -19,6 +19,18 @@ export default function SiteNav() {
 
         <div className="flex items-center gap-3 sm:gap-6">
           <Link
+            href="/numbers"
+            className="text-sm text-muted hover:text-foreground transition-colors hidden sm:inline"
+          >
+            Countries
+          </Link>
+          <Link
+            href="/receive-sms"
+            className="text-sm text-muted hover:text-foreground transition-colors hidden sm:inline"
+          >
+            Services
+          </Link>
+          <Link
             href="/pricing"
             className="text-sm text-muted hover:text-foreground transition-colors"
           >

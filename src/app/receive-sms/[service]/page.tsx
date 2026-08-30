@@ -283,9 +283,14 @@ export default async function ServicePage({
 
         {/* Interlinking */}
         <section className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
-          <h2 className="font-sans text-lg font-bold mb-4">
-            Other services you can verify
-          </h2>
+          <div className="flex items-baseline justify-between gap-4 mb-4">
+            <h2 className="font-sans text-lg font-bold">
+              Other services you can verify
+            </h2>
+            <Link href="/receive-sms" className="font-mono text-xs text-muted hover:text-accent whitespace-nowrap">
+              All {SERVICES.length} services &rarr;
+            </Link>
+          </div>
           <div className="flex flex-wrap gap-2">
             {otherServices.map((s) => (
               <Link

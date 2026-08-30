@@ -20,7 +20,11 @@ export default function robots(): MetadataRoute.Robots {
       // General disallow for all other bots
       {
         userAgent: "*",
-        disallow: ["/auth", "/auth/", "/dashboard", "/dashboard/", "/api/", "/esim/"],
+        // /auth is deliberately NOT here — it carries a noindex instead, set
+        // in src/app/auth/layout.tsx. A blocked page that is linked from every
+        // page in the nav can still be indexed URL-only; a crawlable one that
+        // says noindex cannot.
+        disallow: ["/dashboard", "/dashboard/", "/admin", "/admin/", "/api/"],
       },
     ],
     sitemap: absoluteUrl("/sitemap.xml"),

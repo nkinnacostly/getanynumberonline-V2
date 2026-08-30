@@ -14,8 +14,12 @@ import { SITE_NAME } from "@/lib/seo/config";
  *
  * Also the site's main internal-linking surface: every page links to the top
  * service and country pages, which is what gets those programmatic URLs
- * crawled and gives them internal PageRank. Without this they'd only be
- * reachable from the sitemap, which is much weaker.
+ * crawled and gives them internal PageRank.
+ *
+ * The head of each list is linked directly; the long tail is reached through
+ * the hub link that closes each column. Before those hubs existed, anything
+ * outside the top ten was reachable only from the sitemap — which is how ~33
+ * pages ended up "Discovered, currently not indexed" in Search Console.
  */
 export default function SiteFooter() {
   const services = servicesBySlugs(TOP_SERVICE_SLUGS);
@@ -40,6 +44,11 @@ export default function SiteFooter() {
                   </Link>
                 </li>
               ))}
+              <li>
+                <Link href="/receive-sms" className={`${linkCls} font-medium`}>
+                  All services&nbsp;&rarr;
+                </Link>
+              </li>
             </ul>
           </div>
 
@@ -55,6 +64,11 @@ export default function SiteFooter() {
                   </Link>
                 </li>
               ))}
+              <li>
+                <Link href="/numbers" className={`${linkCls} font-medium`}>
+                  All countries&nbsp;&rarr;
+                </Link>
+              </li>
             </ul>
           </div>
 

@@ -14,6 +14,10 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const staticRoutes: MetadataRoute.Sitemap = [
     { url: absoluteUrl("/"), lastModified: now, changeFrequency: "weekly", priority: 1 },
     { url: absoluteUrl("/pricing"), lastModified: now, changeFrequency: "daily", priority: 0.9 },
+    // The two hubs. They are what gives the long tail below an internal link
+    // path from the homepage, so they rank above the leaves they feed.
+    { url: absoluteUrl("/numbers"), lastModified: now, changeFrequency: "weekly", priority: 0.9 },
+    { url: absoluteUrl("/receive-sms"), lastModified: now, changeFrequency: "weekly", priority: 0.9 },
     { url: absoluteUrl("/terms"), lastModified: now, changeFrequency: "yearly", priority: 0.3 },
     { url: absoluteUrl("/privacy"), lastModified: now, changeFrequency: "yearly", priority: 0.3 },
   ];
