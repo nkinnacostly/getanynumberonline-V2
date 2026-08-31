@@ -162,14 +162,19 @@ export default function Sidebar({
           chrome can't push the bottom section — the sign-out button — under
           the fold, and the safe-area padding keeps it above the home bar. */}
       <aside
-        className="hidden md:flex fixed top-0 left-0 h-dvh flex-col justify-between pt-6 px-4 pb-[calc(1.5rem_+_env(safe-area-inset-bottom))] z-40"
+        className="hidden md:flex fixed top-0 left-0 h-dvh flex-col pt-6 px-4 pb-[calc(1.5rem_+_env(safe-area-inset-bottom))] z-40"
         style={{
           width: 220,
           backgroundColor: "var(--surface)",
           borderRight: "1px solid var(--line)",
         }}
       >
-        <div>
+        {/* The nav scrolls; the account block below never does. With
+            justify-between and no overflow, a short viewport — a tablet in
+            landscape, a desktop window dragged small — pushed the balance and
+            the sign-out button off the bottom with no way to reach them.
+            min-h-0 is what lets a flex child actually scroll. */}
+        <div className="flex-1 min-h-0 overflow-y-auto">
           {/* Logo */}
           <Link
             href="/"
@@ -206,8 +211,8 @@ export default function Sidebar({
           </nav>
         </div>
 
-        {/* Bottom section */}
-        <div className="flex flex-col gap-3 px-2">
+        {/* Bottom section — shrink-0 so it is never squeezed out instead. */}
+        <div className="shrink-0 flex flex-col gap-3 px-2 pt-4">
           <BalanceChip balance={balance} />
           <div className="text-[11px] text-muted truncate">
             {initialEmail}
@@ -218,6 +223,34 @@ export default function Sidebar({
           </div>
         </div>
       </aside>
+
+      {/* Mobile account bar.
+          Lives here rather than in the dashboard layout so it reads the same
+          live `balance` state the rail does — the layout only ever had the
+          server-rendered figure, which is why mobile showed no balance at all.
+          Sticky because it used to scroll away inside <main>, taking the only
+          sign-out button on the whole mobile layout with it. */}
+      <div
+        className="md:hidden sticky top-0 z-30 flex items-center gap-2 px-4 py-2"
+        style={{
+          backgroundColor: "var(--surface)",
+          borderBottom: "1px solid var(--line)",
+        }}
+      >
+        <Link href="/dashboard/wallet" aria-label="Wallet balance">
+          <BalanceChip balance={balance} compact />
+        </Link>
+        <span
+          className="font-mono text-[11px] text-muted truncate min-w-0 flex-1"
+          title={initialEmail}
+        >
+          {initialEmail}
+        </span>
+        <div className="flex items-center gap-2 shrink-0">
+          <ThemeToggle />
+          <SignOutButton />
+        </div>
+      </div>
 
       {/* Mobile bottom tab bar */}
       <nav

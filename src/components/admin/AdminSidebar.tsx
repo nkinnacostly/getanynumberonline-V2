@@ -168,14 +168,17 @@ export default function AdminSidebar({ email }: { email: string }) {
     <>
       {/* Desktop rail */}
       <aside
-        className="hidden md:flex fixed top-0 left-0 h-screen flex-col justify-between py-6 px-4 z-40"
+        className="hidden md:flex fixed top-0 left-0 h-dvh flex-col pt-6 px-4 pb-[calc(1.5rem_+_env(safe-area-inset-bottom))] z-40"
         style={{
           width: 220,
           backgroundColor: "var(--surface)",
           borderRight: "1px solid var(--line)",
         }}
       >
-        <div>
+        {/* Scrolls; the account block below is pinned. Eight nav items and the
+            ADMIN badge overflow a short viewport sooner than the dashboard's
+            five do, and h-screen ignored mobile browser chrome on top of that. */}
+        <div className="flex-1 min-h-0 overflow-y-auto">
           <div className="mb-10 px-2">
             <Link href="/admin" aria-label="Admin overview">
               <Logo className="h-8 w-auto text-accent" />
@@ -215,7 +218,7 @@ export default function AdminSidebar({ email }: { email: string }) {
           </nav>
         </div>
 
-        <div className="flex flex-col gap-3 px-2">
+        <div className="shrink-0 flex flex-col gap-3 px-2 pt-4">
           <div className="text-[11px] text-muted truncate">{email}</div>
           <div className="flex items-center justify-between">
             <ThemeToggle />
@@ -264,14 +267,32 @@ export default function AdminSidebar({ email }: { email: string }) {
       {/* Mobile ADMIN banner — the tab bar has no room for it, and knowing you
           are in the admin context matters more on a small screen. */}
       <div
-        className="md:hidden sticky top-0 z-30 px-4 py-1.5 font-mono text-[10px] tracking-wider text-center"
+        className="md:hidden sticky top-0 z-30 flex items-center gap-3 px-4 py-1.5"
         style={{
           backgroundColor: "rgba(245,166,35,0.12)",
-          color: "var(--warning)",
           borderBottom: "1px solid rgba(245,166,35,0.32)",
         }}
       >
-        ADMIN MODE
+        <span
+          className="font-mono text-[10px] tracking-wider shrink-0"
+          style={{ color: "var(--warning)" }}
+        >
+          ADMIN
+        </span>
+        <span className="text-[11px] text-muted truncate min-w-0 flex-1" title={email}>
+          {email}
+        </span>
+        {/* Sign-out lived only in the desktop rail, so on a phone there was no
+            way out of the panel at all. */}
+        <div className="flex items-center gap-2 shrink-0">
+          <ThemeToggle />
+          <button
+            onClick={handleSignOut}
+            className="text-[12px] text-muted hover:text-danger transition-colors"
+          >
+            Sign out
+          </button>
+        </div>
       </div>
     </>
   );
