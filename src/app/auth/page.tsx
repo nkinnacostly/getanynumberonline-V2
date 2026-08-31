@@ -22,13 +22,45 @@ const FOCUS_BORDER = "var(--accent)";
  * instead of dropping everyone on /dashboard. Only same-origin absolute paths
  * are honoured — a value starting "//" or "http" would be an open redirect.
  */
-function destinationFrom(params: URLSearchParams): string {
+function destinationFrom(params: URLSearchParams): string | null {
   if (params.get("topup") === "success") {
     return `/dashboard/wallet?${params.toString()}`;
   }
   const next = params.get("next");
   if (next && next.startsWith("/") && !next.startsWith("//")) return next;
-  return "/dashboard";
+  return null;
+}
+
+/**
+ * Where a session actually lands.
+ *
+ * An explicit destination always wins — being bounced out of /dashboard/esim
+ * and returning to /admin instead would be its own bug. With nothing asked
+ * for, admins go straight to the panel and everyone else to the dashboard.
+ *
+ * Reading is_admin through the caller's own client is safe: RLS scopes it to
+ * their own row, and the guard trigger stops anyone setting the flag on
+ * themselves. A failed read falls back to /dashboard — a slow or broken
+ * profile query must never be able to block signing in.
+ */
+async function landingFor(
+  supabase: ReturnType<typeof createClient>,
+  userId: string,
+  params: URLSearchParams,
+): Promise<string> {
+  const explicit = destinationFrom(params);
+  if (explicit) return explicit;
+
+  try {
+    const { data } = await supabase
+      .from("profiles")
+      .select("is_admin")
+      .eq("id", userId)
+      .maybeSingle();
+    return data?.is_admin ? "/admin" : "/dashboard";
+  } catch {
+    return "/dashboard";
+  }
 }
 
 function validateEmail(v: string) {
@@ -115,9 +147,11 @@ export default function AuthPage() {
     const supabase = createClient();
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
-        router.replace(
-          destinationFrom(new URLSearchParams(window.location.search)),
-        );
+        landingFor(
+          supabase,
+          session.user.id,
+          new URLSearchParams(window.location.search),
+        ).then((to) => router.replace(to));
         return;
       }
       const params = new URLSearchParams(window.location.search);
@@ -199,7 +233,13 @@ export default function AuthPage() {
           throw error;
         }
         if (!data.session) throw new Error("Sign in failed");
-        router.push(destinationFrom(new URLSearchParams(window.location.search)));
+        router.push(
+          await landingFor(
+            supabase,
+            data.session.user.id,
+            new URLSearchParams(window.location.search),
+          ),
+        );
         router.refresh();
       }
     } catch (err: unknown) {
