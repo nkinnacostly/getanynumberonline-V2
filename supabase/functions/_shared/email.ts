@@ -110,6 +110,13 @@ const SANS =
 const MONO = "'SFMono-Regular',Consolas,'Liberation Mono',Menlo,monospace";
 
 const SITE = "https://www.getanynumberonline.com";
+/**
+ * The mark, as a PNG. Not the SVG the site uses — Gmail strips SVG — and not
+ * the knockout version either: an email's backdrop is not ours to control
+ * (dark-mode clients repaint it), so this one carries an explicit white plate
+ * behind the G. 117x108 natural, drawn at a third of that.
+ */
+const LOGO = `${SITE}/images/email/logo.png`;
 const INSTAGRAM = "https://instagram.com/getanynumberonline";
 const IG_HANDLE = "@getanynumberonline";
 
@@ -316,8 +323,10 @@ ${eyebrow}
 
 /** Plain header for `basic` — the wordmark, no hero. */
 function basicHeader(): string {
-  return `<tr><td style="padding:28px 32px 4px">
-<span style="font:700 18px/1 ${SANS};color:${PINE};letter-spacing:-0.2px">getanynumberonline</span>
+  return `<tr><td style="padding:26px 32px 4px">
+<a href="${SITE}" style="text-decoration:none">
+<img src="${LOGO}" width="35" height="32" alt="GetAnyNumberOnline" style="display:block;width:35px;height:32px;border:0;outline:none">
+</a>
 </td></tr>`;
 }
 
@@ -399,7 +408,9 @@ export function renderEmail(
       ? ""
       : `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
 <tr><td style="padding:0 4px 16px">
-<a href="${SITE}" style="font:700 17px/1 ${SANS};color:${PINE};text-decoration:none;letter-spacing:-0.2px">getanynumberonline</a>
+<a href="${SITE}" style="text-decoration:none">
+<img src="${LOGO}" width="39" height="36" alt="GetAnyNumberOnline" style="display:block;width:39px;height:36px;border:0;outline:none">
+</a>
 </td></tr></table>`;
 
   return `<!doctype html><html lang="en"><head>
