@@ -9,6 +9,7 @@ import { useToast } from "@/components/dashboard/Toast";
 import { EMAIL_PRESETS, type EmailPreset } from "@/lib/email-presets";
 import {
   type AdminUser,
+  type AudienceSize,
   type CampaignDraft,
   type EmailTemplate,
   HERO_IMAGES,
@@ -55,7 +56,8 @@ export default function CampaignComposer({
     lockedUser ? "user" : "all",
   );
   const [picked, setPicked] = useState<AdminUser | null>(null);
-  const [eligible, setEligible] = useState<number | null>(null);
+  const [audienceSize, setAudienceSize] = useState<AudienceSize | null>(null);
+  const eligible = audienceSize?.eligible ?? null;
 
   // Campaign id, minted on first test so the draft is persisted server-side.
   const [campaignId, setCampaignId] = useState<string | null>(null);
@@ -66,8 +68,8 @@ export default function CampaignComposer({
   useEffect(() => {
     if (lockedUser) return;
     getAudienceSize()
-      .then((r) => setEligible(r.audience.eligible))
-      .catch(() => setEligible(null));
+      .then((r) => setAudienceSize(r.audience))
+      .catch(() => setAudienceSize(null));
   }, [lockedUser]);
 
   // Any edit invalidates the test — otherwise you could test one message and
@@ -250,6 +252,32 @@ export default function CampaignComposer({
                 </span>
               )}
             </div>
+          )}
+
+          {/* The order is not cosmetic: the sending plan has a daily cap, so a
+              list that does not fit in one day gets cut somewhere. Better that
+              the cut falls after the people who reliably open. */}
+          {!lockedUser && audience === "all" && audienceSize && (
+            <p
+              className="text-[11px] leading-relaxed"
+              style={{ color: "var(--muted)" }}
+            >
+              Sent in engagement order:{" "}
+              <span style={{ color: "var(--accent)" }}>
+                {audienceSize.engaged} who opened before
+              </span>
+              , then {audienceSize.unopened} delivered but unopened, then{" "}
+              {audienceSize.fresh} who have never had one.
+              {audienceSize.bounce_suppressed > 0 && (
+                <>
+                  {" "}
+                  <span style={{ color: "var(--warning)" }}>
+                    {audienceSize.bounce_suppressed} skipped
+                  </span>{" "}
+                  after bouncing last time.
+                </>
+              )}
+            </p>
           )}
 
           {!lockedUser && audience === "user" && (

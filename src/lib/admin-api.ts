@@ -354,7 +354,16 @@ export interface AdminCampaign {
 }
 
 export interface AudienceSize {
+  /** What a broadcast would actually queue — suppressions already removed. */
   eligible: number;
+  /** Opened or clicked a previous campaign. Sent first. */
+  engaged: number;
+  /** Previous campaign delivered but never opened. Sent second. */
+  unopened: number;
+  /** Never had a campaign before. Sent last. */
+  fresh: number;
+  /** Skipped this round because their last campaign bounced. */
+  bounce_suppressed: number;
   unsubscribed: number;
   banned: number;
 }

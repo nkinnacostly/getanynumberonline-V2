@@ -67,10 +67,23 @@ export default function AdminEmailPage() {
       </p>
 
       {audience && (
-        <div className="grid grid-cols-3 gap-4 mb-6 max-w-lg">
-          <Stat label="Eligible" value={audience.eligible} tone="var(--accent)" />
-          <Stat label="Unsubscribed" value={audience.unsubscribed} />
-          <Stat label="Banned" value={audience.banned} />
+        <div className="mb-6 max-w-2xl">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <Stat label="Eligible" value={audience.eligible} tone="var(--accent)" />
+            <Stat label="Unsubscribed" value={audience.unsubscribed} />
+            <Stat
+              label="Bounced"
+              value={audience.bounce_suppressed}
+              tone={audience.bounce_suppressed > 0 ? "var(--warning)" : undefined}
+            />
+            <Stat label="Banned" value={audience.banned} />
+          </div>
+          <p className="text-[11px] mt-2" style={{ color: "var(--muted)" }}>
+            Every broadcast goes out in engagement order — {audience.engaged}{" "}
+            who opened a previous campaign first, then {audience.unopened}{" "}
+            delivered but unopened, then {audience.fresh} who have never had
+            one. Anyone whose last campaign bounced sits this round out.
+          </p>
         </div>
       )}
 
