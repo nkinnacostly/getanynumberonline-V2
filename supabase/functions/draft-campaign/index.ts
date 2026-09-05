@@ -22,9 +22,25 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-const DEEPSEEK_URL = "https://api.deepseek.com/chat/completions";
-/** Overridable, because provider model names move — these already have once. */
-const MODEL = Deno.env.get("DEEPSEEK_MODEL") ?? "deepseek-v4-pro";
+const DEEPSEEK_BASE = "https://api.deepseek.com";
+const DEEPSEEK_URL = `${DEEPSEEK_BASE}/chat/completions`;
+
+/**
+ * Model names at this provider have already changed once (deepseek-chat is
+ * gone) and will again, so this is a list, not a constant. The first one that
+ * the API accepts wins, and the response reports which — set DEEPSEEK_MODEL to
+ * pin it once you know.
+ *
+ * Only a model-shaped rejection advances the list. An auth failure or a rate
+ * limit would fail identically on every entry, so those stop immediately.
+ */
+const MODEL_CANDIDATES = [
+  Deno.env.get("DEEPSEEK_MODEL"),
+  "deepseek-v4-pro",
+  "deepseek-v4-flash",
+  "deepseek-chat",
+  "deepseek-reasoner",
+].filter((m): m is string => !!m);
 /** Generous: a weekly digest plus JSON envelope runs long, and a truncated
  *  JSON string is unparseable rather than merely short. */
 const MAX_TOKENS = 4000;
@@ -89,6 +105,13 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json().catch(() => ({}));
+
+    // A one-shot "what can this key actually do" check, so a wrong model name
+    // is answerable in one click instead of by guesswork.
+    if (body.mode === "probe") {
+      return jsonResponse({ success: true, probe: await listModels(apiKey) });
+    }
+
     const brief = String(body.brief ?? "").trim();
     if (brief.length < 8) {
       return errorResponse("Tell the writer what the email is about", 400);
@@ -100,21 +123,23 @@ Deno.serve(async (req) => {
       ? `Write a plan of ${count} campaigns as json.\n\nBrief from the admin:\n${brief}`
       : `Write one campaign as json.\n\nBrief from the admin:\n${brief}`;
 
-    const raw = await askDeepSeek(apiKey, systemPrompt(mode), userPrompt);
-    if (!raw) return errorResponse("The writer returned nothing — try again", 502);
+    const answer = await askDeepSeek(apiKey, systemPrompt(mode), userPrompt);
+    if (!answer.content) {
+      return errorResponse(answer.error ?? "The writer returned nothing", answer.status ?? 502);
+    }
 
     let parsed: unknown;
     try {
-      parsed = JSON.parse(raw);
+      parsed = JSON.parse(answer.content);
     } catch {
-      console.error("draft-campaign: unparseable model output:", raw.slice(0, 400));
+      console.error("draft-campaign: unparseable output:", answer.content.slice(0, 400));
       return errorResponse("The writer returned malformed output — try again", 502);
     }
 
     if (mode === "single") {
       const draft = clean(parsed as Record<string, unknown>);
       if (!draft) return errorResponse("The writer returned an empty draft", 502);
-      return jsonResponse({ success: true, draft });
+      return jsonResponse({ success: true, draft, model: answer.model });
     }
 
     // ── plan: persist as drafts carrying a PROPOSED date ─────
@@ -177,58 +202,141 @@ Deno.serve(async (req) => {
     if (created.length === 0) {
       return errorResponse("Nothing usable came back — try again", 502);
     }
-    return jsonResponse({ success: true, created });
+    return jsonResponse({ success: true, created, model: answer.model });
   } catch (err) {
     console.error("draft-campaign unhandled error:", err);
     return errorResponse("Internal server error", 500);
   }
 });
 
+interface AskResult {
+  content?: string;
+  model?: string;
+  error?: string;
+  status?: number;
+}
+
+/** Does this read as "that model does not exist" rather than a real fault? */
+function looksLikeBadModel(status: number, detail: string): boolean {
+  if (status !== 400 && status !== 404 && status !== 422) return false;
+  const d = detail.toLowerCase();
+  return d.includes("model");
+}
+
 /**
- * One call, retried once.
+ * Ask the writer, walking the model list and retrying an empty answer once.
  *
- * DeepSeek documents that JSON mode "may occasionally return empty content".
- * A single retry turns that from a visible failure into a slower success.
+ * DeepSeek documents that JSON mode "may occasionally return empty content",
+ * which is why the retry exists. Everything else is reported upward with the
+ * provider's own message — this endpoint is admin-only, and a generic "try
+ * again" turns a five-second fix into a debugging session.
  */
 async function askDeepSeek(
   apiKey: string,
   system: string,
   user: string,
-): Promise<string | null> {
-  for (let attempt = 1; attempt <= 2; attempt++) {
-    const res = await fetch(DEEPSEEK_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: MODEL,
-        messages: [
-          { role: "system", content: system },
-          { role: "user", content: user },
-        ],
-        response_format: { type: "json_object" },
-        // Enough warmth for readable prose, not enough to start inventing.
-        temperature: 0.7,
-        max_tokens: MAX_TOKENS,
-      }),
-    });
+): Promise<AskResult> {
+  let last: AskResult = { error: "No model candidates configured", status: 500 };
 
-    if (!res.ok) {
-      const detail = await res.text().catch(() => "");
-      console.error(`ALERT deepseek ${res.status}:`, detail.slice(0, 300));
-      // 4xx is deterministic — the same request will fail identically.
-      if (res.status < 500) return null;
-      continue;
+  for (const model of MODEL_CANDIDATES) {
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      const res = await fetch(DEEPSEEK_URL, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model,
+          messages: [
+            { role: "system", content: system },
+            { role: "user", content: user },
+          ],
+          response_format: { type: "json_object" },
+          // Enough warmth for readable prose, not enough to start inventing.
+          temperature: 0.7,
+          max_tokens: MAX_TOKENS,
+        }),
+      });
+
+      if (!res.ok) {
+        const detail = (await res.text().catch(() => "")).slice(0, 500);
+        console.error(`ALERT deepseek ${res.status} (${model}):`, detail);
+        last = {
+          error: friendly(res.status, model, extractMessage(detail)),
+          status: res.status,
+        };
+        if (looksLikeBadModel(res.status, detail)) break;  // next model
+        if (res.status < 500) return last;                 // deterministic
+        continue;                                          // 5xx: retry
+      }
+
+      const json = await res.json().catch(() => null);
+      const content: string = json?.choices?.[0]?.message?.content ?? "";
+      if (content.trim()) {
+        return { content: stripFences(content.trim()), model };
+      }
+      console.error(`deepseek returned empty content (${model}, attempt ${attempt})`);
+      last = {
+        error: `DeepSeek returned an empty response on ${model}`,
+        status: 502,
+      };
     }
-
-    const json = await res.json().catch(() => null);
-    const content: string = json?.choices?.[0]?.message?.content ?? "";
-    if (content.trim()) return stripFences(content.trim());
-    console.error(`deepseek returned empty content (attempt ${attempt})`);
   }
-  return null;
+  return last;
+}
+
+/**
+ * Turn a provider error into something the admin can act on.
+ *
+ * These two recur — a pay-as-you-go balance runs out, and a key gets rotated —
+ * and both look like an app bug from the inside unless the message says where
+ * the fix lives.
+ */
+function friendly(status: number, model: string, message: string): string {
+  if (status === 402) {
+    return `The DeepSeek account is out of credit (${message}). Top it up at ` +
+      `platform.deepseek.com — nothing is wrong with the app.`;
+  }
+  if (status === 401 || status === 403) {
+    return `DeepSeek rejected the API key (${message}). Reset it with ` +
+      `\`supabase secrets set DEEPSEEK_API_KEY=...\``;
+  }
+  if (status === 429) {
+    return `DeepSeek is rate limiting (${message}). Wait a moment and retry.`;
+  }
+  return `DeepSeek ${status} on ${model}: ${message}`;
+}
+
+/** Pull the human-readable bit out of a provider error body. */
+function extractMessage(body: string): string {
+  try {
+    const j = JSON.parse(body);
+    return String(j?.error?.message ?? j?.message ?? body).slice(0, 300);
+  } catch {
+    return body.slice(0, 300);
+  }
+}
+
+/** Ask the provider which models it actually has. A pure diagnostic. */
+async function listModels(apiKey: string): Promise<Record<string, unknown>> {
+  const res = await fetch(`${DEEPSEEK_BASE}/models`, {
+    headers: { Authorization: `Bearer ${apiKey}` },
+  });
+  const body = await res.text().catch(() => "");
+  if (!res.ok) {
+    return { ok: false, status: res.status, error: extractMessage(body) };
+  }
+  try {
+    const j = JSON.parse(body);
+    return {
+      ok: true,
+      models: (j?.data ?? []).map((m: { id?: string }) => m.id).filter(Boolean),
+      tried: MODEL_CANDIDATES,
+    };
+  } catch {
+    return { ok: false, status: res.status, error: body.slice(0, 300) };
+  }
 }
 
 /** Models add ```json fences even when told not to. */
