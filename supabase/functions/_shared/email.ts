@@ -161,49 +161,102 @@ function inline(escaped: string): string {
  * links. An admin writing a campaign should not be able to paste arbitrary HTML
  * into 300+ inboxes, so the body is escaped first and only these forms are
  * re-introduced.
+ *
+ * Parsed a LINE at a time, not a blank-line-separated block at a time. That
+ * distinction is the whole reason this function is shaped the way it is: a
+ * heading written tight against its own paragraph —
+ *
+ *     ## More countries
+ *     You can now rent numbers in more places.
+ *
+ * — is one block, and a block-level parser that sees `##` at the front hands
+ * the entire thing to the heading branch, so the paragraph arrives in 19px
+ * bold. Blank lines still separate paragraphs; they are no longer load-bearing
+ * for anything else.
  */
 export function renderBody(markdown: string): string {
-  return markdown
-    .trim()
-    .split(/\n{2,}/)
-    .map((raw, i) => {
-      const block = raw.trim();
-      if (!block) return "";
+  const out: string[] = [];
+  let para: string[] = [];
+  let items: string[] = [];
 
-      // A horizontal rule — the section break a weekly digest needs.
-      if (/^(-{3,}|\*{3,})$/.test(block)) {
-        return `<hr style="border:0;border-top:1px solid ${LINE};margin:28px 0">`;
-      }
+  const flushPara = () => {
+    if (para.length === 0) return;
+    // Joined on the newline so `inline` turns it into <br>: a hard-wrapped
+    // paragraph keeps the breaks the writer typed.
+    out.push(
+      `<p style="margin:0 0 16px;line-height:1.6">${
+        inline(escapeHtml(para.join("\n")))
+      }</p>`,
+    );
+    para = [];
+  };
 
-      // A heading. Two levels is as much hierarchy as an email can carry.
-      const heading = block.match(/^(#{2,3})\s+(.*)$/s);
-      if (heading) {
-        const size = heading[1].length === 2 ? 19 : 16;
-        // The first block sits directly under the heading the template drew,
-        // which already carries its own spacing.
-        return `<h2 style="margin:${i === 0 ? 0 : 28}px 0 10px;font:700 ${size}px/1.3 ${SANS};color:${PINE}">${
+  const flushList = () => {
+    if (items.length === 0) return;
+    const li = items
+      .map((t) => `<li style="margin:0 0 8px">${inline(escapeHtml(t))}</li>`)
+      .join("");
+    out.push(
+      `<ul style="margin:0 0 16px;padding-left:20px;line-height:1.6">${li}</ul>`,
+    );
+    items = [];
+  };
+
+  /** Only one of the two can be open at a time, so order does not matter. */
+  const flush = () => {
+    flushList();
+    flushPara();
+  };
+
+  for (const raw of markdown.trim().split("\n")) {
+    const line = raw.trim();
+
+    if (!line) {
+      flush();
+      continue;
+    }
+
+    // A horizontal rule — the section break a weekly digest needs. Checked
+    // before bullets so `---` never reads as a dash with nothing after it.
+    if (/^(-{3,}|\*{3,})$/.test(line)) {
+      flush();
+      out.push(
+        `<hr style="border:0;border-top:1px solid ${LINE};margin:28px 0">`,
+      );
+      continue;
+    }
+
+    // A heading. Two levels is as much hierarchy as an email can carry.
+    const heading = line.match(/^(#{2,3})\s+(.+)$/);
+    if (heading) {
+      flush();
+      const size = heading[1].length === 2 ? 19 : 16;
+      // The first element sits directly under the heading the template drew,
+      // which already carries its own spacing.
+      const top = out.length === 0 ? 0 : 28;
+      out.push(
+        `<h2 style="margin:${top}px 0 10px;font:700 ${size}px/1.3 ${SANS};color:${PINE}">${
           inline(escapeHtml(heading[2].trim()))
-        }</h2>`;
-      }
+        }</h2>`,
+      );
+      continue;
+    }
 
-      // A bullet list — every line must be a bullet, so a stray dash mid
-      // paragraph stays a dash.
-      const lines = block.split("\n");
-      if (lines.every((l) => /^\s*[-*]\s+/.test(l))) {
-        const items = lines
-          .map(
-            (l) =>
-              `<li style="margin:0 0 8px">${
-                inline(escapeHtml(l.replace(/^\s*[-*]\s+/, "").trim()))
-              }</li>`,
-          )
-          .join("");
-        return `<ul style="margin:0 0 16px;padding-left:20px;line-height:1.6">${items}</ul>`;
-      }
+    // The space after the marker is required, so "-3.50 refunded" and
+    // "**Bold** opener" are text, not a bullet.
+    const bullet = line.match(/^[-*]\s+(.+)$/);
+    if (bullet) {
+      flushPara();
+      items.push(bullet[1].trim());
+      continue;
+    }
 
-      return `<p style="margin:0 0 16px;line-height:1.6">${inline(escapeHtml(block))}</p>`;
-    })
-    .join("");
+    flushList();
+    para.push(line);
+  }
+
+  flush();
+  return out.join("");
 }
 
 /** Only ever emit a link we know is a link. */
