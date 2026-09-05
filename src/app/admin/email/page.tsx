@@ -3,16 +3,22 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { StatusBadge, TableShell, Td, Th, Tr } from "@/components/admin/AdminTable";
-import CampaignComposer from "@/components/admin/CampaignComposer";
+import CampaignComposer, {
+  type OpenedCampaign,
+} from "@/components/admin/CampaignComposer";
+import FilterTabs from "@/components/admin/FilterTabs";
 import Pager from "@/components/dashboard/Pager";
 import { useToast } from "@/components/dashboard/Toast";
 import {
   ADMIN_PAGE_SIZE,
   type AdminCampaign,
   type AudienceSize,
+  CAMPAIGN_FILTERS,
+  type CampaignFilter,
   dateTime,
   deleteCampaign,
   getAudienceSize,
+  getCampaignContent,
   listCampaigns,
 } from "@/lib/admin-api";
 
@@ -23,6 +29,9 @@ export default function AdminEmailPage() {
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [audience, setAudience] = useState<AudienceSize | null>(null);
+  const [filter, setFilter] = useState<CampaignFilter>("");
+  const [opened, setOpened] = useState<OpenedCampaign | null>(null);
+  const [openingId, setOpeningId] = useState<string | null>(null);
 
   /**
    * `silent` is for the background reads — the ones the operator did not ask
@@ -36,7 +45,7 @@ export default function AdminEmailPage() {
       if (!silent) setLoading(true);
       try {
         const [list, size] = await Promise.all([
-          listCampaigns({ offset: (page - 1) * ADMIN_PAGE_SIZE }),
+          listCampaigns({ offset: (page - 1) * ADMIN_PAGE_SIZE, filter }),
           getAudienceSize(),
         ]);
         setRows(list.rows ?? []);
@@ -50,7 +59,7 @@ export default function AdminEmailPage() {
         if (!silent) setLoading(false);
       }
     },
-    [page, toast],
+    [page, filter, toast],
   );
 
   const refresh = useCallback(() => {
@@ -87,6 +96,33 @@ export default function AdminEmailPage() {
       document.removeEventListener("visibilitychange", tick);
     };
   }, [inFlight, load]);
+
+  /**
+   * Load a campaign into the composer.
+   *
+   * The content is fetched here rather than carried on the list row: bodies
+   * are long, and the table would be shipping every campaign ever written on
+   * every page load to support a button that is pressed occasionally.
+   */
+  const handleOpen = async (c: AdminCampaign) => {
+    setOpeningId(c.id);
+    try {
+      const res = await getCampaignContent(c.id);
+      setOpened({ content: res.campaign, nonce: Date.now() });
+      // The composer is above the table; without this the page looks unchanged.
+      window.scrollTo({ top: 0, behavior: "smooth" });
+      toast(
+        res.campaign.editable
+          ? "Draft opened for editing"
+          : "Copied into a new campaign — the original is untouched",
+        "success",
+      );
+    } catch (e) {
+      toast(e instanceof Error ? e.message : "Could not open it", "error");
+    } finally {
+      setOpeningId(null);
+    }
+  };
 
   const handleDelete = async (c: AdminCampaign) => {
     if (!confirm(`Delete the draft "${c.subject}"?`)) return;
@@ -140,7 +176,7 @@ export default function AdminEmailPage() {
       )}
 
       <div className="mb-10">
-        <CampaignComposer onCampaignChange={refresh} />
+        <CampaignComposer onCampaignChange={refresh} opened={opened} />
       </div>
 
       <h2 className="text-sm font-semibold mb-1" style={{ color: "var(--muted)" }}>
@@ -150,9 +186,22 @@ export default function AdminEmailPage() {
           a successful test, so the table says why rather than leaving it to be
           worked out. */}
       <p className="text-[12px] mb-4" style={{ color: "var(--muted)" }}>
-        A draft is a message that was written and tested but never sent — only
-        the Send button delivers to real recipients.
+        A draft is a message that was written but never sent — only the Send
+        button delivers to real recipients. Everything the AI writer produces
+        is saved here as a draft, so nothing it writes is lost.{" "}
+        <b>Edit</b> reopens a draft in the composer above; <b>Reuse</b> copies
+        a campaign that already went out into a new one.
       </p>
+
+      <FilterTabs
+        options={CAMPAIGN_FILTERS}
+        value={filter}
+        onChange={(v) => {
+          setFilter(v as CampaignFilter);
+          setPage(1);
+        }}
+        label="Filter campaigns"
+      />
 
       <TableShell
         loading={loading}
@@ -183,6 +232,15 @@ export default function AdminEmailPage() {
                 >
                   {c.subject}
                 </Link>
+              )}
+              {c.source === "ai" && (
+                <span
+                  className="inline-block text-[10px] font-medium mt-0.5"
+                  style={{ color: "var(--accent)" }}
+                  title={c.ai_brief ? `Brief: ${c.ai_brief}` : undefined}
+                >
+                  ✦ AI-written
+                </span>
               )}
               {c.last_error && (
                 <span className="block text-[11px]" style={{ color: "var(--danger)" }}>
@@ -217,15 +275,40 @@ export default function AdminEmailPage() {
               {dateTime(c.completed_at ?? c.created_at)}
             </Td>
             <Td align="right">
-              {c.status === "draft" && (
-                <button
-                  onClick={() => handleDelete(c)}
-                  className="px-2 py-1.5 rounded-[4px] text-[11px] font-medium"
-                  style={{ border: "1px solid var(--line-strong)", color: "var(--muted)" }}
-                >
-                  Delete
-                </button>
-              )}
+              <div className="flex gap-1.5 justify-end">
+                {/* Queued and sending are deliberately actionless: the row is
+                    changing under us, and neither editing it nor copying a
+                    half-finished send is a sensible thing to offer. */}
+                {(c.status === "draft" ||
+                  c.status === "scheduled" ||
+                  c.status === "sent" ||
+                  c.status === "failed") && (
+                  <button
+                    onClick={() => handleOpen(c)}
+                    disabled={openingId !== null}
+                    className="px-2 py-1.5 rounded-[4px] text-[11px] font-medium disabled:opacity-40"
+                    style={{
+                      border: "1px solid var(--line-strong)",
+                      color: "var(--foreground)",
+                    }}
+                  >
+                    {openingId === c.id
+                      ? "Opening…"
+                      : c.status === "draft" || c.status === "scheduled"
+                        ? "Edit"
+                        : "Reuse"}
+                  </button>
+                )}
+                {c.status === "draft" && (
+                  <button
+                    onClick={() => handleDelete(c)}
+                    className="px-2 py-1.5 rounded-[4px] text-[11px] font-medium"
+                    style={{ border: "1px solid var(--line-strong)", color: "var(--muted)" }}
+                  >
+                    Delete
+                  </button>
+                )}
+              </div>
             </Td>
           </Tr>
         ))}

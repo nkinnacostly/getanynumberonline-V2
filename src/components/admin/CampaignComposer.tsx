@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AdminCard } from "@/components/admin/AdminTable";
 import AiWriter from "@/components/admin/AiWriter";
 import EmailPreview from "@/components/admin/EmailPreview";
@@ -11,6 +11,7 @@ import {
   type AdminUser,
   type AiDraft,
   type AudienceSize,
+  type CampaignContent,
   type CampaignDraft,
   type EmailTemplate,
   HERO_IMAGES,
@@ -18,9 +19,23 @@ import {
   createCampaign,
   heroImageUrl,
   getAudienceSize,
+  getUser,
   queueCampaign,
   sendCampaign,
+  updateCampaign,
 } from "@/lib/admin-api";
+
+/**
+ * A campaign handed to the composer to open.
+ *
+ * `nonce` exists so that clicking the same row twice reopens it: the effect
+ * keys off the number, not the object, so an admin who has half-rewritten a
+ * draft can abandon that and start again from what is saved.
+ */
+export interface OpenedCampaign {
+  content: CampaignContent;
+  nonce: number;
+}
 
 /**
  * Write a campaign and send it.
@@ -38,6 +53,7 @@ export default function CampaignComposer({
   lockedUser,
   onSent,
   onCampaignChange,
+  opened,
 }: {
   lockedUser?: { id: string; email: string | null };
   /** The send finished. Fires once, at the end — the user page closes on it. */
@@ -49,6 +65,8 @@ export default function CampaignComposer({
    * manual refresh behind what actually happened.
    */
   onCampaignChange?: () => void;
+  /** A saved campaign to load in. See OpenedCampaign for the nonce. */
+  opened?: OpenedCampaign | null;
 }) {
   const { toast } = useToast();
 
@@ -69,8 +87,27 @@ export default function CampaignComposer({
   const [audienceSize, setAudienceSize] = useState<AudienceSize | null>(null);
   const eligible = audienceSize?.eligible ?? null;
 
-  // Campaign id, minted on first test so the draft is persisted server-side.
+  /**
+   * The row this composer writes to.
+   *
+   * Set when the writer saves a draft, when a saved draft is opened, or on
+   * first test — and from then on edits UPDATE it. Null means the next test
+   * mints a new row, which is what a reused campaign wants: the sent original
+   * keeps its own copy and its own numbers.
+   */
   const [campaignId, setCampaignId] = useState<string | null>(null);
+  /** Subject of the sent campaign this was copied from, for the banner. */
+  const [copiedFrom, setCopiedFrom] = useState<string | null>(null);
+  /** Status of the campaign that was opened, so the banner can warn about it. */
+  const [openedStatus, setOpenedStatus] = useState<string | null>(null);
+  /**
+   * Have the fields been touched since the bound row was last written?
+   *
+   * Only a real edit may rewrite the row, because an update withdraws approval
+   * and drops a scheduled campaign back to a draft. Opening an approved
+   * campaign to send yourself a copy of it must not quietly unschedule it.
+   */
+  const [dirty, setDirty] = useState(false);
   const [tested, setTested] = useState(false);
   const [busy, setBusy] = useState<null | "test" | "send">(null);
   const [progress, setProgress] = useState<string | null>(null);
@@ -82,16 +119,43 @@ export default function CampaignComposer({
       .catch(() => setAudienceSize(null));
   }, [lockedUser]);
 
-  // Any edit invalidates the test — otherwise you could test one message and
-  // send a different one.
+  /**
+   * Any edit invalidates the test — otherwise you could test one message and
+   * send a different one. The server enforces the same rule: admin_update_
+   * campaign clears test_sent_at, so an edit cannot slip past the gate even if
+   * this state were wrong.
+   *
+   * The bound row is deliberately KEPT. It used to be dropped here, which
+   * meant every edit-then-test cycle left another near-identical draft behind.
+   */
   const invalidate = () => {
-    setCampaignId(null);
     setTested(false);
     setProgress(null);
+    setDirty(true);
   };
 
-  /** An AI draft fills the fields in, as editable as anything typed. */
-  const loadDraft = (d: AiDraft) => {
+  /** Back to an empty composer, bound to nothing. Used after a send. */
+  const reset = () => {
+    setSubject("");
+    setBody("");
+    setHeadline("");
+    setPreheader("");
+    setCtaLabel("");
+    setCtaUrl("");
+    setCampaignId(null);
+    setCopiedFrom(null);
+    setOpenedStatus(null);
+    setTested(false);
+    setProgress(null);
+    setDirty(false);
+  };
+
+  /**
+   * An AI draft fills the fields in, as editable as anything typed. The writer
+   * has already saved it, so `savedAs` binds this composer to that row rather
+   * than creating a second copy of the same email on first test.
+   */
+  const loadDraft = (d: AiDraft, savedAs?: string) => {
     setTemplate(d.template);
     setSubject(d.subject);
     setBody(d.body);
@@ -99,8 +163,75 @@ export default function CampaignComposer({
     setHeadline(d.headline ?? "");
     setCtaLabel(d.cta_label ?? "");
     setCtaUrl(d.cta_url ?? "");
-    invalidate();
+    // The writer saves without a banner, and the composer must show what is
+    // saved — a preview with a banner the row does not have is a preview of
+    // an email nobody will receive. Picking one marks it dirty and syncs it.
+    setHeroImage("");
+    setCampaignId(savedAs ?? null);
+    setCopiedFrom(null);
+    setOpenedStatus(null);
+    setTested(false);
+    setProgress(null);
+    // Saved by the writer exactly as shown, so there is nothing to write back.
+    setDirty(!savedAs);
   };
+
+  /**
+   * Open a saved campaign.
+   *
+   * Editable ones are bound and refined in place. A campaign that has already
+   * gone out is a record with delivery rows counted against it, so it is
+   * copied instead: the fields are filled, nothing is bound, and the next test
+   * starts a fresh row.
+   */
+  const applied = useRef(-1);
+  useEffect(() => {
+    if (!opened || opened.nonce === applied.current) return;
+    applied.current = opened.nonce;
+
+    const c = opened.content;
+    setTemplate(c.template);
+    setSubject(c.subject);
+    setBody(c.body);
+    setPreheader(c.preheader ?? "");
+    setHeadline(c.headline ?? "");
+    setCtaLabel(c.cta_label ?? "");
+    setCtaUrl(c.cta_url ?? "");
+    setHeroImage(c.hero_image ?? "");
+    setCampaignId(c.editable ? c.id : null);
+    setCopiedFrom(c.editable ? null : c.subject);
+    setOpenedStatus(c.status);
+    // A draft that was already tested carries proof of it, and the fields
+    // below are that exact row — so the gate is already satisfied and Send
+    // stays live. Touching anything clears it again, as always. A reused
+    // campaign gets a new row with no test against it, so it must be tested.
+    setTested(c.editable && !!c.test_sent_at);
+    setProgress(null);
+    // Straight off the row, so a test that follows without an edit writes
+    // nothing — which is what keeps an approved campaign approved.
+    setDirty(!c.editable);
+
+    if (lockedUser) return;
+    setAudience(c.audience);
+    if (c.audience === "user" && c.target_user_id) {
+      // The row stores an id; the picker shows an email. Worth the extra read
+      // rather than reopening a single-user campaign with no visible recipient.
+      getUser(c.target_user_id)
+        .then((r) =>
+          setPicked({
+            id: r.user.user_id,
+            email: r.user.email,
+            balance: r.user.balance,
+            is_banned: r.user.is_banned,
+            is_admin: r.user.is_admin,
+            created_at: r.user.joined,
+          }),
+        )
+        .catch(() => setPicked(null));
+    } else {
+      setPicked(null);
+    }
+  }, [opened, lockedUser]);
 
   const meta = TEMPLATES.find((t) => t.id === template)!;
   const targetId = lockedUser?.id ?? picked?.id;
@@ -138,16 +269,31 @@ export default function CampaignComposer({
     ],
   );
 
-  /** Creates the draft on first use, then reuses it until the text changes. */
+  /**
+   * Make the saved row match what is on screen.
+   *
+   * Bound to a row, this overwrites it; otherwise it creates one. Either way
+   * what gets tested and what gets sent are the same row, which is the only
+   * property that matters here.
+   */
   const ensureCampaign = async (): Promise<string> => {
-    if (campaignId) return campaignId;
-    const res = await createCampaign({
+    const content = {
       ...draft,
       subject: subject.trim(),
       audience,
       ...(audience === "user" && targetId ? { user_id: targetId } : {}),
-    });
+    };
+    if (campaignId) {
+      if (dirty) {
+        await updateCampaign({ ...content, campaign_id: campaignId });
+        setDirty(false);
+        setOpenedStatus("draft");
+      }
+      return campaignId;
+    }
+    const res = await createCampaign(content);
     setCampaignId(res.campaign_id);
+    setDirty(false);
     return res.campaign_id;
   };
 
@@ -198,13 +344,9 @@ export default function CampaignComposer({
       }
 
       toast(`Sent to ${sent} recipient${sent === 1 ? "" : "s"}`, "success");
-      setSubject("");
-      setBody("");
-      setHeadline("");
-      setPreheader("");
-      setCtaLabel("");
-      setCtaUrl("");
-      invalidate();
+      // The row is now a record of a send, so unbind from it too — another
+      // edit must not rewrite something people have already received.
+      reset();
       onSent?.();
     } catch (e) {
       toast(e instanceof Error ? e.message : "Send failed", "error");
@@ -236,6 +378,37 @@ export default function CampaignComposer({
     <AdminCard>
       <div className="grid lg:grid-cols-2 gap-6 p-4">
         <div className="flex flex-col gap-4">
+          {/* What is open, and what pressing Send will do to it. Without this
+              "editing a saved draft" and "writing a new one" look identical. */}
+          {(campaignId || copiedFrom) && (
+            <div
+              className="flex flex-wrap items-center gap-2 rounded-[6px] px-3 py-2 text-[12px]"
+              style={{
+                backgroundColor: "color-mix(in srgb, var(--accent) 7%, transparent)",
+                border: "1px solid color-mix(in srgb, var(--accent) 30%, transparent)",
+                color: "var(--foreground)",
+              }}
+            >
+              <span>
+                {copiedFrom
+                  ? `New campaign, copied from “${copiedFrom}”. The original is untouched.`
+                  : openedStatus === "scheduled"
+                    ? "Editing a scheduled campaign. Saving a change returns it to a draft, so it needs testing and approving again."
+                    : "Editing a saved draft — your changes overwrite it."}
+              </span>
+              <button
+                onClick={reset}
+                className="ml-auto px-2 py-1 rounded-[4px] text-[11px] font-medium"
+                style={{
+                  border: "1px solid var(--line-strong)",
+                  color: "var(--muted)",
+                }}
+              >
+                Start fresh
+              </button>
+            </div>
+          )}
+
           {!lockedUser && (
             <div className="flex flex-col sm:flex-row sm:items-center gap-3">
               <div className="flex gap-2">
@@ -314,7 +487,14 @@ export default function CampaignComposer({
             </p>
           )}
 
-          <AiWriter onDraft={loadDraft} onPlanned={onCampaignChange} />
+          <AiWriter
+            onDraft={(d, savedAs) => {
+              loadDraft(d, savedAs);
+              // The writer saved it, so the list has a new row to show.
+              onCampaignChange?.();
+            }}
+            onPlanned={onCampaignChange}
+          />
 
           {/* Template */}
           <div>

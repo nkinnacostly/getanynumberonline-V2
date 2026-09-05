@@ -160,7 +160,24 @@ Deno.serve(async (req) => {
     if (mode === "single") {
       const draft = clean(parsed as Record<string, unknown>);
       if (!draft) return errorResponse("The writer returned an empty draft", 502);
-      return jsonResponse({ success: true, draft, model: answer.model });
+
+      // Saved, not just returned. A draft that lives only in the composer's
+      // React state is gone the moment the admin navigates away, which makes
+      // "show me what the writer has written" unanswerable. It is saved as a
+      // plain draft: no date, no approval, so it cannot send on its own.
+      const id = await saveDraft(supabase, user.id, draft, brief, null);
+      if (!id) {
+        // The copy is good even if the row is not, so hand it over anyway —
+        // losing a draft to a database hiccup would be the worse failure.
+        console.error("draft-campaign: could not save single draft");
+        return jsonResponse({ success: true, draft, model: answer.model });
+      }
+      return jsonResponse({
+        success: true,
+        draft,
+        campaign_id: id,
+        model: answer.model,
+      });
     }
 
     // ── plan: persist as drafts carrying a PROPOSED date ─────
@@ -176,24 +193,6 @@ Deno.serve(async (req) => {
       const draft = clean(item as Record<string, unknown>);
       if (!draft) continue;
 
-      const { data: id, error } = await supabase.rpc("admin_create_campaign", {
-        p_admin_id: user.id,
-        p_subject: draft.subject,
-        p_body: draft.body,
-        p_audience: "all",
-        p_target_user_id: null,
-        p_template: draft.template,
-        p_preheader: draft.preheader,
-        p_headline: draft.headline,
-        p_cta_label: draft.cta_label,
-        p_cta_url: draft.cta_url,
-        p_hero_image: null,
-      });
-      if (error) {
-        console.error("draft-campaign: could not save draft:", error.message);
-        continue;
-      }
-
       // A date on a row that is still `draft` is a PROPOSAL. The dispatcher
       // only ever looks at status = 'scheduled', so this cannot send on its
       // own however far in the past the date drifts.
@@ -203,14 +202,8 @@ Deno.serve(async (req) => {
       );
       when.setUTCHours(9, 0, 0, 0);
 
-      await supabase
-        .from("email_campaigns")
-        .update({
-          source: "ai",
-          ai_brief: brief,
-          scheduled_for: when.toISOString(),
-        })
-        .eq("id", id);
+      const id = await saveDraft(supabase, user.id, draft, brief, when);
+      if (!id) continue;
 
       created.push({
         campaign_id: id,
@@ -229,6 +222,60 @@ Deno.serve(async (req) => {
     return errorResponse("Internal server error", 500);
   }
 });
+
+/**
+ * Persist one draft, marked as the writer's work.
+ *
+ * Two steps rather than one because admin_create_campaign owns the validation
+ * and normalisation (template names, the cta label/url pair, hero images on
+ * layouts that draw none) and there is no reason to have a second copy of that
+ * here. The follow-up update only sets the columns the RPC has no business
+ * knowing about: who wrote it, what they were asked for, and — for a plan —
+ * the proposed date.
+ *
+ * Returns null rather than throwing: one unsaveable draft in a plan of six
+ * should cost that one draft, not the whole run.
+ */
+async function saveDraft(
+  supabase: ReturnType<typeof createClient>,
+  adminId: string,
+  draft: Draft,
+  brief: string,
+  when: Date | null,
+): Promise<string | null> {
+  const { data: id, error } = await supabase.rpc("admin_create_campaign", {
+    p_admin_id: adminId,
+    p_subject: draft.subject,
+    p_body: draft.body,
+    p_audience: "all",
+    p_target_user_id: null,
+    p_template: draft.template,
+    p_preheader: draft.preheader,
+    p_headline: draft.headline,
+    p_cta_label: draft.cta_label,
+    p_cta_url: draft.cta_url,
+    p_hero_image: null,
+  });
+  if (error || !id) {
+    console.error("draft-campaign: could not save draft:", error?.message);
+    return null;
+  }
+
+  const { error: markErr } = await supabase
+    .from("email_campaigns")
+    .update({
+      source: "ai",
+      ai_brief: brief,
+      ...(when ? { scheduled_for: when.toISOString() } : {}),
+    })
+    .eq("id", id);
+  if (markErr) {
+    // The row exists and is sendable; it is only mislabelled as human-written.
+    console.error("draft-campaign: could not mark draft as ai:", markErr.message);
+  }
+
+  return id as string;
+}
 
 interface AskResult {
   content?: string;

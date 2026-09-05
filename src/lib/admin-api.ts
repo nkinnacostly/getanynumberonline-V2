@@ -349,6 +349,8 @@ export interface AdminCampaign {
   template?: EmailTemplate;
   /** 'human' if an admin wrote it, 'ai' if the writer drafted it. */
   source?: "human" | "ai";
+  /** What the admin asked the writer for. Only set on AI rows. */
+  ai_brief?: string | null;
   scheduled_for?: string | null;
   approved_at?: string | null;
   audience: "all" | "user";
@@ -408,11 +410,65 @@ export const previewCampaign = (params: CampaignDraft) =>
 export const queueCampaign = (campaign_id: string) =>
   callAdminApi<{ recipient_count: number }>("queue_campaign", { campaign_id });
 
-export const listCampaigns = (params: ListParams = {}) =>
+/**
+ * "" is everything. `ai`/`human` select on who wrote it, the rest on status —
+ * `sent` covers queued and sending too, so a campaign does not vanish from the
+ * tab you are watching it on halfway through its own send.
+ */
+export type CampaignFilter = "" | "ai" | "human" | "draft" | "scheduled" | "sent";
+
+export const CAMPAIGN_FILTERS: { value: CampaignFilter; label: string }[] = [
+  { value: "", label: "All" },
+  { value: "ai", label: "AI-written" },
+  { value: "human", label: "Written by hand" },
+  { value: "draft", label: "Drafts" },
+  { value: "scheduled", label: "Scheduled" },
+  { value: "sent", label: "Sent" },
+];
+
+export const listCampaigns = (
+  params: ListParams & { filter?: CampaignFilter } = {},
+) =>
   callAdminApi<Paged<AdminCampaign>>("list_campaigns", {
     limit: ADMIN_PAGE_SIZE,
     ...params,
   });
+
+/** A campaign read back in full, body included — enough to reopen it. */
+export interface CampaignContent extends CampaignDraft {
+  id: string;
+  audience: "all" | "user";
+  target_user_id: string | null;
+  status: AdminCampaign["status"];
+  source: "human" | "ai";
+  ai_brief: string | null;
+  scheduled_for: string | null;
+  approved_at: string | null;
+  test_sent_at: string | null;
+  /** False once it has gone out: reuse it as a new campaign instead. */
+  editable: boolean;
+}
+
+export const getCampaignContent = (campaign_id: string) =>
+  callAdminApi<{ campaign: CampaignContent }>("campaign_content", { campaign_id });
+
+/**
+ * Rewrite a campaign that has not gone out yet.
+ *
+ * Editing always costs the test and any approval — the server clears both,
+ * because the test that was sent described the old text. Expect to test again.
+ */
+export const updateCampaign = (
+  params: CampaignDraft & {
+    campaign_id: string;
+    audience: "all" | "user";
+    user_id?: string;
+  },
+) =>
+  callAdminApi<{ campaign_id: string; was_scheduled: boolean }>(
+    "update_campaign",
+    { ...params },
+  );
 
 export interface CampaignTotals {
   recipients: number;
@@ -535,9 +591,17 @@ export interface AiPlanEntry {
  * key and has a completely different latency profile from every other admin
  * read. It writes copy and nothing else — it cannot send or schedule.
  */
+/**
+ * One draft, saved as it is written.
+ *
+ * `campaign_id` is the row it was saved to — the composer binds to it so that
+ * editing and testing refine that draft instead of leaving copies behind. It
+ * is absent only if the save failed, in which case the copy still came back.
+ */
 export const draftCampaign = (brief: string) =>
   callEdgeFunction("draft-campaign", { brief, mode: "single" }) as Promise<{
     draft: AiDraft;
+    campaign_id?: string;
   }>;
 
 /** Saves `count` drafts carrying proposed dates. Still needs approving. */

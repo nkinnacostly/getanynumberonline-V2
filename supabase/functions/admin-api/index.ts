@@ -403,6 +403,72 @@ async function createCampaign(
   return { campaign_id: data };
 }
 
+/**
+ * Edit a campaign that has not gone out yet.
+ *
+ * The RPC decides what is editable and what an edit costs (the test flag and
+ * any approval are cleared there, not here) — this only shapes the arguments,
+ * exactly as createCampaign does.
+ */
+async function updateCampaign(
+  supabase: Supabase,
+  adminId: string,
+  body: Record<string, unknown>,
+) {
+  const campaignId = String(body.campaign_id ?? "").trim();
+  if (!campaignId) return { error: "campaign_id is required", status: 400 };
+
+  const audience = String(body.audience ?? "").trim();
+  if (audience !== "all" && audience !== "user") {
+    return { error: "audience must be 'all' or 'user'", status: 400 };
+  }
+
+  let targetUserId: string | null = null;
+  if (audience === "user") {
+    targetUserId = userScope(body);
+    if (!targetUserId) {
+      return { error: "user_id is required for a single-user send", status: 400 };
+    }
+  }
+
+  const { data, error } = await supabase.rpc("admin_update_campaign", {
+    p_admin_id: adminId,
+    p_campaign_id: campaignId,
+    p_subject: String(body.subject ?? ""),
+    p_body: String(body.body ?? ""),
+    p_audience: audience,
+    p_target_user_id: targetUserId,
+    p_template: String(body.template ?? "basic"),
+    p_preheader: optionalText(body.preheader),
+    p_headline: optionalText(body.headline),
+    p_cta_label: optionalText(body.cta_label),
+    p_cta_url: optionalText(body.cta_url),
+    p_hero_image: optionalText(body.hero_image),
+  });
+  if (error) return { error: error.message, status: 400 };
+  return (data ?? {}) as Record<string, unknown>;
+}
+
+/** One campaign back in full, body included, to reopen it in the composer. */
+async function campaignContent(
+  supabase: Supabase,
+  adminId: string,
+  body: Record<string, unknown>,
+) {
+  const campaignId = String(body.campaign_id ?? "").trim();
+  if (!campaignId) return { error: "campaign_id is required", status: 400 };
+
+  const { data, error } = await supabase.rpc("admin_campaign_content", {
+    p_admin_id: adminId,
+    p_campaign_id: campaignId,
+  });
+  if (error) return { error: error.message, status: 400 };
+
+  const out = data as { found?: boolean; campaign?: unknown } | null;
+  if (!out?.found) return { error: "Campaign not found", status: 404 };
+  return { campaign: out.campaign };
+}
+
 /** Empty strings from an untouched input are absence, not a value. */
 function optionalText(v: unknown): string | null {
   const s = typeof v === "string" ? v.trim() : "";
@@ -526,6 +592,7 @@ async function listCampaigns(
     p_admin_id: adminId,
     p_limit: limit,
     p_offset: offset,
+    p_filter: optionalText(body.filter),
   });
   if (error) return { error: error.message, status: 400 };
   const out = data as { rows?: unknown[]; total?: number } | null;
@@ -783,6 +850,20 @@ Deno.serve(async (req) => {
       case "create_campaign": {
         const result = await createCampaign(supabase, user.id, body);
         if ("error" in result) return errorResponse(result.error!, result.status!);
+        return jsonResponse({ success: true, ...result });
+      }
+      case "update_campaign": {
+        const result = await updateCampaign(supabase, user.id, body);
+        if ("error" in result) {
+          return errorResponse(result.error as string, result.status as number);
+        }
+        return jsonResponse({ success: true, ...result });
+      }
+      case "campaign_content": {
+        const result = await campaignContent(supabase, user.id, body);
+        if ("error" in result) {
+          return errorResponse(result.error as string, result.status as number);
+        }
         return jsonResponse({ success: true, ...result });
       }
       case "preview_campaign": {

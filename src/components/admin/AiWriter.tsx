@@ -22,7 +22,8 @@ export default function AiWriter({
   onDraft,
   onPlanned,
 }: {
-  onDraft: (d: AiDraft) => void;
+  /** `savedAs` is the row the writer saved the draft to, when it saved. */
+  onDraft: (d: AiDraft, savedAs?: string) => void;
   onPlanned?: () => void;
 }) {
   const { toast } = useToast();
@@ -42,8 +43,8 @@ export default function AiWriter({
     try {
       if (mode === "one") {
         const res = await draftCampaign(brief.trim());
-        onDraft(res.draft);
-        toast("Draft written — review it below", "success");
+        onDraft(res.draft, res.campaign_id);
+        toast("Draft written and saved — review it below", "success");
       } else {
         const res = await planCampaigns(brief.trim(), count);
         setPlan(res.created);
