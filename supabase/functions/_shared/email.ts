@@ -120,7 +120,7 @@ const LOGO = `${SITE}/images/email/logo.png`;
 const INSTAGRAM = "https://instagram.com/getanynumberonline";
 const IG_HANDLE = "@getanynumberonline";
 
-export type EmailTemplate = "basic" | "promo" | "weekly";
+export type EmailTemplate = "basic" | "promo" | "weekly" | "letter";
 
 /** Everything a campaign row contributes to the rendered mail. */
 export interface EmailContent {
@@ -321,6 +321,55 @@ ${eyebrow}
 </td></tr>`;
 }
 
+/**
+ * The letter: a campaign that does not look like one.
+ *
+ * No images, no card, no button, no coloured footer — one text link and a
+ * signature. Gmail's Promotions classifier weighs image-heavy HTML, prominent
+ * CTA buttons and link density heavily, and text-dominant mail reads as
+ * Primary. Nothing here is a trick: it is simply a plainer email, and it is
+ * plainer in exactly the ways the classifier measures.
+ *
+ * It still carries the unsubscribe link and the List-Unsubscribe headers,
+ * because those are required of bulk senders and dropping them would trade a
+ * tab for the spam folder.
+ */
+function letterEmail(
+  content: EmailContent,
+  opts: { unsubUrl: string; to: string },
+  cta: string | null,
+  ctaLabel: string,
+): string {
+  const preheader =
+    (content.preheader ?? "").trim() || derivePreheader(content.body);
+  const from = Deno.env.get("EMAIL_SIGNATURE") ?? "The GetAnyNumberOnline team";
+
+  return `<!doctype html><html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${escapeHtml(content.subject)}</title>
+</head>
+<body style="margin:0;padding:0;-webkit-text-size-adjust:100%">
+${preheaderBlock(preheader)}
+<div style="max-width:560px;margin:0 auto;padding:24px 20px;font:16px/1.65 ${SANS};color:#222222">
+${renderBody(content.body)}
+${
+    cta
+      ? `<p style="margin:0 0 16px;line-height:1.6"><a href="${cta}" style="color:${LINK}">${
+        escapeHtml(ctaLabel)
+      }</a></p>`
+      : ""
+  }
+<p style="margin:24px 0 0;line-height:1.6">&mdash; ${escapeHtml(from)}<br>
+<a href="${SITE}" style="color:${LINK}">getanynumberonline.com</a></p>
+<p style="margin:28px 0 0;font-size:12px;line-height:1.5;color:${MUTED}">
+You are receiving this because you have an account with us.
+<a href="${opts.unsubUrl}" style="color:${MUTED}">Unsubscribe</a>.
+</p>
+</div>
+</body></html>`;
+}
+
 /** Plain header for `basic` — the wordmark, no hero. */
 function basicHeader(): string {
   return `<tr><td style="padding:26px 32px 4px">
@@ -372,7 +421,8 @@ export function renderEmail(
   opts: { unsubUrl: string; to: string; now?: Date },
 ): string {
   const template: EmailTemplate =
-    content.template === "promo" || content.template === "weekly"
+    content.template === "promo" || content.template === "weekly" ||
+      content.template === "letter"
       ? content.template
       : "basic";
 
@@ -381,6 +431,12 @@ export function renderEmail(
     (content.preheader ?? "").trim() || derivePreheader(content.body);
   const cta = safeUrl(content.ctaUrl);
   const ctaLabel = (content.ctaLabel ?? "").trim() || "Open GetAnyNumberOnline";
+
+  // The letter shares nothing with the others but the body renderer, so it
+  // returns before any of the chrome below is built.
+  if (template === "letter") {
+    return letterEmail(content, opts, cta, ctaLabel);
+  }
 
   const dated = (opts.now ?? new Date()).toLocaleDateString("en-GB", {
     day: "numeric",

@@ -184,6 +184,10 @@ OUTPUT
 ${envelope}
 
 Return json and nothing else. No commentary before or after, no code fences.
-Pick "weekly" as the template for a digest of several items, "promo" for a
-single announcement with one action.`;
+Pick the template to match the job:
+- "promo" for a single announcement with one action.
+- "weekly" for a digest of several items.
+- "letter" when the brief asks for something personal, quiet, or likely to be
+  read as a note rather than a campaign. It draws no images and no button, so
+  write it as prose with the link inline, and keep it under 150 words.`;
 }

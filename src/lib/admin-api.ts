@@ -283,7 +283,7 @@ export const formatSetting = (key: string, value: number) => {
 // ── Email campaigns ─────────────────────────────────────────
 
 /** The three layouts a campaign can be rendered into. */
-export type EmailTemplate = "basic" | "promo" | "weekly";
+export type EmailTemplate = "basic" | "promo" | "weekly" | "letter";
 
 export const TEMPLATES: {
   id: EmailTemplate;
@@ -308,6 +308,14 @@ export const TEMPLATES: {
     id: "basic",
     label: "Plain",
     hint: "No hero. A short note in the brand shell.",
+    hero: false,
+  },
+  {
+    id: "letter",
+    label: "Letter",
+    hint:
+      "No images, no button, no footer band — reads like a personal email. " +
+      "The layout most likely to land in Gmail's Primary tab rather than Promotions.",
     hero: false,
   },
 ];
