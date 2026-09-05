@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useNavigate } from "@/hooks/useNavigate";
 import { createClient } from "@/lib/supabase/client";
 import AuthCard from "@/components/auth/AuthCard";
 
@@ -14,6 +15,7 @@ const INPUT_STYLE = {
 
 export default function UpdatePasswordPage() {
   const router = useRouter();
+  const navigate = useNavigate();
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -79,7 +81,7 @@ export default function UpdatePasswordPage() {
       if (error) throw error;
       setSuccess(true);
       setTimeout(() => {
-        router.push("/dashboard");
+        navigate("/dashboard");
         router.refresh();
       }, 2000);
     } catch (err: any) {

@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useNavigate } from "@/hooks/useNavigate";
 import { createClient } from "@/lib/supabase/client";
 import AuthCard from "@/components/auth/AuthCard";
 
@@ -124,6 +125,7 @@ function EyeIcon({ open }: { open: boolean }) {
 
 export default function AuthPage() {
   const router = useRouter();
+  const navigate = useNavigate();
   const [tab, setTab] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -233,7 +235,7 @@ export default function AuthPage() {
           throw error;
         }
         if (!data.session) throw new Error("Sign in failed");
-        router.push(
+        navigate(
           await landingFor(
             supabase,
             data.session.user.id,

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useNavigate } from "@/hooks/useNavigate";
 import { createClient } from "@/lib/supabase/client";
 
 /**
@@ -15,6 +16,7 @@ export default function SignOutButton({
   className?: string;
 }) {
   const router = useRouter();
+  const navigate = useNavigate();
   const [busy, setBusy] = useState(false);
 
   const handleSignOut = async () => {
@@ -23,7 +25,7 @@ export default function SignOutButton({
     try {
       const supabase = createClient();
       await supabase.auth.signOut();
-      router.push("/");
+      navigate("/");
       router.refresh();
     } finally {
       setBusy(false);

@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useNavigate } from "@/hooks/useNavigate";
 import { createClient } from "@/lib/supabase/client";
 import Pager from "@/components/dashboard/Pager";
 import { formatBytes } from "@/lib/esim-api";
@@ -123,7 +123,7 @@ export default function HistoryClient({
   rentals: RentalRow[];
   esims: EsimHistoryRow[];
 }) {
-  const router = useRouter();
+  const navigate = useNavigate();
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Record<string, Message | null>>({});
 
@@ -145,10 +145,10 @@ export default function HistoryClient({
     return `/dashboard/history${qs ? `?${qs}` : ""}`;
   };
   const goTab = (t: HistoryTab) =>
-    router.push(buildQuery({ tab: t, status: "all", page: 1 }));
+    navigate(buildQuery({ tab: t, status: "all", page: 1 }));
   const goStatus = (s: string) =>
-    router.push(buildQuery({ status: s, page: 1 }));
-  const goPage = (p: number) => router.push(buildQuery({ page: p }));
+    navigate(buildQuery({ status: s, page: 1 }));
+  const goPage = (p: number) => navigate(buildQuery({ page: p }));
 
   const toggleRow = async (order: OrderRow) => {
     if (expandedId === order.id) {

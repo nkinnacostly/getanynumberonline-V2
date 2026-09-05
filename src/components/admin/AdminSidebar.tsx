@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useNavigate } from "@/hooks/useNavigate";
 import { createClient } from "@/lib/supabase/client";
 import Logo from "@/components/site/Logo";
 import ThemeToggle from "@/components/site/ThemeToggle";
@@ -127,6 +128,7 @@ function FlagBadge({ count, compact }: { count: number; compact?: boolean }) {
 export default function AdminSidebar({ email }: { email: string }) {
   const pathname = usePathname();
   const router = useRouter();
+  const navigate = useNavigate();
   const [flagged, setFlagged] = useState(0);
 
   // Fetched once — this layout stays mounted across admin navigations, so the
@@ -156,7 +158,7 @@ export default function AdminSidebar({ email }: { email: string }) {
   const handleSignOut = async () => {
     const supabase = createClient();
     await supabase.auth.signOut();
-    router.push("/");
+    navigate("/");
     router.refresh();
   };
 

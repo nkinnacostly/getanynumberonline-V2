@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "@/hooks/useNavigate";
 import { createClient } from "@/lib/supabase/client";
 import { callEdgeFunction } from "@/lib/api";
 import {
@@ -12,7 +13,6 @@ import {
 import { useToast } from "@/components/dashboard/Toast";
 import RentalCard, { type RentalRow } from "@/components/dashboard/RentalCard";
 import { useUser } from "@/hooks/useUser";
-import { useRouter } from "next/navigation";
 
 /** Catalog row + stable string id for React keys */
 type SelectedRental = RentalOption & { id: string };
@@ -20,7 +20,7 @@ type SelectedRental = RentalOption & { id: string };
 const DURATIONS = [7, 14, 30, 60] as const;
 
 export default function RentalsPage() {
-  const router = useRouter();
+  const navigate = useNavigate();
   const { toast } = useToast();
   const user = useUser();
   const [balance, setBalance] = useState(0);
@@ -181,7 +181,7 @@ export default function RentalsPage() {
   const handleRent = async () => {
     if (!selected || price === null) return;
     if (insufficient) {
-      router.push("/dashboard/wallet");
+      navigate("/dashboard/wallet");
       return;
     }
     setRentLoading(true);

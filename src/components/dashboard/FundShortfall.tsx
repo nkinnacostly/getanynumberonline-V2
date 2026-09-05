@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useNavigate } from "@/hooks/useNavigate";
 import { useTopup } from "@/hooks/useTopup";
 import { shortfallTopup } from "@/lib/wallet";
 
@@ -25,7 +25,7 @@ export default function FundShortfall({
   itemLabel: string;
   onFunded?: () => void;
 }) {
-  const router = useRouter();
+  const navigate = useNavigate();
   const topup = useTopup();
 
   const fundAmount = shortfallTopup(price, balance);
@@ -71,7 +71,7 @@ export default function FundShortfall({
           )}
         </button>
         <button
-          onClick={() => router.push("/dashboard/wallet")}
+          onClick={() => navigate("/dashboard/wallet")}
           className="h-[44px] px-4 rounded-[6px] text-[14px] font-medium"
           style={{
             backgroundColor: "transparent",

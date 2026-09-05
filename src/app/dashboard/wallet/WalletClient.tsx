@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
 import Pager from "@/components/dashboard/Pager";
 import TopupButton from "@/components/dashboard/TopupButton";
+import { useNavigate } from "@/hooks/useNavigate";
 import {
   isValidTopup,
   QUICK_AMOUNTS as WALLET_QUICK_AMOUNTS,
@@ -51,7 +51,7 @@ export default function WalletClient({
   pageSize: number;
   filter: TxFilter;
 }) {
-  const router = useRouter();
+  const navigate = useNavigate();
   const [amount, setAmount] = useState("");
   const [selectedQuick, setSelectedQuick] = useState<number | null>(null);
   const [showSuccess, setShowSuccess] = useState(false);
@@ -115,8 +115,8 @@ export default function WalletClient({
     const qs = params.toString();
     return `/dashboard/wallet${qs ? `?${qs}` : ""}`;
   };
-  const goFilter = (t: TxFilter) => router.push(buildQuery({ type: t, page: 1 }));
-  const goPage = (p: number) => router.push(buildQuery({ page: p }));
+  const goFilter = (t: TxFilter) => navigate(buildQuery({ type: t, page: 1 }));
+  const goPage = (p: number) => navigate(buildQuery({ page: p }));
   const filterLabel =
     FILTER_TABS.find((f) => f.id === filter)?.label.toLowerCase() ?? "";
 

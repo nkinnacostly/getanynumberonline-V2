@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import { Syne, DM_Mono } from "next/font/google";
 import Script from "next/script";
+import { Suspense } from "react";
 import JsonLd from "@/components/seo/JsonLd";
+import TopLoader from "@/components/site/TopLoader";
 import {
   ROBOTS_META,
   SITE_DESCRIPTION,
@@ -90,6 +92,13 @@ export default function RootLayout({
         </Script>
       </head>
       <body className="min-h-full flex flex-col">
+        {/* Suspense because TopLoader reads useSearchParams, which opts its
+            subtree out of prerendering. Bounded here, that costs a null
+            fallback; unbounded, it would force every static page in the app
+            to be client-rendered. */}
+        <Suspense fallback={null}>
+          <TopLoader />
+        </Suspense>
         {/* Site-wide identity. Page-level schema (FAQ, Product) is added by
             the individual routes and references these by @id. */}
         <JsonLd data={[organizationSchema(), websiteSchema()]} />
