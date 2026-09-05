@@ -443,6 +443,63 @@ function previewCampaign(adminEmail: string | null, body: Record<string, unknown
   return { html };
 }
 
+async function approveCampaign(
+  supabase: Supabase,
+  adminId: string,
+  body: Record<string, unknown>,
+) {
+  const id = String(body.campaign_id ?? "").trim();
+  if (!id) return { error: "campaign_id is required", status: 400 };
+
+  const { data, error } = await supabase.rpc("admin_approve_campaign", {
+    p_admin_id: adminId,
+    p_campaign_id: id,
+    p_approved: body.approved !== false,
+  });
+  if (error) return { error: error.message, status: 400 };
+  return data as Record<string, unknown>;
+}
+
+async function scheduleCampaign(
+  supabase: Supabase,
+  adminId: string,
+  body: Record<string, unknown>,
+) {
+  const id = String(body.campaign_id ?? "").trim();
+  if (!id) return { error: "campaign_id is required", status: 400 };
+
+  // null is meaningful — it unschedules — so absence and null differ here.
+  const when = body.scheduled_for == null
+    ? null
+    : String(body.scheduled_for);
+
+  const { data, error } = await supabase.rpc("admin_schedule_campaign", {
+    p_admin_id: adminId,
+    p_campaign_id: id,
+    p_when: when,
+  });
+  if (error) return { error: error.message, status: 400 };
+  return data as Record<string, unknown>;
+}
+
+async function campaignCalendar(
+  supabase: Supabase,
+  adminId: string,
+  body: Record<string, unknown>,
+) {
+  const from = String(body.from ?? "");
+  const to = String(body.to ?? "");
+  if (!from || !to) return { error: "from and to are required", status: 400 };
+
+  const { data, error } = await supabase.rpc("admin_campaign_calendar", {
+    p_admin_id: adminId,
+    p_from: from,
+    p_to: to,
+  });
+  if (error) return { error: error.message, status: 400 };
+  return data as Record<string, unknown>;
+}
+
 async function queueCampaign(
   supabase: Supabase,
   adminId: string,
@@ -731,6 +788,21 @@ Deno.serve(async (req) => {
       case "preview_campaign": {
         const result = previewCampaign(profile.email as string | null, body);
         if ("error" in result) return errorResponse(result.error!, result.status!);
+        return jsonResponse({ success: true, ...result });
+      }
+      case "approve_campaign": {
+        const result = await approveCampaign(supabase, user.id, body);
+        if ("error" in result) return errorResponse(result.error as string, result.status as number);
+        return jsonResponse({ success: true, ...result });
+      }
+      case "schedule_campaign": {
+        const result = await scheduleCampaign(supabase, user.id, body);
+        if ("error" in result) return errorResponse(result.error as string, result.status as number);
+        return jsonResponse({ success: true, ...result });
+      }
+      case "campaign_calendar": {
+        const result = await campaignCalendar(supabase, user.id, body);
+        if ("error" in result) return errorResponse(result.error as string, result.status as number);
         return jsonResponse({ success: true, ...result });
       }
       case "queue_campaign": {

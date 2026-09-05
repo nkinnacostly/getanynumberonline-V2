@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { AdminCard } from "@/components/admin/AdminTable";
+import AiWriter from "@/components/admin/AiWriter";
 import EmailPreview from "@/components/admin/EmailPreview";
 import HeroImagePicker from "@/components/admin/HeroImagePicker";
 import UserPicker from "@/components/admin/UserPicker";
@@ -9,6 +10,7 @@ import { useToast } from "@/components/dashboard/Toast";
 import { EMAIL_PRESETS, type EmailPreset } from "@/lib/email-presets";
 import {
   type AdminUser,
+  type AiDraft,
   type AudienceSize,
   type CampaignDraft,
   type EmailTemplate,
@@ -78,6 +80,18 @@ export default function CampaignComposer({
     setCampaignId(null);
     setTested(false);
     setProgress(null);
+  };
+
+  /** An AI draft fills the same slots a preset does, and is just as editable. */
+  const loadDraft = (d: AiDraft) => {
+    setTemplate(d.template);
+    setSubject(d.subject);
+    setBody(d.body);
+    setPreheader(d.preheader ?? "");
+    setHeadline(d.headline ?? "");
+    setCtaLabel(d.cta_label ?? "");
+    setCtaUrl(d.cta_url ?? "");
+    invalidate();
   };
 
   /** Load a ready-written campaign. Every field is written, none left over. */
@@ -320,6 +334,8 @@ export default function CampaignComposer({
               nothing is sent until you press Send.
             </Hint>
           </div>
+
+          <AiWriter onDraft={loadDraft} onPlanned={onSent} />
 
           {/* Template */}
           <div>

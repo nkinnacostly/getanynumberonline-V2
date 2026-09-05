@@ -58,9 +58,18 @@ export default function AdminEmailPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-2" style={{ color: "var(--foreground)" }}>
-        Email
-      </h1>
+      <div className="flex flex-wrap items-center gap-3 mb-2">
+        <h1 className="text-2xl font-bold" style={{ color: "var(--foreground)" }}>
+          Email
+        </h1>
+        <Link
+          href="/admin/email/calendar"
+          className="px-3 h-[30px] inline-flex items-center rounded-[6px] text-[12px] font-medium"
+          style={{ border: "1px solid var(--line-strong)", color: "var(--foreground)" }}
+        >
+          Calendar &rarr;
+        </Link>
+      </div>
       <p className="text-[13px] mb-6" style={{ color: "var(--muted)" }}>
         Marketing email only. Password resets and order updates are sent
         separately and always reach everyone, including people who unsubscribe.

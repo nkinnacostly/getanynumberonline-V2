@@ -339,8 +339,12 @@ export interface AdminCampaign {
   id: string;
   subject: string;
   template?: EmailTemplate;
+  /** 'human' if an admin wrote it, 'ai' if the writer drafted it. */
+  source?: "human" | "ai";
+  scheduled_for?: string | null;
+  approved_at?: string | null;
   audience: "all" | "user";
-  status: "draft" | "queued" | "sending" | "sent" | "failed";
+  status: "draft" | "scheduled" | "queued" | "sending" | "sent" | "failed";
   recipient_count: number;
   sent_count: number;
   failed_count: number;
@@ -445,6 +449,97 @@ export const getCampaignStats = (campaign_id: string, filter = "all") =>
 
 export const setMarketingOptOut = (user_id: string, opt_out: boolean) =>
   callAdminApi<{ opt_out: boolean }>("set_marketing_opt_out", { user_id, opt_out });
+
+/** A campaign as the calendar draws it. */
+export interface CalendarEntry {
+  id: string;
+  subject: string;
+  status: AdminCampaign["status"];
+  audience: "all" | "user";
+  source: "human" | "ai";
+  template: EmailTemplate;
+  approved: boolean;
+  tested: boolean;
+  recipient_count?: number;
+  sent_count?: number;
+  failed_count?: number;
+  /** The day it sits on: the scheduled date, or the day it actually went out. */
+  at: string;
+}
+
+export interface CalendarBacklogEntry {
+  id: string;
+  subject: string;
+  status: AdminCampaign["status"];
+  audience: "all" | "user";
+  source: "human" | "ai";
+  template: EmailTemplate;
+  approved: boolean;
+  tested: boolean;
+  created_at: string;
+}
+
+export interface CampaignCalendar {
+  entries: CalendarEntry[];
+  /** Drafts with no date yet, offered for placing. */
+  unscheduled: CalendarBacklogEntry[];
+}
+
+export const getCampaignCalendar = (from: string, to: string) =>
+  callAdminApi<CampaignCalendar>("campaign_calendar", { from, to });
+
+/** The human gate. Nothing sends on a schedule without this. */
+export const approveCampaign = (campaign_id: string, approved = true) =>
+  callAdminApi<{ approved: boolean }>("approve_campaign", { campaign_id, approved });
+
+/** Pass null to unschedule and drop it back to a draft. */
+export const scheduleCampaign = (
+  campaign_id: string,
+  scheduled_for: string | null,
+) =>
+  callAdminApi<{ scheduled_for: string | null }>("schedule_campaign", {
+    campaign_id,
+    scheduled_for,
+  });
+
+// ── The writer ──────────────────────────────────────────────
+
+export interface AiDraft {
+  template: EmailTemplate;
+  subject: string;
+  preheader: string;
+  headline: string;
+  cta_label: string;
+  cta_url: string;
+  body: string;
+  rationale?: string;
+}
+
+export interface AiPlanEntry {
+  campaign_id: string;
+  subject: string;
+  proposed_for: string;
+  rationale: string | null;
+}
+
+/**
+ * Its own Edge Function rather than an admin-api action: it holds the DeepSeek
+ * key and has a completely different latency profile from every other admin
+ * read. It writes copy and nothing else — it cannot send or schedule.
+ */
+export const draftCampaign = (brief: string) =>
+  callEdgeFunction("draft-campaign", { brief, mode: "single" }) as Promise<{
+    draft: AiDraft;
+  }>;
+
+/** Saves `count` drafts carrying proposed dates. Still needs approving. */
+export const planCampaigns = (brief: string, count: number, start_offset = 3) =>
+  callEdgeFunction("draft-campaign", {
+    brief,
+    mode: "plan",
+    count,
+    start_offset,
+  }) as Promise<{ created: AiPlanEntry[] }>;
 
 export const deleteCampaign = (campaign_id: string) =>
   callAdminApi<{ deleted: boolean }>("delete_campaign", { campaign_id });
