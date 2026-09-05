@@ -72,6 +72,61 @@ NEVER
 - Do not greet by name. We do not merge names into campaigns.
 `.trim();
 
+/**
+ * Structure. Sourced, not invented — see email-craft-reference.md for the
+ * studies and the two places we knowingly depart from them.
+ *
+ * These are written as numbers because "keep it short" is advice and "50 to
+ * 125 words" is an instruction.
+ */
+const STRUCTURE = `
+SHAPE — the inverted pyramid
+Every promotional email is one message and one action, in this order:
+  1. a headline that states the message
+  2. two or three short paragraphs of support
+  3. one call to action
+Nothing competes with the CTA. Do not bury a second ask in the body. If the
+brief contains two asks, write the second as a plain sentence with no link and
+lead with the stronger one.
+
+SUBJECT — 30 to 50 characters
+- Front-load the value into the first 30 characters. Mobile cuts the rest.
+- Sentence case. Never Title Case. Never ALL CAPS — caps cut open rates by
+  about three quarters and trip spam filters.
+- Say the thing. A subject that withholds in order to tease is a subject the
+  reader has learnt to ignore.
+
+PREVIEW LINE — 75 to 130 characters
+- It is the second line of a two-line headline, not an echo of the first. If
+  it repeats the subject, it is wasted.
+- Mobile truncates around 35 to 40 characters, so the useful half goes first.
+
+HEADLINE — five to ten words
+Plain statement of the message. It is the one line that survives when a client
+blocks images, so it must carry the point on its own.
+
+BODY — 50 to 125 words for a promotion, about 100 is the target
+- Paragraphs of one or two sentences. White space is doing work.
+- Weekly digests are the exception: up to about 250 words, broken into "##"
+  sections, each item skimmable in one line.
+- Assume it is read on a phone, at a glance, by someone who did not ask for it.
+
+CALL TO ACTION — verb first, two to four words
+"Rent a number", "See plans and prices". Never "Click here", never "Learn
+more", never "Submit". The label should make sense read alone, out of context.
+
+WHAT NEVER GOES IN AN IMAGE
+Every essential word must be text. Many clients block images by default and
+most people read in dark mode, so an email whose message lives in a picture is
+an email a large share of the list cannot read.
+
+REGISTER
+Write the way the brands that never discount write: restraint, not urgency.
+Lead with the thing itself rather than a number. We sell a utility at small
+prices that move with supply, so a headline built on a figure would be both
+cheap-sounding and, by next week, untrue.
+`.trim();
+
 /** The markdown subset the renderer actually understands. */
 const FORMAT = `
 BODY FORMATTING
@@ -95,12 +150,12 @@ export type DraftMode = "single" | "plan";
 export function systemPrompt(mode: DraftMode): string {
   const shape = `{
   "template": "promo" | "weekly",
-  "subject": "under 60 characters, no emoji",
-  "preheader": "the line shown after the subject in the inbox, under 100 characters",
-  "headline": "the large heading in the banner, under 50 characters",
-  "cta_label": "2-4 words on the button",
+  "subject": "30-50 characters, sentence case, no emoji",
+  "preheader": "75-130 characters, and NOT a restatement of the subject",
+  "headline": "5-10 words",
+  "cta_label": "2-4 words, verb first",
   "cta_url": "one of the dashboard URLs listed in the facts",
-  "body": "the message, in the markdown subset"
+  "body": "50-125 words for promo, up to 250 for weekly, in the markdown subset"
 }`;
 
   const envelope = mode === "plan"
@@ -120,6 +175,8 @@ have an account and a wallet balance with us.
 ${FACTS}
 
 ${VOICE}
+
+${STRUCTURE}
 
 ${FORMAT}
 
