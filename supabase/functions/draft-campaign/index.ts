@@ -22,8 +22,26 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-const DEEPSEEK_BASE = "https://api.deepseek.com";
-const DEEPSEEK_URL = `${DEEPSEEK_BASE}/chat/completions`;
+/**
+ * Any OpenAI-compatible provider, chosen by env.
+ *
+ * The writer is one HTTP call in a shape half the industry implements, so the
+ * provider has no business being hardcoded — and the reason to move is rarely
+ * quality. It is a balance running out, a free tier appearing, or a rate limit.
+ * All of those should be a secret change, not a deploy.
+ *
+ *   DeepSeek    AI_BASE_URL=https://api.deepseek.com
+ *   Gemini      AI_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai
+ *   Groq        AI_BASE_URL=https://api.groq.com/openai/v1
+ *   OpenRouter  AI_BASE_URL=https://openrouter.ai/api/v1
+ *
+ * Set AI_MODEL to a model that provider serves. AI_API_KEY overrides the key;
+ * DEEPSEEK_API_KEY stays the fallback so the existing setup keeps working
+ * untouched.
+ */
+const AI_BASE = (Deno.env.get("AI_BASE_URL") ?? "https://api.deepseek.com")
+  .replace(/\/+$/, "");
+const DEEPSEEK_URL = `${AI_BASE}/chat/completions`;
 
 /**
  * Model names at this provider have already changed once (deepseek-chat is
@@ -35,11 +53,14 @@ const DEEPSEEK_URL = `${DEEPSEEK_BASE}/chat/completions`;
  * limit would fail identically on every entry, so those stop immediately.
  */
 const MODEL_CANDIDATES = [
+  Deno.env.get("AI_MODEL"),
   Deno.env.get("DEEPSEEK_MODEL"),
-  "deepseek-v4-pro",
+  // Only reached when no model is configured, i.e. still on DeepSeek. Flash
+  // first: it is a fifth of Pro's price and the difference on 200 words of
+  // marketing copy does not justify the gap.
   "deepseek-v4-flash",
+  "deepseek-v4-pro",
   "deepseek-chat",
-  "deepseek-reasoner",
 ].filter((m): m is string => !!m);
 /** Generous: a weekly digest plus JSON envelope runs long, and a truncated
  *  JSON string is unparseable rather than merely short. */
@@ -93,13 +114,13 @@ Deno.serve(async (req) => {
       return errorResponse("Forbidden", 403);
     }
 
-    const apiKey = Deno.env.get("DEEPSEEK_API_KEY");
+    const apiKey = Deno.env.get("AI_API_KEY") ?? Deno.env.get("DEEPSEEK_API_KEY");
     if (!apiKey) {
       // Loud, never a dead button: a missing key is an operator problem and
       // the admin needs to be told which one.
-      console.error("ALERT draft-campaign: DEEPSEEK_API_KEY is not set");
+      console.error("ALERT draft-campaign: no AI_API_KEY / DEEPSEEK_API_KEY set");
       return errorResponse(
-        "DEEPSEEK_API_KEY is not configured in Supabase Edge secrets",
+        "No AI key configured. Set AI_API_KEY (or DEEPSEEK_API_KEY) in Supabase Edge secrets.",
         500,
       );
     }
@@ -294,18 +315,20 @@ async function askDeepSeek(
  * the fix lives.
  */
 function friendly(status: number, model: string, message: string): string {
+  const who = new URL(AI_BASE).hostname;
   if (status === 402) {
-    return `The DeepSeek account is out of credit (${message}). Top it up at ` +
-      `platform.deepseek.com — nothing is wrong with the app.`;
+    return `${who} is out of credit (${message}). Top it up, or point ` +
+      `AI_BASE_URL / AI_MODEL at a provider with a free tier — nothing is ` +
+      `wrong with the app.`;
   }
   if (status === 401 || status === 403) {
-    return `DeepSeek rejected the API key (${message}). Reset it with ` +
-      `\`supabase secrets set DEEPSEEK_API_KEY=...\``;
+    return `${who} rejected the API key (${message}). Reset it with ` +
+      `\`supabase secrets set AI_API_KEY=...\``;
   }
   if (status === 429) {
-    return `DeepSeek is rate limiting (${message}). Wait a moment and retry.`;
+    return `${who} is rate limiting (${message}). Wait a moment and retry.`;
   }
-  return `DeepSeek ${status} on ${model}: ${message}`;
+  return `${who} ${status} on ${model}: ${message}`;
 }
 
 /** Pull the human-readable bit out of a provider error body. */
@@ -320,17 +343,18 @@ function extractMessage(body: string): string {
 
 /** Ask the provider which models it actually has. A pure diagnostic. */
 async function listModels(apiKey: string): Promise<Record<string, unknown>> {
-  const res = await fetch(`${DEEPSEEK_BASE}/models`, {
+  const res = await fetch(`${AI_BASE}/models`, {
     headers: { Authorization: `Bearer ${apiKey}` },
   });
   const body = await res.text().catch(() => "");
   if (!res.ok) {
-    return { ok: false, status: res.status, error: extractMessage(body) };
+    return { ok: false, base: AI_BASE, status: res.status, error: extractMessage(body) };
   }
   try {
     const j = JSON.parse(body);
     return {
       ok: true,
+      base: AI_BASE,
       models: (j?.data ?? []).map((m: { id?: string }) => m.id).filter(Boolean),
       tried: MODEL_CANDIDATES,
     };
