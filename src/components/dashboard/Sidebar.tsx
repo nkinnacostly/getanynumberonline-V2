@@ -56,7 +56,7 @@ const navItems = [
     ),
   },
   {
-    label: "eSIM",
+    label: "Data eSIM",
     href: "/dashboard/esim",
     icon: (
       <svg
