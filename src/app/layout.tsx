@@ -78,7 +78,16 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <head>
-        <script dangerouslySetInnerHTML={{ __html: THEME_INIT }} />
+        {/* next/script rather than a raw <script>: React 19 flags any script
+            element in a component tree and Next's dev overlay raises it as an
+            error on every page load. beforeInteractive hands the same inline
+            code to Next, which injects it into <head> during SSR — so it still
+            runs before first paint, and there is no script element in the
+            React tree to complain about. A <template>, which the warning
+            suggests, would never execute at all. */}
+        <Script id="gano-theme-init" strategy="beforeInteractive">
+          {THEME_INIT}
+        </Script>
       </head>
       <body className="min-h-full flex flex-col">
         {/* Site-wide identity. Page-level schema (FAQ, Product) is added by
