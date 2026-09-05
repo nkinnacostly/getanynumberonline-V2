@@ -7,7 +7,6 @@ import EmailPreview from "@/components/admin/EmailPreview";
 import HeroImagePicker from "@/components/admin/HeroImagePicker";
 import UserPicker from "@/components/admin/UserPicker";
 import { useToast } from "@/components/dashboard/Toast";
-import { EMAIL_PRESETS, type EmailPreset } from "@/lib/email-presets";
 import {
   type AdminUser,
   type AiDraft,
@@ -38,9 +37,18 @@ import {
 export default function CampaignComposer({
   lockedUser,
   onSent,
+  onCampaignChange,
 }: {
   lockedUser?: { id: string; email: string | null };
+  /** The send finished. Fires once, at the end — the user page closes on it. */
   onSent?: () => void;
+  /**
+   * A campaign row appeared or moved on the server: a test minted the draft,
+   * a send queued it, a send finished or gave up part-way, the writer planned
+   * a schedule. The list page reloads on this, so its table is never a
+   * manual refresh behind what actually happened.
+   */
+  onCampaignChange?: () => void;
 }) {
   const { toast } = useToast();
 
@@ -82,7 +90,7 @@ export default function CampaignComposer({
     setProgress(null);
   };
 
-  /** An AI draft fills the same slots a preset does, and is just as editable. */
+  /** An AI draft fills the fields in, as editable as anything typed. */
   const loadDraft = (d: AiDraft) => {
     setTemplate(d.template);
     setSubject(d.subject);
@@ -91,19 +99,6 @@ export default function CampaignComposer({
     setHeadline(d.headline ?? "");
     setCtaLabel(d.cta_label ?? "");
     setCtaUrl(d.cta_url ?? "");
-    invalidate();
-  };
-
-  /** Load a ready-written campaign. Every field is written, none left over. */
-  const loadPreset = (p: EmailPreset) => {
-    setTemplate(p.draft.template);
-    setSubject(p.draft.subject);
-    setBody(p.draft.body);
-    setPreheader(p.draft.preheader ?? "");
-    setHeadline(p.draft.headline ?? "");
-    setCtaLabel(p.draft.cta_label ?? "");
-    setCtaUrl(p.draft.cta_url ?? "");
-    setHeroImage(p.draft.hero_image ?? "");
     invalidate();
   };
 
@@ -164,6 +159,8 @@ export default function CampaignComposer({
       const res = await sendCampaign(id, true);
       setTested(true);
       toast(`Test sent to ${res.sent_to ?? "your inbox"}`, "success");
+      // The draft row exists from here on, so the list has something new.
+      onCampaignChange?.();
     } catch (e) {
       toast(e instanceof Error ? e.message : "Test send failed", "error");
     } finally {
@@ -185,6 +182,9 @@ export default function CampaignComposer({
     try {
       const count = await queueCampaign(campaignId);
       setProgress(`Queued ${count.recipient_count}…`);
+      // Queued, not sent — but the row is live from this moment, which is
+      // what starts the list page ticking alongside the loop below.
+      onCampaignChange?.();
 
       // The function sends a bounded number of batches per call and reports
       // what is left, so the client keeps calling until the queue is empty.
@@ -211,6 +211,10 @@ export default function CampaignComposer({
     } finally {
       setBusy(null);
       setProgress(null);
+      // A send that threw half way still delivered everything up to that
+      // point and the cron drains the rest, so the list is refreshed on the
+      // failure path too — not only when the loop runs clean.
+      onCampaignChange?.();
     }
   };
 
@@ -310,32 +314,7 @@ export default function CampaignComposer({
             </p>
           )}
 
-          <div>
-            <Label>Start from</Label>
-            <div className="flex flex-wrap gap-2">
-              {EMAIL_PRESETS.map((p) => (
-                <button
-                  key={p.id}
-                  onClick={() => loadPreset(p)}
-                  title={p.summary}
-                  className="px-3 h-[38px] rounded-[6px] text-[13px] font-medium"
-                  style={{
-                    backgroundColor: "var(--field)",
-                    color: "var(--foreground)",
-                    border: "1px solid var(--line-strong)",
-                  }}
-                >
-                  {p.name}
-                </button>
-              ))}
-            </div>
-            <Hint>
-              Loads a written campaign into the fields below. Edit it freely —
-              nothing is sent until you press Send.
-            </Hint>
-          </div>
-
-          <AiWriter onDraft={loadDraft} onPlanned={onSent} />
+          <AiWriter onDraft={loadDraft} onPlanned={onCampaignChange} />
 
           {/* Template */}
           <div>
@@ -505,8 +484,8 @@ export default function CampaignComposer({
             </button>
 
             {/* Why Send is greyed out, stated rather than left to a tooltip.
-                Loading a preset and editing after a test both clear `tested`,
-                which is correct but invisible unless it is said out loud. */}
+                Loading an AI draft and editing after a test both clear
+                `tested`, which is correct but invisible unless it is said. */}
             {busy === null && (
               <span
                 className="text-[12px]"

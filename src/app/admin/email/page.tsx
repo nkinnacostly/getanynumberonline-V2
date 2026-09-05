@@ -24,33 +24,76 @@ export default function AdminEmailPage() {
   const [loading, setLoading] = useState(true);
   const [audience, setAudience] = useState<AudienceSize | null>(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [list, size] = await Promise.all([
-        listCampaigns({ offset: (page - 1) * ADMIN_PAGE_SIZE }),
-        getAudienceSize(),
-      ]);
-      setRows(list.rows ?? []);
-      setTotal(list.total ?? 0);
-      setAudience(size.audience);
-    } catch (e) {
-      toast(e instanceof Error ? e.message : "Could not load campaigns", "error");
-    } finally {
-      setLoading(false);
-    }
-  }, [page, toast]);
+  /**
+   * `silent` is for the background reads — the ones the operator did not ask
+   * for. They skip the spinner so the table updates in place instead of
+   * blanking, and swallow their error: the last good rows stay on screen and
+   * the next tick tries again, which beats a toast every four seconds if the
+   * network drops mid-send.
+   */
+  const load = useCallback(
+    async (silent = false) => {
+      if (!silent) setLoading(true);
+      try {
+        const [list, size] = await Promise.all([
+          listCampaigns({ offset: (page - 1) * ADMIN_PAGE_SIZE }),
+          getAudienceSize(),
+        ]);
+        setRows(list.rows ?? []);
+        setTotal(list.total ?? 0);
+        setAudience(size.audience);
+      } catch (e) {
+        if (!silent) {
+          toast(e instanceof Error ? e.message : "Could not load campaigns", "error");
+        }
+      } finally {
+        if (!silent) setLoading(false);
+      }
+    },
+    [page, toast],
+  );
+
+  const refresh = useCallback(() => {
+    load(true);
+  }, [load]);
 
   useEffect(() => {
     load();
   }, [load]);
+
+  /**
+   * A send is not one atomic step. The composer sends a few batches per call,
+   * whatever is left is drained by the dispatch cron, scheduled campaigns fire
+   * on their own clock, and opens land minutes to days later. So while any row
+   * is mid-flight the table re-reads itself and the counts climb on their own.
+   *
+   * It stops the moment nothing is in flight — `sent` and `failed` are
+   * terminal — so an idle page makes no requests at all. A hidden tab is
+   * skipped rather than polled, and re-reads once on becoming visible again.
+   */
+  const inFlight = rows.some(
+    (c) => c.status === "queued" || c.status === "sending",
+  );
+
+  useEffect(() => {
+    if (!inFlight) return;
+    const tick = () => {
+      if (document.visibilityState === "visible") load(true);
+    };
+    const id = window.setInterval(tick, 4000);
+    document.addEventListener("visibilitychange", tick);
+    return () => {
+      window.clearInterval(id);
+      document.removeEventListener("visibilitychange", tick);
+    };
+  }, [inFlight, load]);
 
   const handleDelete = async (c: AdminCampaign) => {
     if (!confirm(`Delete the draft "${c.subject}"?`)) return;
     try {
       await deleteCampaign(c.id);
       toast("Draft deleted", "success");
-      load();
+      refresh();
     } catch (e) {
       toast(e instanceof Error ? e.message : "Could not delete", "error");
     }
@@ -97,7 +140,7 @@ export default function AdminEmailPage() {
       )}
 
       <div className="mb-10">
-        <CampaignComposer onSent={load} />
+        <CampaignComposer onCampaignChange={refresh} />
       </div>
 
       <h2 className="text-sm font-semibold mb-1" style={{ color: "var(--muted)" }}>
