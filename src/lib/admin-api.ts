@@ -1,4 +1,5 @@
 import { callEdgeFunction } from "@/lib/api";
+import { ADMIN_PAGE_SIZE } from "@/lib/pagination";
 
 /**
  * Client for the admin-api edge function.
@@ -147,8 +148,8 @@ export interface ListParams {
   user_id?: string;
 }
 
-/** Page size used by every admin table. */
-export const ADMIN_PAGE_SIZE = 25;
+/** Page size used by every admin table. Defined with the other paging rules. */
+export { ADMIN_PAGE_SIZE };
 
 export const getStats = () =>
   callAdminApi<AdminStats & { success: boolean }>("get_stats");
@@ -214,8 +215,11 @@ export const notifyFlagsChanged = () => {
   }
 };
 
-export const listFlagged = () =>
-  callAdminApi<{ rows: AdminFlaggedUser[] }>("list_flagged");
+export const listFlagged = (params: ListParams = {}) =>
+  callAdminApi<Paged<AdminFlaggedUser>>("list_flagged", {
+    limit: ADMIN_PAGE_SIZE,
+    ...params,
+  });
 
 export const clearFlag = (user_id: string) =>
   callAdminApi<{ cleared: boolean }>("clear_flag", { user_id });
@@ -506,10 +510,21 @@ export interface CampaignStats {
   campaign: AdminCampaign;
   totals: CampaignTotals;
   rows: CampaignRecipient[];
+  /** Recipients matching the current filter — `rows` is one page of these. */
+  row_total: number;
 }
 
-export const getCampaignStats = (campaign_id: string, filter = "all") =>
-  callAdminApi<{ stats: CampaignStats }>("campaign_stats", { campaign_id, filter });
+export const getCampaignStats = (
+  campaign_id: string,
+  filter = "all",
+  params: ListParams = {},
+) =>
+  callAdminApi<{ stats: CampaignStats }>("campaign_stats", {
+    campaign_id,
+    filter,
+    limit: ADMIN_PAGE_SIZE,
+    ...params,
+  });
 
 export const setMarketingOptOut = (user_id: string, opt_out: boolean) =>
   callAdminApi<{ opt_out: boolean }>("set_marketing_opt_out", { user_id, opt_out });

@@ -1,14 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import AdjustBalanceForm from "@/components/admin/AdjustBalanceForm";
 import { StatusBadge, TableShell, Td, Th, Tr } from "@/components/admin/AdminTable";
 import Pager from "@/components/dashboard/Pager";
 import { useToast } from "@/components/dashboard/Toast";
+import { useAdminList } from "@/hooks/useAdminList";
 import { useUser } from "@/hooks/useUser";
 import {
-  ADMIN_PAGE_SIZE,
   type AdminUser,
   listUsers,
   money,
@@ -20,42 +20,31 @@ export default function AdminUsersPage() {
   const { toast } = useToast();
   const me = useUser();
 
-  const [rows, setRows] = useState<AdminUser[]>([]);
-  const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
-  const [search, setSearch] = useState("");
-  const [loading, setLoading] = useState(true);
+  const {
+    rows, total, page, setPage, size, setSize,
+    filter: search, changeFilter, loading, reload, totalPages,
+  } = useAdminList<AdminUser>(listUsers, "search");
   const [openRow, setOpenRow] = useState<string | null>(null);
 
-  const load = useCallback(
-    async (targetPage: number, term: string) => {
-      setLoading(true);
-      try {
-        const res = await listUsers({
-          search: term || undefined,
-          offset: (targetPage - 1) * ADMIN_PAGE_SIZE,
-        });
-        setRows(res.rows ?? []);
-        setTotal(res.total ?? 0);
-      } catch (e) {
-        toast(e instanceof Error ? e.message : "Could not load users", "error");
-      } finally {
-        setLoading(false);
-      }
-    },
-    [toast],
-  );
-
-  useEffect(() => {
-    load(page, search);
-    // `search` is applied on submit, not per keystroke — see handleSearch.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page]);
+  /**
+   * The box is applied on submit, not per keystroke — a URL rewrite and a
+   * round trip per character would be both noisy history and wasted calls.
+   * So the typed text is local, and `search` from the URL is what was run.
+   *
+   * The pair below is React's documented way to reset state when a value from
+   * outside changes (a back button landing on a different ?search=), done in
+   * render rather than an effect so there is no second pass.
+   */
+  const [term, setTerm] = useState(search);
+  const [lastSearch, setLastSearch] = useState(search);
+  if (search !== lastSearch) {
+    setLastSearch(search);
+    setTerm(search);
+  }
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    setPage(1);
-    load(1, search);
+    changeFilter(term.trim());
   };
 
   const handleBan = async (user: AdminUser) => {
@@ -65,13 +54,11 @@ export default function AdminUsersPage() {
     try {
       await setBan(user.id, next);
       toast(`${verb}ned ${user.email ?? "user"}`, "success");
-      load(page, search);
+      reload();
     } catch (e) {
       toast(e instanceof Error ? e.message : `${verb} failed`, "error");
     }
   };
-
-  const totalPages = Math.max(1, Math.ceil(total / ADMIN_PAGE_SIZE));
 
   return (
     <div>
@@ -87,8 +74,8 @@ export default function AdminUsersPage() {
       <form onSubmit={handleSearch} className="flex gap-2 mb-5">
         <input
           type="search"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          value={term}
+          onChange={(e) => setTerm(e.target.value)}
           placeholder="Search by email…"
           className="flex-1 h-[44px] px-3 text-[14px] rounded-[6px] outline-none"
           style={{ backgroundColor: "var(--field)", border: "1px solid var(--line-strong)", color: "var(--foreground)" }}
@@ -127,13 +114,20 @@ export default function AdminUsersPage() {
             onBan={() => handleBan(user)}
             onAdjusted={() => {
               setOpenRow(null);
-              load(page, search);
+              reload();
             }}
           />
         ))}
       </TableShell>
 
-      <Pager page={page} totalPages={totalPages} onPage={setPage} />
+      <Pager
+        page={page}
+        totalPages={totalPages}
+        onPage={setPage}
+        size={size}
+        onSize={setSize}
+        total={total}
+      />
     </div>
   );
 }

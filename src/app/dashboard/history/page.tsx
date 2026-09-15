@@ -1,3 +1,9 @@
+import {
+  DASHBOARD_PAGE_SIZE,
+  pageRange,
+  readPage,
+  readSize,
+} from "@/lib/pagination";
 import { createClient } from "@/lib/supabase/server";
 import HistoryClient, {
   type HistoryTab,
@@ -9,7 +15,6 @@ import HistoryClient, {
 // Always render fresh — history changes and must never be cached.
 export const dynamic = "force-dynamic";
 
-const PAGE_SIZE = 8;
 const ORDER_STATUSES = ["pending", "active", "cancelled", "expired", "refunded"];
 const RENTAL_STATUSES = ["active", "expired", "cancelled"];
 const ESIM_STATUSES = [
@@ -23,7 +28,12 @@ const ESIM_STATUSES = [
 export default async function HistoryPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string; status?: string; page?: string }>;
+  searchParams: Promise<{
+    tab?: string;
+    status?: string;
+    page?: string;
+    size?: string;
+  }>;
 }) {
   const sp = await searchParams;
   const tab: HistoryTab =
@@ -35,9 +45,11 @@ export default async function HistoryPage({
         ? RENTAL_STATUSES
         : ESIM_STATUSES;
   const status = sp.status && allowed.includes(sp.status) ? sp.status : "all";
-  const page = Math.max(1, parseInt(sp.page ?? "1", 10) || 1);
-  const from = (page - 1) * PAGE_SIZE;
-  const to = from + PAGE_SIZE - 1;
+  // Parsed with the same helpers the client writes them with, so a URL the
+  // pager produced and a URL someone typed are read identically.
+  const page = readPage(sp.page);
+  const pageSize = readSize(sp.size, DASHBOARD_PAGE_SIZE);
+  const { from, to } = pageRange(page, pageSize);
 
   const supabase = await createClient();
   const {
@@ -100,7 +112,7 @@ export default async function HistoryPage({
       tab={tab}
       status={status}
       page={page}
-      pageSize={PAGE_SIZE}
+      pageSize={pageSize}
       total={total}
       orders={orders}
       rentals={rentals}

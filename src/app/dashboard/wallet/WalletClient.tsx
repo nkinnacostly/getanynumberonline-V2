@@ -3,7 +3,8 @@
 import { useState, useEffect, useRef } from "react";
 import Pager from "@/components/dashboard/Pager";
 import TopupButton from "@/components/dashboard/TopupButton";
-import { useNavigate } from "@/hooks/useNavigate";
+import { useTableParams } from "@/hooks/useTableParams";
+import { DASHBOARD_PAGE_SIZE, DASHBOARD_PAGE_SIZES } from "@/lib/pagination";
 import {
   isValidTopup,
   QUICK_AMOUNTS as WALLET_QUICK_AMOUNTS,
@@ -51,7 +52,14 @@ export default function WalletClient({
   pageSize: number;
   filter: TxFilter;
 }) {
-  const navigate = useNavigate();
+  /**
+   * Paging and the type filter live in the URL, and the server render is what
+   * fetches the rows — so these are real navigations, not a shallow rewrite.
+   */
+  const { setPage, setSize, setFilter } = useTableParams({
+    source: "server",
+    defaultSize: DASHBOARD_PAGE_SIZE,
+  });
   const [amount, setAmount] = useState("");
   const [selectedQuick, setSelectedQuick] = useState<number | null>(null);
   const [showSuccess, setShowSuccess] = useState(false);
@@ -106,17 +114,7 @@ export default function WalletClient({
   // Server-side filter + pagination via the URL (survives the flaky client
   // session, and works for any number of transactions).
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  const buildQuery = (next: { type?: TxFilter; page?: number }) => {
-    const t = next.type ?? filter;
-    const p = next.page ?? page;
-    const params = new URLSearchParams();
-    if (t !== "all") params.set("type", t);
-    if (p > 1) params.set("page", String(p));
-    const qs = params.toString();
-    return `/dashboard/wallet${qs ? `?${qs}` : ""}`;
-  };
-  const goFilter = (t: TxFilter) => navigate(buildQuery({ type: t, page: 1 }));
-  const goPage = (p: number) => navigate(buildQuery({ page: p }));
+  const goFilter = (t: TxFilter) => setFilter("type", t === "all" ? null : t);
   const filterLabel =
     FILTER_TABS.find((f) => f.id === filter)?.label.toLowerCase() ?? "";
 
@@ -309,7 +307,15 @@ export default function WalletClient({
           </div>
         )}
 
-        <Pager page={page} totalPages={totalPages} onPage={goPage} />
+        <Pager
+          page={page}
+          totalPages={totalPages}
+          onPage={setPage}
+          size={pageSize}
+          onSize={setSize}
+          total={total}
+          sizes={DASHBOARD_PAGE_SIZES}
+        />
       </div>
     </div>
   );

@@ -14,8 +14,10 @@ const TYPES = [
 ];
 
 export default function AdminTransactionsPage() {
-  const { rows, total, page, setPage, filter, changeFilter, loading, totalPages } =
-    useAdminList<AdminTransaction>(listTransactions, "type");
+  const {
+    rows, total, page, setPage, size, setSize,
+    filter, changeFilter, loading, totalPages,
+  } = useAdminList<AdminTransaction>(listTransactions, "type");
 
   return (
     <div>
@@ -28,7 +30,14 @@ export default function AdminTransactionsPage() {
 
       <TransactionsTable rows={rows} loading={loading} />
 
-      <Pager page={page} totalPages={totalPages} onPage={setPage} />
+      <Pager
+        page={page}
+        totalPages={totalPages}
+        onPage={setPage}
+        size={size}
+        onSize={setSize}
+        total={total}
+      />
     </div>
   );
 }

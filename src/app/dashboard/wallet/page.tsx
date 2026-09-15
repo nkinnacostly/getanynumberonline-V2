@@ -1,3 +1,9 @@
+import {
+  DASHBOARD_PAGE_SIZE,
+  pageRange,
+  readPage,
+  readSize,
+} from "@/lib/pagination";
 import { createClient } from "@/lib/supabase/server";
 import WalletClient, {
   type Transaction,
@@ -7,21 +13,22 @@ import WalletClient, {
 // Always render fresh — balance/transactions change and must never be cached.
 export const dynamic = "force-dynamic";
 
-const PAGE_SIZE = 8;
 const FILTERS: TxFilter[] = ["all", "topup", "deduction", "refund"];
 
 export default async function WalletPage({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string; type?: string }>;
+  searchParams: Promise<{ page?: string; size?: string; type?: string }>;
 }) {
   const sp = await searchParams;
   const filter: TxFilter = FILTERS.includes(sp.type as TxFilter)
     ? (sp.type as TxFilter)
     : "all";
-  const page = Math.max(1, parseInt(sp.page ?? "1", 10) || 1);
-  const from = (page - 1) * PAGE_SIZE;
-  const to = from + PAGE_SIZE - 1;
+  // Parsed with the same helpers the client writes them with, so a URL the
+  // pager produced and a URL someone typed are read identically.
+  const page = readPage(sp.page);
+  const pageSize = readSize(sp.size, DASHBOARD_PAGE_SIZE);
+  const { from, to } = pageRange(page, pageSize);
 
   const supabase = await createClient();
   const {
@@ -57,7 +64,7 @@ export default async function WalletPage({
       initialTransactions={transactions}
       total={total}
       page={page}
-      pageSize={PAGE_SIZE}
+      pageSize={pageSize}
       filter={filter}
     />
   );

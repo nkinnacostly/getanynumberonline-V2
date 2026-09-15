@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import { AdminCard, TableShell, Td, Th, Tr } from "@/components/admin/AdminTable";
+import Pager from "@/components/dashboard/Pager";
 import { useToast } from "@/components/dashboard/Toast";
+import { useAdminList } from "@/hooks/useAdminList";
 import { useUser } from "@/hooks/useUser";
 import {
   type AdminFlaggedUser,
@@ -26,25 +28,12 @@ export default function AdminFlaggedPage() {
   const { toast } = useToast();
   const me = useUser();
 
-  const [rows, setRows] = useState<AdminFlaggedUser[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Paged like the other admin lists. The RPC behind it had no LIMIT at all
+  // and returned every flagged profile in one value, which was fine at a dozen
+  // and a cliff at a few thousand.
+  const { rows, total, page, setPage, size, setSize, loading, reload, totalPages } =
+    useAdminList<AdminFlaggedUser>(listFlagged);
   const [busy, setBusy] = useState<string | null>(null);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await listFlagged();
-      setRows(res.rows ?? []);
-    } catch (e) {
-      toast(e instanceof Error ? e.message : "Could not load flagged users", "error");
-    } finally {
-      setLoading(false);
-    }
-  }, [toast]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
 
   const handleClear = async (user: AdminFlaggedUser) => {
     if (!confirm(`Clear the flag on ${user.email ?? "this user"}?`)) return;
@@ -53,7 +42,7 @@ export default function AdminFlaggedPage() {
       await clearFlag(user.id);
       toast("Flag cleared", "success");
       notifyFlagsChanged();
-      load();
+      reload();
     } catch (e) {
       toast(e instanceof Error ? e.message : "Could not clear the flag", "error");
     } finally {
@@ -70,7 +59,7 @@ export default function AdminFlaggedPage() {
       await setBan(user.id, next);
       toast(`${verb}ned ${user.email ?? "user"}`, "success");
       notifyFlagsChanged();
-      load();
+      reload();
     } catch (e) {
       toast(e instanceof Error ? e.message : `${verb} failed`, "error");
     } finally {
@@ -85,7 +74,7 @@ export default function AdminFlaggedPage() {
           Flagged users
         </h1>
         <span className="font-mono text-xs" style={{ color: "var(--muted)" }}>
-          {rows.length} awaiting review
+          {total} awaiting review
         </span>
       </div>
       <p className="text-[13px] mb-6" style={{ color: "var(--muted)" }}>
@@ -179,6 +168,15 @@ export default function AdminFlaggedPage() {
           ))}
         </TableShell>
       )}
+
+      <Pager
+        page={page}
+        totalPages={totalPages}
+        onPage={setPage}
+        size={size}
+        onSize={setSize}
+        total={total}
+      />
     </div>
   );
 }

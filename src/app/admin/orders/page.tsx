@@ -16,8 +16,10 @@ const STATUSES = [
 ];
 
 export default function AdminOrdersPage() {
-  const { rows, total, page, setPage, filter, changeFilter, loading, totalPages } =
-    useAdminList<AdminOrder>(listOrders, "status");
+  const {
+    rows, total, page, setPage, size, setSize,
+    filter, changeFilter, loading, totalPages,
+  } = useAdminList<AdminOrder>(listOrders, "status");
 
   return (
     <div>
@@ -30,7 +32,14 @@ export default function AdminOrdersPage() {
 
       <OrdersTable rows={rows} loading={loading} />
 
-      <Pager page={page} totalPages={totalPages} onPage={setPage} />
+      <Pager
+        page={page}
+        totalPages={totalPages}
+        onPage={setPage}
+        size={size}
+        onSize={setSize}
+        total={total}
+      />
     </div>
   );
 }

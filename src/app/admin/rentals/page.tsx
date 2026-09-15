@@ -14,8 +14,10 @@ const STATUSES = [
 ];
 
 export default function AdminRentalsPage() {
-  const { rows, total, page, setPage, filter, changeFilter, loading, totalPages } =
-    useAdminList<AdminRental>(listRentals, "status");
+  const {
+    rows, total, page, setPage, size, setSize,
+    filter, changeFilter, loading, totalPages,
+  } = useAdminList<AdminRental>(listRentals, "status");
 
   return (
     <div>
@@ -28,7 +30,14 @@ export default function AdminRentalsPage() {
 
       <RentalsTable rows={rows} loading={loading} />
 
-      <Pager page={page} totalPages={totalPages} onPage={setPage} />
+      <Pager
+        page={page}
+        totalPages={totalPages}
+        onPage={setPage}
+        size={size}
+        onSize={setSize}
+        total={total}
+      />
     </div>
   );
 }

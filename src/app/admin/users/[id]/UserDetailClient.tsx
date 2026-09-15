@@ -14,6 +14,7 @@ import FilterTabs from "@/components/admin/FilterTabs";
 import Pager from "@/components/dashboard/Pager";
 import { useToast } from "@/components/dashboard/Toast";
 import { useAdminList } from "@/hooks/useAdminList";
+import { useTableParams } from "@/hooks/useTableParams";
 import { useUser } from "@/hooks/useUser";
 import {
   type AdminOrder,
@@ -43,7 +44,15 @@ export default function UserDetailClient({ userId }: { userId: string }) {
   const [user, setUser] = useState<AdminUserDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState<string | null>(null);
-  const [tab, setTab] = useState("orders");
+  /**
+   * The open tab is a URL param too, so "look at this user's transactions" is
+   * a link rather than a set of directions. Only one tab is mounted at a time,
+   * so all three share one `page`/`size` pair — and switching tabs resets the
+   * page, since page 3 of the orders is not page 3 of the rentals.
+   */
+  const { getParam, setFilter } = useTableParams({ source: "client" });
+  const urlTab = getParam("tab");
+  const tab = TABS.some((t) => t.value === urlTab) ? urlTab! : "orders";
   const [adjusting, setAdjusting] = useState(false);
   const [emailing, setEmailing] = useState(false);
 
@@ -320,7 +329,7 @@ export default function UserDetailClient({ userId }: { userId: string }) {
         <FilterTabs
           options={TABS}
           value={tab}
-          onChange={setTab}
+          onChange={(next) => setFilter("tab", next === "orders" ? null : next)}
           label="Choose a history view"
         />
 
@@ -339,7 +348,7 @@ export default function UserDetailClient({ userId }: { userId: string }) {
 // renders — just without the user column, since every row is this person.
 
 function OrdersTab({ userId }: { userId: string }) {
-  const { rows, total, page, setPage, loading, totalPages } =
+  const { rows, total, page, setPage, size, setSize, loading, totalPages } =
     useAdminList<AdminOrder>(listOrders, undefined, userId);
 
   return (
@@ -351,13 +360,20 @@ function OrdersTab({ userId }: { userId: string }) {
         showUser={false}
         emptyLabel="This user has not ordered a number"
       />
-      <Pager page={page} totalPages={totalPages} onPage={setPage} />
+      <Pager
+        page={page}
+        totalPages={totalPages}
+        onPage={setPage}
+        size={size}
+        onSize={setSize}
+        total={total}
+      />
     </>
   );
 }
 
 function TransactionsTab({ userId }: { userId: string }) {
-  const { rows, total, page, setPage, loading, totalPages } =
+  const { rows, total, page, setPage, size, setSize, loading, totalPages } =
     useAdminList<AdminTransaction>(listTransactions, undefined, userId);
 
   return (
@@ -369,13 +385,20 @@ function TransactionsTab({ userId }: { userId: string }) {
         showUser={false}
         emptyLabel="No transactions on this account"
       />
-      <Pager page={page} totalPages={totalPages} onPage={setPage} />
+      <Pager
+        page={page}
+        totalPages={totalPages}
+        onPage={setPage}
+        size={size}
+        onSize={setSize}
+        total={total}
+      />
     </>
   );
 }
 
 function RentalsTab({ userId }: { userId: string }) {
-  const { rows, total, page, setPage, loading, totalPages } =
+  const { rows, total, page, setPage, size, setSize, loading, totalPages } =
     useAdminList<AdminRental>(listRentals, undefined, userId);
 
   return (
@@ -387,7 +410,14 @@ function RentalsTab({ userId }: { userId: string }) {
         showUser={false}
         emptyLabel="This user has no rentals"
       />
-      <Pager page={page} totalPages={totalPages} onPage={setPage} />
+      <Pager
+        page={page}
+        totalPages={totalPages}
+        onPage={setPage}
+        size={size}
+        onSize={setSize}
+        total={total}
+      />
     </>
   );
 }

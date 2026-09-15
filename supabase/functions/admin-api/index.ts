@@ -298,12 +298,20 @@ async function setBan(
  * The flagged-user review queue. Order and cancel counts come back with each
  * row because judging a flag without them is guesswork.
  */
-async function listFlagged(supabase: Supabase, adminId: string) {
+async function listFlagged(
+  supabase: Supabase,
+  adminId: string,
+  body: Record<string, unknown>,
+) {
+  const { limit, offset } = paging(body);
   const { data, error } = await supabase.rpc("admin_list_flagged", {
     p_admin_id: adminId,
+    p_limit: limit,
+    p_offset: offset,
   });
   if (error) return { error: error.message, status: 400 };
-  return { rows: data ?? [] };
+  const out = data as { rows?: unknown[]; total?: number } | null;
+  return { rows: out?.rows ?? [], total: out?.total ?? 0, limit };
 }
 
 /**
@@ -630,11 +638,16 @@ async function campaignStats(
   const id = String(body.campaign_id ?? "").trim();
   if (!id) return { error: "campaign_id is required", status: 400 };
 
+  // Paged like every other list now. It used to ask for a flat 200 and say
+  // nothing about the rest, so a send to more than 200 people quietly showed
+  // a slice and called it the recipients.
+  const { limit, offset } = paging(body);
   const { data, error } = await supabase.rpc("admin_campaign_stats", {
     p_admin_id: adminId,
     p_campaign_id: id,
     p_filter: String(body.filter ?? "all"),
-    p_limit: 200,
+    p_limit: limit,
+    p_offset: offset,
   });
   if (error) return { error: error.message, status: 400 };
 
@@ -828,7 +841,7 @@ Deno.serve(async (req) => {
         return jsonResponse({ success: true, ...result });
       }
       case "list_flagged": {
-        const result = await listFlagged(supabase, user.id);
+        const result = await listFlagged(supabase, user.id, body);
         if ("error" in result) return errorResponse(result.error!, result.status!);
         return jsonResponse({ success: true, ...result });
       }

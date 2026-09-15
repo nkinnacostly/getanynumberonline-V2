@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useNavigate } from "@/hooks/useNavigate";
+import { useTableParams } from "@/hooks/useTableParams";
+import { DASHBOARD_PAGE_SIZE, DASHBOARD_PAGE_SIZES } from "@/lib/pagination";
 import { createClient } from "@/lib/supabase/client";
 import Pager from "@/components/dashboard/Pager";
 import { formatBytes } from "@/lib/esim-api";
@@ -123,32 +124,24 @@ export default function HistoryClient({
   rentals: RentalRow[];
   esims: EsimHistoryRow[];
 }) {
-  const navigate = useNavigate();
+  /**
+   * Paging and both filters live in the URL, and the server render is what
+   * fetches the rows — so these are real navigations, not a shallow rewrite.
+   */
+  const { setPage, setSize, setFilter, apply } = useTableParams({
+    source: "server",
+    defaultSize: DASHBOARD_PAGE_SIZE,
+  });
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Record<string, Message | null>>({});
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
-  const buildQuery = (next: {
-    tab?: HistoryTab;
-    status?: string;
-    page?: number;
-  }) => {
-    const t = next.tab ?? tab;
-    const s = next.status ?? status;
-    const p = next.page ?? page;
-    const params = new URLSearchParams();
-    if (t !== "orders") params.set("tab", t);
-    if (s !== "all") params.set("status", s);
-    if (p > 1) params.set("page", String(p));
-    const qs = params.toString();
-    return `/dashboard/history${qs ? `?${qs}` : ""}`;
-  };
+  // Switching tab clears the status too: "refunded" is an order status and
+  // means nothing on the eSIM list.
   const goTab = (t: HistoryTab) =>
-    navigate(buildQuery({ tab: t, status: "all", page: 1 }));
-  const goStatus = (s: string) =>
-    navigate(buildQuery({ status: s, page: 1 }));
-  const goPage = (p: number) => navigate(buildQuery({ page: p }));
+    apply({ tab: t === "orders" ? null : t, status: null, page: 1 });
+  const goStatus = (s: string) => setFilter("status", s === "all" ? null : s);
 
   const toggleRow = async (order: OrderRow) => {
     if (expandedId === order.id) {
@@ -368,7 +361,15 @@ export default function HistoryClient({
         </div>
       )}
 
-      <Pager page={page} totalPages={totalPages} onPage={goPage} />
+      <Pager
+        page={page}
+        totalPages={totalPages}
+        onPage={setPage}
+        size={pageSize}
+        onSize={setSize}
+        total={total}
+        sizes={DASHBOARD_PAGE_SIZES}
+      />
     </div>
   );
 }

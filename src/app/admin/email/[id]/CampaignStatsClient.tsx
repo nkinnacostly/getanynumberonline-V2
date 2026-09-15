@@ -4,7 +4,9 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { AdminCard, StatusBadge, TableShell, Td, Th, Tr } from "@/components/admin/AdminTable";
 import FilterTabs from "@/components/admin/FilterTabs";
+import Pager from "@/components/dashboard/Pager";
 import { useToast } from "@/components/dashboard/Toast";
+import { useTableParams } from "@/hooks/useTableParams";
 import {
   type CampaignStats,
   dateTime,
@@ -29,21 +31,31 @@ const FILTERS = [
 
 export default function CampaignStatsClient({ campaignId }: { campaignId: string }) {
   const { toast } = useToast();
+  // Filter and paging in the URL, so "the 40 people who bounced on page 2" is
+  // a link. The recipient list used to ask for a flat 200 rows and say nothing
+  // about any beyond that.
+  const { page, setPage, size, setSize, getParam, setFilter } = useTableParams({
+    source: "client",
+  });
+  const filter = getParam("filter") ?? "all";
+
   const [stats, setStats] = useState<CampaignStats | null>(null);
-  const [filter, setFilter] = useState("all");
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await getCampaignStats(campaignId, filter);
+      const res = await getCampaignStats(campaignId, filter, {
+        offset: (page - 1) * size,
+        limit: size,
+      });
       setStats(res.stats);
     } catch (e) {
       toast(e instanceof Error ? e.message : "Could not load stats", "error");
     } finally {
       setLoading(false);
     }
-  }, [campaignId, filter, toast]);
+  }, [campaignId, filter, page, size, toast]);
 
   useEffect(() => {
     load();
@@ -126,7 +138,7 @@ export default function CampaignStatsClient({ campaignId }: { campaignId: string
       <FilterTabs
         options={FILTERS}
         value={filter}
-        onChange={setFilter}
+        onChange={(v) => setFilter("filter", v === "all" ? null : v)}
         label="Filter recipients"
       />
 
@@ -185,6 +197,15 @@ export default function CampaignStatsClient({ campaignId }: { campaignId: string
           </Tr>
         ))}
       </TableShell>
+
+      <Pager
+        page={page}
+        totalPages={Math.max(1, Math.ceil((stats?.row_total ?? 0) / size))}
+        onPage={setPage}
+        size={size}
+        onSize={setSize}
+        total={stats?.row_total ?? 0}
+      />
     </div>
   );
 }

@@ -9,8 +9,8 @@ import CampaignComposer, {
 import FilterTabs from "@/components/admin/FilterTabs";
 import Pager from "@/components/dashboard/Pager";
 import { useToast } from "@/components/dashboard/Toast";
+import { useTableParams } from "@/hooks/useTableParams";
 import {
-  ADMIN_PAGE_SIZE,
   type AdminCampaign,
   type AudienceSize,
   CAMPAIGN_FILTERS,
@@ -24,12 +24,15 @@ import {
 
 export default function AdminEmailPage() {
   const { toast } = useToast();
+  const { page, setPage, size, setSize, getParam, setFilter } = useTableParams({
+    source: "client",
+  });
+  const filter = (getParam("filter") ?? "") as CampaignFilter;
+
   const [rows, setRows] = useState<AdminCampaign[]>([]);
   const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [audience, setAudience] = useState<AudienceSize | null>(null);
-  const [filter, setFilter] = useState<CampaignFilter>("");
   const [opened, setOpened] = useState<OpenedCampaign | null>(null);
   const [openingId, setOpeningId] = useState<string | null>(null);
 
@@ -44,13 +47,14 @@ export default function AdminEmailPage() {
     async (silent = false) => {
       if (!silent) setLoading(true);
       try {
-        const [list, size] = await Promise.all([
-          listCampaigns({ offset: (page - 1) * ADMIN_PAGE_SIZE, filter }),
+        // Named `audienceRes`, not `size`: the page size is also called size.
+        const [list, audienceRes] = await Promise.all([
+          listCampaigns({ offset: (page - 1) * size, limit: size, filter }),
           getAudienceSize(),
         ]);
         setRows(list.rows ?? []);
         setTotal(list.total ?? 0);
-        setAudience(size.audience);
+        setAudience(audienceRes.audience);
       } catch (e) {
         if (!silent) {
           toast(e instanceof Error ? e.message : "Could not load campaigns", "error");
@@ -59,7 +63,7 @@ export default function AdminEmailPage() {
         if (!silent) setLoading(false);
       }
     },
-    [page, filter, toast],
+    [page, size, filter, toast],
   );
 
   const refresh = useCallback(() => {
@@ -196,10 +200,7 @@ export default function AdminEmailPage() {
       <FilterTabs
         options={CAMPAIGN_FILTERS}
         value={filter}
-        onChange={(v) => {
-          setFilter(v as CampaignFilter);
-          setPage(1);
-        }}
+        onChange={(v) => setFilter("filter", v || null)}
         label="Filter campaigns"
       />
 
@@ -316,8 +317,11 @@ export default function AdminEmailPage() {
 
       <Pager
         page={page}
-        totalPages={Math.max(1, Math.ceil(total / ADMIN_PAGE_SIZE))}
+        totalPages={Math.max(1, Math.ceil(total / size))}
         onPage={setPage}
+        size={size}
+        onSize={setSize}
+        total={total}
       />
     </div>
   );
