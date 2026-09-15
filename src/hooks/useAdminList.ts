@@ -26,13 +26,10 @@ export function useAdminList<T>(
   fetcher: (params: ListParams & Record<string, unknown>) => Promise<Paged<T>>,
   filterKey?: string,
   userId?: string,
-  /** Namespaces the URL params, for a route showing several tables at once. */
-  prefix?: string,
 ) {
   const { toast } = useToast();
   const { page, size, setPage, setSize, setFilter, getParam } = useTableParams({
     source: "client",
-    prefix,
   });
   const [rows, setRows] = useState<T[]>([]);
   const [total, setTotal] = useState(0);

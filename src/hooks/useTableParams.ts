@@ -41,45 +41,33 @@ export interface TableParamOptions {
   source: "server" | "client";
   /** Rows per page when the URL does not say. */
   defaultSize?: number;
-  /**
-   * Prefixes the param names (`orders_page`), for a route that shows more than
-   * one independently paged table at once. Leave unset for a single table.
-   */
-  prefix?: string;
 }
 
 export function useTableParams({
   source,
   defaultSize = ADMIN_PAGE_SIZE,
-  prefix,
 }: TableParamOptions) {
   const searchParams = useSearchParams();
   const pathname = usePathname();
   const navigate = useNavigate();
 
-  const key = useCallback(
-    (name: string) => (prefix ? `${prefix}_${name}` : name),
-    [prefix],
-  );
-
-  const page = readPage(searchParams.get(key("page")));
-  const size = readSize(searchParams.get(key("size")), defaultSize);
+  const page = readPage(searchParams.get("page"));
+  const size = readSize(searchParams.get("size"), defaultSize);
 
   const apply = useCallback(
     (patch: Record<string, string | number | null | undefined>) => {
       const next = new URLSearchParams(searchParams.toString());
 
       for (const [name, value] of Object.entries(patch)) {
-        const param = key(name);
         if (value === null || value === undefined || value === "") {
-          next.delete(param);
+          next.delete(name);
         } else {
-          next.set(param, String(value));
+          next.set(name, String(value));
         }
       }
 
-      if (next.get(key("page")) === "1") next.delete(key("page"));
-      if (next.get(key("size")) === String(defaultSize)) next.delete(key("size"));
+      if (next.get("page") === "1") next.delete("page");
+      if (next.get("size") === String(defaultSize)) next.delete("size");
 
       const qs = next.toString();
       const url = qs ? `${pathname}?${qs}` : pathname;
@@ -92,7 +80,7 @@ export function useTableParams({
         window.history.pushState(null, "", url);
       }
     },
-    [searchParams, pathname, key, defaultSize, source, navigate],
+    [searchParams, pathname, defaultSize, source, navigate],
   );
 
   const setPage = useCallback((p: number) => apply({ page: p }), [apply]);
@@ -110,8 +98,8 @@ export function useTableParams({
   );
 
   const getParam = useCallback(
-    (name: string) => searchParams.get(key(name)),
-    [searchParams, key],
+    (name: string) => searchParams.get(name),
+    [searchParams],
   );
 
   return useMemo(

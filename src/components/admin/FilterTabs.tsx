@@ -1,5 +1,7 @@
 "use client";
 
+import { useId } from "react";
+
 /**
  * Filter selector for the admin tables. A segmented control on desktop where
  * there's room, and a native <select> under 640px — a row of six chips at
@@ -17,6 +19,11 @@ export default function FilterTabs({
   onChange: (v: string) => void;
   label: string;
 }) {
+  // The id was hardcoded, which is fine while no page draws two of these and
+  // an HTML validity and label-association bug the moment one does. useId is
+  // stable across server and client render, so it does not break hydration.
+  const selectId = useId();
+
   return (
     <>
       <div className="hidden sm:flex gap-2 mb-5" role="group" aria-label={label}>
@@ -41,9 +48,9 @@ export default function FilterTabs({
       </div>
 
       <div className="sm:hidden mb-5">
-        <label className="sr-only" htmlFor="admin-filter">{label}</label>
+        <label className="sr-only" htmlFor={selectId}>{label}</label>
         <select
-          id="admin-filter"
+          id={selectId}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           className="w-full h-[44px] px-3 text-[14px] rounded-[6px] outline-none capitalize"

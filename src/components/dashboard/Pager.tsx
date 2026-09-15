@@ -52,19 +52,26 @@ export default function Pager({
       ? [...sizes, size].sort((a, b) => a - b)
       : [...sizes];
 
+  // One page and a size picker is a real combination — 50 rows shown 100 at a
+  // time. Drawing two permanently disabled arrows around it just looks broken,
+  // so the arrows appear only when there is somewhere to go.
+  const multiPage = totalPages > 1;
+
   return (
     <div className="flex items-center justify-between gap-3 mt-4">
-      <button
-        onClick={() => onPage(page - 1)}
-        disabled={page <= 1}
-        className={btn}
-        style={btnStyle}
-      >
-        ← Prev
-      </button>
+      {multiPage && (
+        <button
+          onClick={() => onPage(page - 1)}
+          disabled={page <= 1}
+          className={btn}
+          style={btnStyle}
+        >
+          ← Prev
+        </button>
+      )}
 
       <div className="flex items-center gap-3 min-w-0">
-        {totalPages > 1 && (
+        {multiPage && (
           <span className="font-mono text-xs" style={{ color: "var(--muted)" }}>
             Page {page} of {totalPages}
           </span>
@@ -95,14 +102,16 @@ export default function Pager({
         )}
       </div>
 
-      <button
-        onClick={() => onPage(page + 1)}
-        disabled={page >= totalPages}
-        className={btn}
-        style={btnStyle}
-      >
-        Next →
-      </button>
+      {multiPage && (
+        <button
+          onClick={() => onPage(page + 1)}
+          disabled={page >= totalPages}
+          className={btn}
+          style={btnStyle}
+        >
+          Next →
+        </button>
+      )}
     </div>
   );
 }
