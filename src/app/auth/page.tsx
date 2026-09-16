@@ -5,7 +5,9 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useNavigate } from "@/hooks/useNavigate";
 import { createClient } from "@/lib/supabase/client";
+import { destinationFrom } from "@/lib/auth-destination";
 import AuthCard from "@/components/auth/AuthCard";
+import GoogleButton from "@/components/auth/GoogleButton";
 
 const INPUT_CLS =
   "w-full h-[44px] px-3 pr-11 text-[14px] text-foreground placeholder-muted rounded-[6px] outline-none transition-colors" as const;
@@ -14,23 +16,6 @@ const INPUT_STYLE = {
   border: "1px solid var(--line-strong)",
 } as const;
 const FOCUS_BORDER = "var(--accent)";
-
-/**
- * Where to go once there is a session.
- *
- * The middleware appends ?next=<path> when it bounces someone out of a
- * protected page, so signing in returns them to the page they asked for
- * instead of dropping everyone on /dashboard. Only same-origin absolute paths
- * are honoured — a value starting "//" or "http" would be an open redirect.
- */
-function destinationFrom(params: URLSearchParams): string | null {
-  if (params.get("topup") === "success") {
-    return `/dashboard/wallet?${params.toString()}`;
-  }
-  const next = params.get("next");
-  if (next && next.startsWith("/") && !next.startsWith("//")) return next;
-  return null;
-}
 
 /**
  * Where a session actually lands.
@@ -142,7 +127,7 @@ export default function AuthPage() {
   const [resendSent, setResendSent] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
   const [verificationNotice, setVerificationNotice] = useState<
-    null | "error" | "success"
+    null | "error" | "success" | "oauth_failed" | "oauth_cancelled"
   >(null);
 
   useEffect(() => {
@@ -157,8 +142,15 @@ export default function AuthPage() {
         return;
       }
       const params = new URLSearchParams(window.location.search);
-      if (params.get("error") === "verification_failed") {
-        setVerificationNotice("error");
+      const err = params.get("error");
+      if (
+        err === "verification_failed" ||
+        err === "oauth_failed" ||
+        err === "oauth_cancelled"
+      ) {
+        setVerificationNotice(
+          err === "verification_failed" ? "error" : err,
+        );
         params.delete("error");
         const q = params.toString();
         router.replace(q ? `/auth?${q}` : "/auth", { scroll: false });
@@ -371,6 +363,48 @@ export default function AuthPage() {
           Sign up
         </button>
       </div>
+
+      {/* Above the form and below the toggle on purpose. OAuth serves both
+          tabs at once, so it belongs to neither — and "Continue" is the only
+          honest label for a button that might do either. */}
+      <GoogleButton disabled={loading} onError={(m) => setGeneralError(m || null)} />
+
+      <div className="flex items-center gap-3 my-5" aria-hidden="true">
+        <span className="h-px flex-1" style={{ backgroundColor: "var(--line)" }} />
+        <span className="text-[11px] uppercase tracking-wider" style={{ color: "var(--muted)" }}>
+          or
+        </span>
+        <span className="h-px flex-1" style={{ backgroundColor: "var(--line)" }} />
+      </div>
+
+      {verificationNotice === "oauth_failed" && (
+        <div
+          className="mb-4 px-3 py-3 rounded-[6px] text-[13px]"
+          style={{
+            backgroundColor: "color-mix(in srgb, var(--danger) 10%, transparent)",
+            border: "1px solid var(--danger)",
+            color: "var(--danger)",
+          }}
+          role="alert"
+        >
+          Google sign-in did not complete. Try again, or use your email and
+          password below.
+        </div>
+      )}
+
+      {verificationNotice === "oauth_cancelled" && (
+        <div
+          className="mb-4 px-3 py-3 rounded-[6px] text-[13px]"
+          style={{
+            backgroundColor: "color-mix(in srgb, var(--warning) 12%, transparent)",
+            border: "1px solid var(--warning)",
+            color: "var(--warning)",
+          }}
+          role="status"
+        >
+          Google sign-in was cancelled. Nothing has changed on your account.
+        </div>
+      )}
 
       {verificationNotice === "error" && (
         <div
