@@ -1,6 +1,7 @@
 import type { EmailOtpType } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import { safeNextPath } from "@/lib/auth-destination";
+import { justLinkedExistingAccount } from "@/lib/auth-identities";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -61,6 +62,15 @@ export async function GET(request: Request) {
         // stranger could have sent, so only same-origin paths are honoured.
         const next = safeNextPath(searchParams.get("next"));
         const to = next ?? (await landingFor(supabase, data.user.id));
+
+        // Supabase has already joined this Google identity to the account
+        // that owned the address. Nobody asked to be merged, so say so and
+        // offer the way back out before dropping them in the dashboard.
+        if (justLinkedExistingAccount(data.user)) {
+          return NextResponse.redirect(
+            `${origin}/auth/linked?next=${encodeURIComponent(to)}`,
+          );
+        }
         return NextResponse.redirect(`${origin}${to}`);
       }
       if (type === "recovery") {
