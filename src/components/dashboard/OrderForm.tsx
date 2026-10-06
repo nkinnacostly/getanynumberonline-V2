@@ -1,10 +1,9 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { callEdgeFunction, fetchSMSPool } from "@/lib/api";
+import { callEdgeFunction } from "@/lib/api";
 import { useToast } from "@/components/dashboard/Toast";
 import FundShortfall from "@/components/dashboard/FundShortfall";
-import { applyMarkup } from "@/lib/pricing";
 
 interface Service {
   ID: string;
@@ -69,6 +68,9 @@ export default function OrderForm({
   const [priceLoading, setPriceLoading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** The catalog could not be loaded — an empty dropdown with no reason
+   *  is indistinguishable from SMSPool having nothing to sell. */
+  const [catalogError, setCatalogError] = useState<string | null>(null);
 
   const svcRef = useRef<HTMLDivElement>(null);
   const ctyRef = useRef<HTMLDivElement>(null);
@@ -85,16 +87,31 @@ export default function OrderForm({
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  // Fetch services + countries
+  // Fetch services + countries.
+  //
+  // Through the Edge Function, never the browser: SMSPool answers a
+  // cross-origin request without Access-Control-Allow-Origin, so a direct
+  // call is blocked outright (and CLAUDE.md §9 forbade it anyway).
   useEffect(() => {
-    fetchSMSPool("service/retrieve_all", {}).then((d) => {
-      if (Array.isArray(d)) setServices(d);
-      else if (d?.services) setServices(d.services);
-    });
-    fetchSMSPool("country/retrieve_all", {}).then((d) => {
-      if (Array.isArray(d)) setCountries(d);
-      else if (d?.countries) setCountries(d.countries);
-    });
+    let cancelled = false;
+    callEdgeFunction("get-number-catalog", { scope: "catalog" })
+      .then((d) => {
+        if (cancelled) return;
+        const res = d as { services?: Service[]; countries?: Country[] };
+        setServices(res.services ?? []);
+        setCountries(res.countries ?? []);
+        setCatalogError(
+          (res.services?.length ?? 0) === 0 ? "Could not load services." : null,
+        );
+      })
+      .catch(() =>
+        setCatalogError(
+          cancelled ? null : "Could not load services. Please refresh.",
+        ),
+      );
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // Fetch price
@@ -105,16 +122,22 @@ export default function OrderForm({
       return;
     }
     setPriceLoading(true);
-    fetchSMSPool("request/price", {
+    // Already marked up by the Edge Function, so what is shown here is what
+    // order-number deducts (§12).
+    callEdgeFunction("get-number-catalog", {
       country: selectedCountry.ID,
       service: selectedService.ID,
     })
       .then((d) => {
-        if (d?.price) setPrice(applyMarkup(parseFloat(d.price)));
-        else setPrice(null);
+        const res = d as { price?: number | null; success_rate?: number | null };
+        setPrice(typeof res.price === "number" ? res.price : null);
         setSuccessRate(
-          d?.success_rate != null ? parseFloat(d.success_rate) : null,
+          typeof res.success_rate === "number" ? res.success_rate : null,
         );
+      })
+      .catch(() => {
+        setPrice(null);
+        setSuccessRate(null);
       })
       .finally(() => setPriceLoading(false));
   }, [selectedService, selectedCountry]);
@@ -164,11 +187,13 @@ export default function OrderForm({
       setPrice(null);
       setSuccessRate(null);
       // Refresh sidebar balance
-      (window as any).__refreshBalance?.();
+      (window as Window & { __refreshBalance?: () => void }).__refreshBalance?.();
       toast("Number ordered successfully");
-    } catch (err: any) {
-      setError(err.message || "Failed to order number");
-      toast(err.message || "Failed to order number", "error");
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "Failed to order number";
+      setError(message);
+      toast(message, "error");
     } finally {
       setLoading(false);
     }
@@ -356,8 +381,8 @@ export default function OrderForm({
           </p>
         )}
 
-        {/* Error */}
-        {error && (
+        {/* Error — one block for both, so they can never be styled apart */}
+        {(error || catalogError) && (
           <div
             className="px-3 py-3 rounded-[6px] text-[13px]"
             style={{
@@ -365,8 +390,13 @@ export default function OrderForm({
               border: "1px solid var(--danger)",
               color: "var(--danger)",
             }}
+            role="alert"
           >
-            <div dangerouslySetInnerHTML={{ __html: error }} />
+            {error ? (
+              <div dangerouslySetInnerHTML={{ __html: error }} />
+            ) : (
+              catalogError
+            )}
           </div>
         )}
 

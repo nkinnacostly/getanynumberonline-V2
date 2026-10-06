@@ -32,16 +32,9 @@ export async function callEdgeFunction(
   return data;
 }
 
-export async function fetchSMSPool(
-  endpoint: string,
-  params: Record<string, string> = {},
-) {
-  const formData = new FormData();
-  Object.entries(params).forEach(([key, value]) => formData.append(key, value));
-  const res = await fetch(`https://api.smspool.net/${endpoint}`, {
-    method: "POST",
-    body: formData,
-  });
-  if (!res.ok) throw new Error(`SMSPool request failed: ${res.status}`);
-  return res.json();
-}
+// fetchSMSPool used to live here and called api.smspool.net straight from the
+// browser. It is gone deliberately, and must not come back: CLAUDE.md §9 keeps
+// provider calls server-side so the API key stays there, and SMSPool now
+// answers cross-origin requests without Access-Control-Allow-Origin, so a
+// browser blocks them regardless. Number catalog and pricing go through the
+// get-number-catalog Edge Function.
