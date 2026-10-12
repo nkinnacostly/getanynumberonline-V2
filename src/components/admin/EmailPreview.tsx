@@ -17,9 +17,18 @@ export default function EmailPreview({ draft }: { draft: CampaignDraft }) {
   const [error, setError] = useState<string | null>(null);
   const [width, setWidth] = useState<"desktop" | "mobile">("desktop");
 
+  // Nothing typed yet is not an error, and asking anyway is: admin-api
+  // answers an empty subject AND body with 400 "Nothing to preview", so
+  // opening /admin/email threw a failed request into the console before the
+  // admin had touched the form.
+  const empty = draft.subject.trim() === "" && draft.body.trim() === "";
+
   // Debounced: a render per keystroke would be one Edge call per keystroke.
   const key = JSON.stringify(draft);
   useEffect(() => {
+    // Derived, not stored: nothing to fetch and nothing to clear. Any html
+    // left from a previous draft simply isn't rendered while empty.
+    if (empty) return;
     let cancelled = false;
     const t = setTimeout(async () => {
       try {
@@ -38,7 +47,7 @@ export default function EmailPreview({ draft }: { draft: CampaignDraft }) {
       cancelled = true;
       clearTimeout(t);
     };
-  }, [key]);
+  }, [key, empty]);
 
   return (
     <div className="flex flex-col gap-2">
@@ -69,7 +78,7 @@ export default function EmailPreview({ draft }: { draft: CampaignDraft }) {
         </div>
       </div>
 
-      {error && (
+      {!empty && error && (
         <p className="text-[12px]" style={{ color: "var(--danger)" }}>
           {error}
         </p>
@@ -82,12 +91,12 @@ export default function EmailPreview({ draft }: { draft: CampaignDraft }) {
           maxWidth: width === "mobile" ? 390 : "100%",
         }}
       >
-        {html === null ? (
+        {empty || html === null ? (
           <div
             className="h-[420px] flex items-center justify-center text-[12px]"
             style={{ backgroundColor: "var(--field)", color: "var(--muted)" }}
           >
-            Rendering…
+            {empty ? "Write a subject or a message to see it here" : "Rendering…"}
           </div>
         ) : (
           <iframe

@@ -2,6 +2,7 @@
 
 import type { CSSProperties } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import LocalTime from "@/components/site/LocalTime";
 import { createClient } from "@/lib/supabase/client";
 import { callEdgeFunction } from "@/lib/api";
 import { useToast } from "@/components/dashboard/Toast";
@@ -31,14 +32,6 @@ interface RentalCardProps {
   cancelling: boolean;
 }
 
-function formatReceivedAt(iso: string): string {
-  return new Date(iso).toLocaleString("en-US", {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
-}
 
 function DetailRow({
   label,
@@ -47,7 +40,7 @@ function DetailRow({
   valueStyle,
 }: {
   label: string;
-  value: string;
+  value: React.ReactNode;
   valueClassName?: string;
   valueStyle?: CSSProperties;
 }) {
@@ -63,6 +56,14 @@ function DetailRow({
     </div>
   );
 }
+
+/** Same shape the old formatReceivedAt produced. */
+const RECEIVED_AT: Intl.DateTimeFormatOptions = {
+  month: "short",
+  day: "numeric",
+  hour: "numeric",
+  minute: "2-digit",
+};
 
 export default function RentalCard({
   rental,
@@ -293,7 +294,12 @@ export default function RentalCard({
                   >
                     <DetailRow
                       label="received"
-                      value={formatReceivedAt(m.received_at)}
+                      value={
+                        <LocalTime
+                          iso={m.received_at}
+                          options={RECEIVED_AT}
+                        />
+                      }
                     />
                     <DetailRow
                       label="sender"

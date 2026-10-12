@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import LocalTime, { SHORT_DATETIME } from "@/components/site/LocalTime";
 import Pager from "@/components/dashboard/Pager";
 import TopupButton from "@/components/dashboard/TopupButton";
 import { useTableParams } from "@/hooks/useTableParams";
@@ -95,13 +96,6 @@ export default function WalletClient({
     setSelectedQuick(QUICK_AMOUNTS.includes(Number(val)) ? Number(val) : null);
   };
 
-  const formatDate = (d: string) =>
-    new Date(d).toLocaleDateString("en-US", {
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
 
   const badge = (type: string) => {
     if (type === "topup")
@@ -284,7 +278,7 @@ export default function WalletClient({
                       className="font-mono text-[11px] mt-1"
                       style={{ color: "var(--muted)" }}
                     >
-                      {formatDate(tx.created_at)}
+                      <LocalTime iso={tx.created_at} options={SHORT_DATETIME} />
                     </div>
                   </div>
                   <div className="text-right shrink-0">

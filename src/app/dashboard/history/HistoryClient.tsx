@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useTableParams } from "@/hooks/useTableParams";
 import { DASHBOARD_PAGE_SIZE, DASHBOARD_PAGE_SIZES } from "@/lib/pagination";
+import LocalTime, { SHORT_DATETIME } from "@/components/site/LocalTime";
 import { createClient } from "@/lib/supabase/client";
 import Pager from "@/components/dashboard/Pager";
 import { formatBytes } from "@/lib/esim-api";
@@ -96,13 +97,6 @@ function statusBadge(status: string) {
   );
 }
 
-const formatDate = (d: string) =>
-  new Date(d).toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
 
 export default function HistoryClient({
   tab,
@@ -262,7 +256,7 @@ export default function HistoryClient({
                         className="font-mono text-[11px] mt-1 truncate"
                         style={{ color: "var(--muted)" }}
                       >
-                        {formatDate(o.created_at)} · {o.country_name || "—"}
+                        <LocalTime iso={o.created_at} options={SHORT_DATETIME} /> · {o.country_name || "—"}
                         {o.phone_number ? ` · ${o.phone_number}` : ""}
                       </div>
                     </div>
@@ -332,7 +326,7 @@ export default function HistoryClient({
                       className="font-mono text-[11px] mt-1 truncate"
                       style={{ color: "var(--muted)" }}
                     >
-                      {formatDate(r.created_at)} · {r.country_name}
+                      <LocalTime iso={r.created_at} options={SHORT_DATETIME} /> · {r.country_name}
                       {r.phone_number ? ` · ${r.phone_number}` : ""} · {r.days}d
                     </div>
                   </div>
@@ -358,7 +352,7 @@ export default function HistoryClient({
                       className="font-mono text-[11px] mt-1 truncate"
                       style={{ color: "var(--muted)" }}
                     >
-                      {formatDate(e.created_at)} ·{" "}
+                      <LocalTime iso={e.created_at} options={SHORT_DATETIME} /> ·{" "}
                       {e.total_bytes
                         ? formatBytes(e.total_bytes)
                         : `${e.data_gb ?? "?"} GB`}

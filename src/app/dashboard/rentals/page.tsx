@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useIsHydrated } from "@/hooks/useIsHydrated";
 import { useNavigate } from "@/hooks/useNavigate";
 import { createClient } from "@/lib/supabase/client";
 import { callEdgeFunction } from "@/lib/api";
@@ -145,16 +146,21 @@ export default function RentalsPage() {
   }, [catalog, search]);
 
   const insufficient = price !== null && price > balance;
+  // "today + N days" is computed from a clock, so the server's answer and the
+  // reader's can differ by a day. Hold the server's UTC reading through
+  // hydration, then switch to theirs.
+  const hydrated = useIsHydrated();
   const expiresPreview = useMemo(() => {
     const d = new Date();
     d.setDate(d.getDate() + days);
-    return d.toLocaleDateString("en-US", {
+    return new Intl.DateTimeFormat("en-US", {
       weekday: "short",
       month: "short",
       day: "numeric",
       year: "numeric",
-    });
-  }, [days]);
+      timeZone: hydrated ? undefined : "UTC",
+    }).format(d);
+  }, [days, hydrated]);
 
   const handleCancel = async (rentalId: string) => {
     setCancellingId(rentalId);

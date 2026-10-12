@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import LocalTime from "@/components/site/LocalTime";
 import { useCopy } from "@/hooks/useCopy";
 import { useToast } from "@/components/dashboard/Toast";
 import { type EsimProfile, formatBytes } from "@/lib/esim-api";
@@ -14,6 +15,12 @@ import { type EsimProfile, formatBytes } from "@/lib/esim-api";
  *   • QR scan — the provider-hosted QR image, for a second device
  *   • Manual — SM-DP+ address + activation code, the Android fallback
  */
+const EXPIRY_DATE: Intl.DateTimeFormatOptions = {
+  year: "numeric",
+  month: "short",
+  day: "numeric",
+};
+
 export default function ActivationPanel({ profile }: { profile: EsimProfile }) {
   const { copy, isCopied } = useCopy();
   const { toast } = useToast();
@@ -119,7 +126,7 @@ export default function ActivationPanel({ profile }: { profile: EsimProfile }) {
 
       {profile.expires_at && (
         <p className="font-mono text-[11px]" style={{ color: "var(--muted)" }}>
-          Expires {new Date(profile.expires_at).toLocaleDateString()}
+          Expires <LocalTime iso={profile.expires_at} options={EXPIRY_DATE} />
           {profile.unused_valid_days
             ? ` · installable unused for ${Math.round(profile.unused_valid_days)} days`
             : ""}
