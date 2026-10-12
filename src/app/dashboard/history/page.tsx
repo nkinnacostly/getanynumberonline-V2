@@ -60,13 +60,19 @@ export default async function HistoryPage({
   let rentals: RentalRow[] = [];
   let esims: EsimHistoryRow[] = [];
   let total = 0;
+  /** The query itself failed — tell the reader, don't show them "no history". */
+  let loadError = false;
 
   if (user) {
     if (tab === "orders") {
       let q = supabase
         .from("orders")
+        // The columns are smspool_order_id / smspool_number; selecting
+        // order_id and phone_number raised 42703 and PostgREST returned no
+        // rows, which is why this tab sat empty. Aliased rather than renamed
+        // so the row shape the client renders stays the same.
         .select(
-          "id, order_id, created_at, service_name, country_name, phone_number, status, cost",
+          "id, created_at, service_name, country_name, phone_number:smspool_number, status, cost",
           { count: "exact" },
         )
         .eq("user_id", user.id);
@@ -74,6 +80,13 @@ export default async function HistoryPage({
       const res = await q
         .order("created_at", { ascending: false })
         .range(from, to);
+      if (res.error) {
+        // Loud, not silent. A mistyped column answers 42703 with no rows,
+        // which is indistinguishable from "you have no history" — exactly how
+        // the orders tab stayed broken for months.
+        console.error(`ALERT history: orders query failed`, res.error.message);
+        loadError = true;
+      }
       orders = (res.data as OrderRow[]) ?? [];
       total = res.count ?? 0;
     } else if (tab === "rentals") {
@@ -88,6 +101,13 @@ export default async function HistoryPage({
       const res = await q
         .order("created_at", { ascending: false })
         .range(from, to);
+      if (res.error) {
+        // Loud, not silent. A mistyped column answers 42703 with no rows,
+        // which is indistinguishable from "you have no history" — exactly how
+        // the orders tab stayed broken for months.
+        console.error(`ALERT history: rentals query failed`, res.error.message);
+        loadError = true;
+      }
       rentals = (res.data as RentalRow[]) ?? [];
       total = res.count ?? 0;
     } else {
@@ -102,6 +122,13 @@ export default async function HistoryPage({
       const res = await q
         .order("created_at", { ascending: false })
         .range(from, to);
+      if (res.error) {
+        // Loud, not silent. A mistyped column answers 42703 with no rows,
+        // which is indistinguishable from "you have no history" — exactly how
+        // the orders tab stayed broken for months.
+        console.error(`ALERT history: esims query failed`, res.error.message);
+        loadError = true;
+      }
       esims = (res.data as EsimHistoryRow[]) ?? [];
       total = res.count ?? 0;
     }
@@ -114,6 +141,7 @@ export default async function HistoryPage({
       page={page}
       pageSize={pageSize}
       total={total}
+      loadError={loadError}
       orders={orders}
       rentals={rentals}
       esims={esims}

@@ -12,7 +12,6 @@ export type HistoryTab = "orders" | "rentals" | "esims";
 
 export interface OrderRow {
   id: string;
-  order_id: string;
   created_at: string;
   service_name: string | null;
   country_name: string | null;
@@ -47,8 +46,8 @@ export interface EsimHistoryRow {
 }
 
 interface Message {
-  sms_code: string;
-  full_text: string | null;
+  code: string;
+  full_sms: string | null;
 }
 
 const STATUS_TABS: Record<HistoryTab, { id: string; label: string }[]> = {
@@ -111,6 +110,7 @@ export default function HistoryClient({
   page,
   pageSize,
   total,
+  loadError,
   orders,
   rentals,
   esims,
@@ -120,6 +120,8 @@ export default function HistoryClient({
   page: number;
   pageSize: number;
   total: number;
+  /** The server query errored — say so instead of implying an empty history. */
+  loadError?: boolean;
   orders: OrderRow[];
   rentals: RentalRow[];
   esims: EsimHistoryRow[];
@@ -151,13 +153,17 @@ export default function HistoryClient({
     setExpandedId(order.id);
     if (messages[order.id] === undefined) {
       const supabase = createClient();
-      const { data } = await supabase
+      // messages.order_id is the orders ROW id, not the SMSPool reference.
+      // maybeSingle, because "no SMS yet" is an ordinary state, not an error.
+      const { data, error } = await supabase
         .from("messages")
-        .select("sms_code, full_text")
-        .eq("order_id", order.order_id)
+        .select("code, full_sms")
+        .eq("order_id", order.id)
+        .order("received_at", { ascending: false })
         .limit(1)
-        .single();
-      setMessages((prev) => ({ ...prev, [order.id]: data as Message | null }));
+        .maybeSingle();
+      if (error) console.error("history: could not load SMS", error.message);
+      setMessages((prev) => ({ ...prev, [order.id]: (data as Message) ?? null }));
     }
   };
 
@@ -200,7 +206,14 @@ export default function HistoryClient({
         )}
       </div>
 
-      {rows.length === 0 ? (
+      {loadError ? (
+        <div className="text-center py-16">
+          <p className="text-sm mb-2" style={{ color: "var(--danger)" }} role="alert">
+            We could not load your {tab}. Your records are safe — please
+            refresh, and contact support if this keeps happening.
+          </p>
+        </div>
+      ) : rows.length === 0 ? (
         <div className="text-center py-16">
           <p className="text-sm mb-2" style={{ color: "var(--muted)" }}>
             {status === "all" ? `No ${tab} yet.` : `No ${status} ${tab}.`}
@@ -288,11 +301,11 @@ export default function HistoryClient({
                             Received code
                           </p>
                           <p className="font-mono text-2xl font-bold" style={{ color: "var(--accent)" }}>
-                            {messages[o.id]!.sms_code}
+                            {messages[o.id]!.code}
                           </p>
-                          {messages[o.id]!.full_text && (
+                          {messages[o.id]!.full_sms && (
                             <p className="text-xs mt-2" style={{ color: "var(--muted)" }}>
-                              {messages[o.id]!.full_text}
+                              {messages[o.id]!.full_sms}
                             </p>
                           )}
                         </div>
