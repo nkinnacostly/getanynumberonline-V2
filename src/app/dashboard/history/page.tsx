@@ -1,9 +1,9 @@
 import {
   DASHBOARD_PAGE_SIZE,
-  pageRange,
   readPage,
   readSize,
 } from "@/lib/pagination";
+import { fetchPage } from "@/lib/paged-query";
 import { createClient } from "@/lib/supabase/server";
 import HistoryClient, {
   type HistoryTab,
@@ -48,8 +48,10 @@ export default async function HistoryPage({
   // Parsed with the same helpers the client writes them with, so a URL the
   // pager produced and a URL someone typed are read identically.
   const page = readPage(sp.page);
+  // The page actually served. fetchPage lands an out-of-range ?page= on the
+  // last real one, and the pager must show where you ended up.
+  let servedPage = page;
   const pageSize = readSize(sp.size, DASHBOARD_PAGE_SIZE);
-  const { from, to } = pageRange(page, pageSize);
 
   const supabase = await createClient();
   const {
@@ -77,18 +79,22 @@ export default async function HistoryPage({
         )
         .eq("user_id", user.id);
       if (status !== "all") q = q.eq("status", status);
-      const res = await q
-        .order("created_at", { ascending: false })
-        .range(from, to);
-      if (res.error) {
+      const res = await fetchPage<OrderRow>(
+        (f, t) => q.order("created_at", { ascending: false }).range(f, t),
+        page,
+        pageSize,
+      );
+      if (res.failed) {
         // Loud, not silent. A mistyped column answers 42703 with no rows,
         // which is indistinguishable from "you have no history" — exactly how
-        // the orders tab stayed broken for months.
-        console.error(`ALERT history: orders query failed`, res.error.message);
+        // the orders tab stayed broken for months. An out-of-range page is
+        // handled by fetchPage and is deliberately not counted as a failure.
+        console.error(`ALERT history: orders query failed`);
         loadError = true;
       }
-      orders = (res.data as OrderRow[]) ?? [];
-      total = res.count ?? 0;
+      orders = res.rows;
+      total = res.total;
+      servedPage = res.page;
     } else if (tab === "rentals") {
       let q = supabase
         .from("rentals")
@@ -98,18 +104,22 @@ export default async function HistoryPage({
         )
         .eq("user_id", user.id);
       if (status !== "all") q = q.eq("status", status);
-      const res = await q
-        .order("created_at", { ascending: false })
-        .range(from, to);
-      if (res.error) {
+      const res = await fetchPage<RentalRow>(
+        (f, t) => q.order("created_at", { ascending: false }).range(f, t),
+        page,
+        pageSize,
+      );
+      if (res.failed) {
         // Loud, not silent. A mistyped column answers 42703 with no rows,
         // which is indistinguishable from "you have no history" — exactly how
-        // the orders tab stayed broken for months.
-        console.error(`ALERT history: rentals query failed`, res.error.message);
+        // the orders tab stayed broken for months. An out-of-range page is
+        // handled by fetchPage and is deliberately not counted as a failure.
+        console.error(`ALERT history: rentals query failed`);
         loadError = true;
       }
-      rentals = (res.data as RentalRow[]) ?? [];
-      total = res.count ?? 0;
+      rentals = res.rows;
+      total = res.total;
+      servedPage = res.page;
     } else {
       let q = supabase
         .from("esims")
@@ -119,18 +129,22 @@ export default async function HistoryPage({
         )
         .eq("user_id", user.id);
       if (status !== "all") q = q.eq("status", status);
-      const res = await q
-        .order("created_at", { ascending: false })
-        .range(from, to);
-      if (res.error) {
+      const res = await fetchPage<EsimHistoryRow>(
+        (f, t) => q.order("created_at", { ascending: false }).range(f, t),
+        page,
+        pageSize,
+      );
+      if (res.failed) {
         // Loud, not silent. A mistyped column answers 42703 with no rows,
         // which is indistinguishable from "you have no history" — exactly how
-        // the orders tab stayed broken for months.
-        console.error(`ALERT history: esims query failed`, res.error.message);
+        // the orders tab stayed broken for months. An out-of-range page is
+        // handled by fetchPage and is deliberately not counted as a failure.
+        console.error(`ALERT history: esims query failed`);
         loadError = true;
       }
-      esims = (res.data as EsimHistoryRow[]) ?? [];
-      total = res.count ?? 0;
+      esims = res.rows;
+      total = res.total;
+      servedPage = res.page;
     }
   }
 
@@ -138,7 +152,7 @@ export default async function HistoryPage({
     <HistoryClient
       tab={tab}
       status={status}
-      page={page}
+      page={servedPage}
       pageSize={pageSize}
       total={total}
       loadError={loadError}

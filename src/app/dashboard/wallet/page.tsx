@@ -1,10 +1,10 @@
 import {
   DASHBOARD_PAGE_SIZE,
-  pageRange,
   readPage,
   readSize,
 } from "@/lib/pagination";
 import { createClient } from "@/lib/supabase/server";
+import { fetchPage } from "@/lib/paged-query";
 import WalletClient, {
   type Transaction,
   type TxFilter,
@@ -28,7 +28,6 @@ export default async function WalletPage({
   // pager produced and a URL someone typed are read identically.
   const page = readPage(sp.page);
   const pageSize = readSize(sp.size, DASHBOARD_PAGE_SIZE);
-  const { from, to } = pageRange(page, pageSize);
 
   const supabase = await createClient();
   const {
@@ -38,6 +37,7 @@ export default async function WalletPage({
   let balance = 0;
   let transactions: Transaction[] = [];
   let total = 0;
+  let servedPage = page;
 
   if (user) {
     let txQuery = supabase
@@ -50,12 +50,17 @@ export default async function WalletPage({
 
     const [{ data: profile }, txRes] = await Promise.all([
       supabase.from("profiles").select("balance").eq("id", user.id).single(),
-      txQuery.order("created_at", { ascending: false }).range(from, to),
+      fetchPage<Transaction>(
+        (f, t) => txQuery.order("created_at", { ascending: false }).range(f, t),
+        page,
+        pageSize,
+      ),
     ]);
 
     balance = Number(profile?.balance ?? 0);
-    transactions = (txRes.data as Transaction[]) ?? [];
-    total = txRes.count ?? 0;
+    transactions = txRes.rows;
+    total = txRes.total;
+    servedPage = txRes.page;
   }
 
   return (
@@ -63,7 +68,7 @@ export default async function WalletPage({
       initialBalance={balance}
       initialTransactions={transactions}
       total={total}
-      page={page}
+      page={servedPage}
       pageSize={pageSize}
       filter={filter}
     />

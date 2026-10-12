@@ -70,6 +70,38 @@ function userScope(body: Record<string, unknown>): string | null {
 class BadRequest extends Error {}
 
 /**
+ * Run one page of a list query, surviving an out-of-range page.
+ *
+ * PostgREST answers an offset past the end with 416 / PGRST103 rather than an
+ * empty page, and every list here used to `throw error` on that — so an admin
+ * on the last page who filtered the rows away, or who edited ?page= in the
+ * URL, got a failed panel instead of a page with nothing on it. Land them on
+ * the last page that exists and tell them which one that is.
+ */
+async function runPaged<T>(
+  build: (from: number, to: number) => PromiseLike<
+    { data: T[] | null; error: { code?: string; message: string } | null; count: number | null }
+  >,
+  limit: number,
+  offset: number,
+) {
+  const res = await build(offset, offset + limit - 1);
+
+  if (res.error?.code === "PGRST103") {
+    const probe = await build(0, 0);
+    const total = probe.count ?? 0;
+    const lastOffset = Math.max(0, (Math.ceil(total / limit) - 1) * limit);
+    const retry = await build(lastOffset, lastOffset + limit - 1);
+    if (retry.error) throw retry.error;
+    return { rows: retry.data ?? [], total: retry.count ?? total, limit, offset: lastOffset };
+  }
+
+  if (res.error) throw res.error;
+  return { rows: res.data ?? [], total: res.count ?? 0, limit, offset };
+}
+
+
+/**
  * Attach user emails to rows that only carry user_id.
  *
  * orders/rentals/transactions have no FK into profiles that PostgREST can
@@ -144,24 +176,25 @@ async function getStats(supabase: Supabase) {
 }
 
 async function listUsers(supabase: Supabase, body: Record<string, unknown>) {
-  const { limit, from, to } = paging(body);
+  const { limit, offset } = paging(body);
   const search = String(body.search ?? "").trim();
 
-  let query = supabase
-    .from("profiles")
-    .select("id, email, balance, is_banned, is_admin, created_at", { count: "exact" })
-    .order("created_at", { ascending: false })
-    .range(from, to);
+  // Built per attempt, because runPaged may have to re-run it with a
+  // different range once it learns how many rows there really are.
+  const base = () => {
+    let query = supabase
+      .from("profiles")
+      .select("id, email, balance, is_banned, is_admin, created_at", { count: "exact" })
+      .order("created_at", { ascending: false });
+    if (search) {
+      // Escape PostgREST's pattern metacharacters so a '%' in the box can't
+      // turn into a full-table scan wildcard.
+      query = query.ilike("email", `%${search.replace(/[%_,]/g, "")}%`);
+    }
+    return query;
+  };
 
-  if (search) {
-    // Escape PostgREST's pattern metacharacters so a '%' in the box can't
-    // turn into a full-table scan wildcard.
-    query = query.ilike("email", `%${search.replace(/[%_,]/g, "")}%`);
-  }
-
-  const { data, error, count } = await query;
-  if (error) throw error;
-  return { rows: data ?? [], total: count ?? 0, limit };
+  return await runPaged((f, t) => base().range(f, t), limit, offset);
 }
 
 /**
@@ -186,69 +219,87 @@ async function getUser(supabase: Supabase, body: Record<string, unknown>) {
 }
 
 async function listOrders(supabase: Supabase, body: Record<string, unknown>) {
-  const { limit, from, to } = paging(body);
+  const { limit, offset } = paging(body);
   const status = String(body.status ?? "").trim();
   const userId = userScope(body);
 
-  let query = supabase
-    .from("orders")
-    .select(
-      "id, user_id, smspool_number, service_name, country_name, cost, status, created_at, expires_at",
-      { count: "exact" },
-    )
-    .order("created_at", { ascending: false })
-    .range(from, to);
+  const base = () => {
+    let query = supabase
+      .from("orders")
+      .select(
+        "id, user_id, smspool_number, service_name, country_name, cost, status, created_at, expires_at",
+        { count: "exact" },
+      )
+      .order("created_at", { ascending: false });
 
-  if (status) query = query.eq("status", status);
-  if (userId) query = query.eq("user_id", userId);
+    if (status) query = query.eq("status", status);
+    if (userId) query = query.eq("user_id", userId);
 
-  const { data, error, count } = await query;
-  if (error) throw error;
-  return { rows: await attachEmails(supabase, data ?? []), total: count ?? 0, limit };
+    return query;
+  };
+
+  const res = await runPaged<{ user_id: string | null }>(
+    (f, t) => base().range(f, t),
+    limit,
+    offset,
+  );
+  return { ...res, rows: await attachEmails(supabase, res.rows) };
 }
 
 async function listRentals(supabase: Supabase, body: Record<string, unknown>) {
-  const { limit, from, to } = paging(body);
+  const { limit, offset } = paging(body);
   const status = String(body.status ?? "").trim();
   const userId = userScope(body);
 
-  let query = supabase
-    .from("rentals")
-    .select(
-      "id, user_id, phone_number, service_name, country_name, days, cost, status, expires_at, created_at",
-      { count: "exact" },
-    )
-    .order("created_at", { ascending: false })
-    .range(from, to);
+  const base = () => {
+    let query = supabase
+      .from("rentals")
+      .select(
+        "id, user_id, phone_number, service_name, country_name, days, cost, status, expires_at, created_at",
+        { count: "exact" },
+      )
+      .order("created_at", { ascending: false });
 
-  if (status) query = query.eq("status", status);
-  if (userId) query = query.eq("user_id", userId);
+    if (status) query = query.eq("status", status);
+    if (userId) query = query.eq("user_id", userId);
 
-  const { data, error, count } = await query;
-  if (error) throw error;
-  return { rows: await attachEmails(supabase, data ?? []), total: count ?? 0, limit };
+    return query;
+  };
+
+  const res = await runPaged<{ user_id: string | null }>(
+    (f, t) => base().range(f, t),
+    limit,
+    offset,
+  );
+  return { ...res, rows: await attachEmails(supabase, res.rows) };
 }
 
 async function listTransactions(supabase: Supabase, body: Record<string, unknown>) {
-  const { limit, from, to } = paging(body);
+  const { limit, offset } = paging(body);
   const type = String(body.type ?? "").trim();
   const userId = userScope(body);
 
-  let query = supabase
-    .from("transactions")
-    .select(
-      "id, user_id, type, amount, balance_after, status, provider, note, created_at",
-      { count: "exact" },
-    )
-    .order("created_at", { ascending: false })
-    .range(from, to);
+  const base = () => {
+    let query = supabase
+      .from("transactions")
+      .select(
+        "id, user_id, type, amount, balance_after, status, provider, note, created_at",
+        { count: "exact" },
+      )
+      .order("created_at", { ascending: false });
 
-  if (type) query = query.eq("type", type);
-  if (userId) query = query.eq("user_id", userId);
+    if (type) query = query.eq("type", type);
+    if (userId) query = query.eq("user_id", userId);
 
-  const { data, error, count } = await query;
-  if (error) throw error;
-  return { rows: await attachEmails(supabase, data ?? []), total: count ?? 0, limit };
+    return query;
+  };
+
+  const res = await runPaged<{ user_id: string | null }>(
+    (f, t) => base().range(f, t),
+    limit,
+    offset,
+  );
+  return { ...res, rows: await attachEmails(supabase, res.rows) };
 }
 
 async function adjustBalance(
