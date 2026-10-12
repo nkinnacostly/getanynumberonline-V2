@@ -79,19 +79,33 @@ export default function ActiveOrder({
 
     const poll = async () => {
       try {
-        const data = await callEdgeFunction("poll-sms", {
+        // poll-sms answers { status, message: { code, full_sms, sender } }.
+        // This used to read data.sms_code — a field it has never returned —
+        // so the poll silently never fired, and the Realtime subscription
+        // below was the only route to the screen. That made a code delivered
+        // by SMSPool invisible to the customer who paid for it.
+        const data = (await callEdgeFunction("poll-sms", {
           order_id: order.order_id,
-        });
-        if (data.sms_code) {
-          handleSmsReceived(data.sms_code, {
-            sender: data.sender,
-            fullSms: data.full_sms,
+        })) as {
+          status?: string;
+          message?: {
+            code?: string | null;
+            sender?: string | null;
+            full_sms?: string | null;
+          } | null;
+        };
+        const code = data.message?.code;
+        if (code) {
+          handleSmsReceived(code, {
+            sender: data.message?.sender ?? undefined,
+            fullSms: data.message?.full_sms ?? undefined,
           });
         }
       } catch {
         // ignore transient poll errors
       }
     };
+    void poll();
     pollRef.current = setInterval(poll, 5000);
 
     const supabase = createClient();

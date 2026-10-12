@@ -129,7 +129,9 @@ Deno.serve(async (req) => {
       const fullSms = checkJson.full_sms ?? checkJson.sms ?? ''
       const code    = checkJson.sms ?? extractCode(fullSms)
 
-      // Write to DB — this triggers Realtime push to the UI
+      // Write to DB. This also pushes to any Realtime subscriber (messages
+      // is on the supabase_realtime publication), but the caller's poll of
+      // the response below is the path that must work on its own.
       await supabase.rpc('deliver_sms_message', {
         p_order_id: order_id,
         p_user_id:  user.id,
